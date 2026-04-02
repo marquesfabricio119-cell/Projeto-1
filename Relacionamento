@@ -1,0 +1,373 @@
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Heart, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+
+/**
+ * Landing Page - Recuperação Emocional: 14 Dias
+ * Versão Equilibrada - Essencial + Conteúdo
+ */
+
+const CHECKOUT_URL = "https://seu-link-checkout.com";
+const VSL_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663407692997/ewirEeFECpnHnEdCZt64xf/vsl-video_2c3e64a7.mov";
+const WHATSAPP_NUMBER = "5511999999999"; // Altere para seu número
+
+export default function Home() {
+  const [isHeaderSticky, setIsHeaderSticky] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  let controlsTimeout: NodeJS.Timeout;
+
+  const testimonials = [
+    {
+      name: "Maria Silva",
+      message: "Consegui sair do caos emocional em 14 dias. Recomendo muito!",
+      time: "Há 2 dias"
+    },
+    {
+      name: "Ana Costa",
+      message: "As técnicas funcionam mesmo. Já estou reconstruindo minha vida.",
+      time: "Há 5 dias"
+    },
+    {
+      name: "Juliana Santos",
+      message: "Melhor investimento que fiz em mim mesma. Muito obrigada!",
+      time: "Há 1 semana"
+    },
+    {
+      name: "Carolina Oliveira",
+      message: "Finalmente consegui dormir sem pensar nele. Que alívio!",
+      time: "Há 10 dias"
+    },
+    {
+      name: "Beatriz Lima",
+      message: "O protocolo é bem estruturado e fácil de seguir. Super recomendo!",
+      time: "Há 2 semanas"
+    }
+  ];
+
+  const nextTestimonial = () => {
+    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+  };
+
+  const prevTestimonial = () => {
+    setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsHeaderSticky(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+        setIsPlaying(true);
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const handleMuteToggle = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      if (newVolume > 0) {
+        videoRef.current.muted = false;
+        setIsMuted(false);
+      }
+    }
+  };
+
+  const handleVideoMouseMove = () => {
+    setShowControls(true);
+    clearTimeout(controlsTimeout);
+    controlsTimeout = setTimeout(() => {
+      if (videoRef.current && !videoRef.current.paused) {
+        setShowControls(false);
+      }
+    }, 3000);
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header Sticky */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isHeaderSticky ? "shadow-lg py-3" : "py-4"
+        }`}
+        style={{ backgroundColor: "#1A1A1A" }}
+      >
+        <div className="container flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Heart className="w-6 h-6" style={{ color: "#C9A87C" }} />
+            <span className="font-bold" style={{ color: "#E8E0F0" }}>Reconstrução</span>
+          </div>
+          <Button
+            onClick={() => window.open(CHECKOUT_URL, "_blank")}
+            className="text-white px-6 py-2 rounded-lg font-semibold"
+            style={{ backgroundColor: "#6B5B7F" }}
+          >
+            ACESSAR
+          </Button>
+        </div>
+      </header>
+
+      {/* VSL Section - Refactored from Zero */}
+      <section className="pt-24 pb-12 md:pt-32 md:pb-16" style={{ backgroundColor: "#0F0F0F" }}>
+        <div className="container max-w-5xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: "#E8D5C4" }}>
+              Recupere Seu Controle Emocional em Até 14 Dias
+            </h1>
+            <p className="text-sm mb-1" style={{ color: "#B8B0A0" }}>
+              Um plano prático para reorganizar sua mente após o fim de um relacionamento.
+            </p>
+            <p className="text-xs font-semibold" style={{ color: "#9B8FA0" }}>
+              Sem terapia, sem cura milagrosa. Apenas técnicas que funcionam.
+            </p>
+          </div>
+
+          {/* Video Player Custom */}
+          <div className="w-full mb-8 relative bg-black rounded-lg overflow-hidden">
+            <video
+              ref={videoRef}
+              className="w-full h-auto block"
+              style={{ maxHeight: "600px", objectFit: "contain" }}
+              preload="metadata"
+              playsInline
+              onMouseMove={handleVideoMouseMove}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            >
+              <source src={VSL_URL} type="video/quicktime" />
+              <source src={VSL_URL} type="video/mp4" />
+              Seu navegador não suporta vídeo HTML5.
+            </video>
+
+            {/* Custom Controls - Apple Style */}
+            <div
+              className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${
+                showControls ? "opacity-100" : "opacity-0"
+              }`}
+              onMouseMove={handleVideoMouseMove}
+              onMouseLeave={() => setShowControls(false)}
+            >
+              {/* Progress Bar */}
+              <div className="w-full h-1 bg-white/30 hover:h-1.5 transition-all cursor-pointer group">
+                <div
+                  className="h-full bg-white group-hover:bg-red-500 transition-colors"
+                  style={{
+                    width: videoRef.current
+                      ? `${(videoRef.current.currentTime / videoRef.current.duration) * 100}%`
+                      : "0%"
+                  }}
+                />
+              </div>
+
+              {/* Controls Bar */}
+              <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent px-4 py-3 flex items-center gap-4">
+                {/* Play Button */}
+                <button
+                  onClick={handlePlayPause}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-white hover:text-gray-300 transition"
+                >
+                  {isPlaying ? (
+                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* Volume Control */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={handleMuteToggle}
+                    className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-white hover:text-gray-300 transition"
+                  >
+                    {isMuted ? (
+                      <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                        <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L21.714504,3.89440109 C21.5575352,2.95141671 20.9896199,2.16692374 20.1001516,2.16692374 C19.4722764,2.16692374 18.6828081,2.40402635 18.3688704,2.95141671 L4.13399899,1.16692374 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.11604706 0.837654326,3.0586314 1.15159189,3.89440109 L3.03521743,10.3353941 C3.03521743,10.4924915 3.34915502,10.6495889 3.50612381,10.6495889 L16.6915026,11.4350758 C16.6915026,11.4350758 17.1624089,11.4350758 17.1624089,12.0034653 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.26 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                      </svg>
+                    )}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={volume}
+                    onChange={handleVolumeChange}
+                    className="w-16 h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA Button */}
+          <div className="flex justify-center">
+            <Button
+              onClick={() => window.open(CHECKOUT_URL, "_blank")}
+              className="text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-lg"
+              style={{ backgroundColor: "#8B7BA8" }}
+            >
+              COMEÇAR AGORA
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Por Que Funciona */}
+      <section className="py-8 md:py-12" style={{ backgroundColor: "#2A2420" }}>
+        <div className="container max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: "#E8D5C4" }}>
+            Por Que Este Plano Funciona
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-4xl mb-3">🎯</div>
+              <h3 className="font-bold mb-2" style={{ color: "#E8D5C4" }}>Estruturado</h3>
+              <p className="text-sm" style={{ color: "#B8B0A0" }}>Cada dia tem objetivo claro e exercícios práticos</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-3">✅</div>
+              <h3 className="font-bold mb-2" style={{ color: "#E8D5C4" }}>Comprovado</h3>
+              <p className="text-sm" style={{ color: "#B8B0A0" }}>Técnicas baseadas em psicologia e bem-estar</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-3">⏱️</div>
+              <h3 className="font-bold mb-2" style={{ color: "#E8D5C4" }}>Rápido</h3>
+              <p className="text-sm" style={{ color: "#B8B0A0" }}>14 dias para recuperar equilíbrio emocional</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* O Que Você Recebe */}
+      <section className="py-12 md:py-16" style={{ backgroundColor: "#1A1A1A" }}>
+        <div className="container max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: "#E8D5C4" }}>
+            Seu Protocolo Inclui
+          </h2>
+
+          <div className="space-y-3 mb-8">
+            {[
+              "📋 Plano com 14 dias estruturados",
+              "✅ Cada dia: objetivo, explicação, exercício e ação",
+              "🧠 Técnicas comprovadas (5-4-3-2-1, respiração 4-7-8)",
+              "🚫 Checklist anti-mensagem (regra das 24h)"
+            ].map((item, idx) => (
+              <div key={idx} className="flex gap-3 items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#C9A87C" }} />
+                <span style={{ color: "#B8B0A0" }}>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-8 p-6 rounded-2xl" style={{ backgroundColor: "#2A2420", borderLeft: "4px solid #C9A87C" }}>
+            <h3 className="font-bold mb-4 text-center" style={{ color: "#C9A87C" }}>🎁 BÔNUS EXCLUSIVOS</h3>
+            <div className="space-y-3">
+              {[
+                "🌙 Plano noturno para reduzir ansiedade",
+                "🛡️ Estratégia anti-recaída"
+              ].map((item, idx) => (
+                <div key={idx} className="flex gap-3 items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#C9A87C" }} />
+                  <span style={{ color: "#B8B0A0" }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Aviso de Entrega */}
+          <div className="mb-8 p-4 rounded-lg text-center" style={{ backgroundColor: "rgba(201, 168, 124, 0.1)", borderTop: "2px solid #C9A87C" }}>
+            <p style={{ color: "#E8D5C4" }} className="font-semibold">
+              📱 Conteúdo entregue via WhatsApp de forma imediata após a compra
+            </p>
+            <p style={{ color: "#9B8FA0" }} className="text-sm mt-2">
+              Acesso imediato ao seu protocolo completo
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <img
+              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663407692997/ewirEeFECpnHnEdCZt64xf/recovery-journey-pt-nzFsUEdwHg93Pc4bPJUcuq.webp"
+              alt="Jornada de transformação"
+              className="w-full max-w-xl rounded-2xl shadow-lg"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Transformação */}
+      <section className="py-12 md:py-16" style={{ backgroundColor: "#2A2420" }}>
+        <div className="container max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold mb-6 text-center" style={{ color: "#E8D5C4" }}>
+            De Confusão a Esperança
+          </h2>
+          <p className="text-center mb-8 leading-relaxed" style={{ color: "#B8B0A0" }}>
+            Você vai sair do caos emocional e chegar à clareza. Cada dia trabalha um aspecto diferente: desde desintoxicação emocional até reconstrução de identidade.
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex gap-3 justify-center">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-1" style={{ color: "#C9A87C" }} />
+              <div className="text-center">
+                <p className="font-semibold" style={{ color: "#E8D5C4" }}>Dias 1-3: Desintoxicação</p>
+                <p className="text-sm" style={{ color: "#9B8FA0" }}>Parar os estímulos que alimentam a dor</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-1" style={{ color: "#C9A87C" }} />
+              <div className="text-center">
+                <p className="font-semibold" style={{ color: "#E8D5C4" }}>Dias 4-7: Controle Emocional</p>
+                <p className="text-sm" style={{ color: "#9B8FA0" }}>Técnicas práticas para lidar com crises</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-1" style={{ color: "#C9A87C" }} />
+              <div className="text-center">
+                <p className="font-semibold" style={{ color: "#E8D5C4" }}>Dias 8-14: Reconstrução</p>
+                <p className="text-sm" style={{ color: "#9B8FA0" }}>Recuperar identidade e criar novo futuro</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Depoimentos - Carousel */}
+      <section className="py-12 md:py-16" style={{ backgroundColor: "#1A1A1A" }}>
+        <div className="container max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "#E8D5C4" }}>
+            O Que Dizem Sobre o Protocolo
+          </h2>
+
+      
+(Content truncated due to size limit. Use line ranges to read remaining content)
