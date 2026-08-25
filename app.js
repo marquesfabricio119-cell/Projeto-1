@@ -326,7 +326,7 @@ function renderProdutosTable(){
     ${list.map(p=>{
       const total = p.variations.reduce((a,v)=>a+Number(v.stock||0),0);
       return `<tr>
-        <td><img src="${escapeHtml(p.photo||'')}" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
+        <td><img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
         <td>${escapeHtml(p.name)} ${p.isNew?'<span class="tag-new">NOVO</span>':''}</td>
         <td>${escapeHtml(p.sku||'-')}</td>
         <td>${escapeHtml(p.category||'-')}</td>
@@ -633,7 +633,7 @@ function renderPDVResults(){
   const list = DB.products.filter(p=> p.variations.some(v=>v.stock>0) && (!f || p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f)));
   wrap.innerHTML = list.map(p=>`
     <div class="pdv-product" onclick="quickAdd('${p.id}')">
-      <img src="${escapeHtml(p.photo||'')}" onerror="this.style.visibility='hidden'">
+      <img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <div class="pname">${escapeHtml(p.name)}</div>
       <div class="pprice">${money(p.price)}</div>
     </div>`).join('') || `<div class="empty-state">Nenhum produto encontrado</div>`;

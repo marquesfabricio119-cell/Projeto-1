@@ -3,9 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Estilo & Cia — moda feminina online. Vestidos, blusas e muito mais, com entrega combinada por WhatsApp e pagamento via PIX.">
+<meta property="og:title" content="Estilo & Cia">
+<meta property="og:description" content="Estilo que é só seu ✨ — confira nossa vitrine online.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#211F1F">
 <title>Estilo & Cia</title>
 <link rel="icon" href="../marca/simbolo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://sjuvryprgbkrbzkvnnhw.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -172,7 +179,7 @@ function renderCatalog(){
         <a href="#/produto/${p.id}" class="pcard">
           <div class="imgwrap">
             ${p.isNew?'<span class="badge-new">NOVO</span>':''}
-            <img src="${escapeHtml(p.photo||'')}" onerror="this.style.background='var(--sand)';this.src=''">
+            <img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.background='var(--sand)';this.src=''">
           </div>
           <div class="info">
             <div class="pname">${escapeHtml(p.name)}</div>
@@ -200,7 +207,7 @@ function renderProductPage(id){
   content.innerHTML = `
     <a href="#/" class="back-link">← Voltar ao catálogo</a>
     <div class="product-detail">
-      <div class="imgwrap"><img src="${escapeHtml(p.photo||'')}"></div>
+      <div class="imgwrap"><img src="${escapeHtml(p.photo||'')}" loading="eager" decoding="async"></div>
       <div>
         <h1>${escapeHtml(p.name)} ${p.isNew?'<span class="badge-new" style="position:static;display:inline-block">NOVO</span>':''}</h1>
         <div class="cat">${escapeHtml(p.category||'')} ${p.brand?'· '+escapeHtml(p.brand):''}</div>
@@ -375,7 +382,7 @@ function showOrderConfirmation(sale, customer){
       <h2 style="justify-content:center">Pedido recebido! 🎉</h2>
       <p style="margin-bottom:10px">Seu pedido <strong>#${sale.id.slice(-6)}</strong> foi registrado. Finalize o pagamento via PIX:</p>
       <div class="pix-box"><span>Chave PIX</span><strong>${escapeHtml(pixKey)}</strong>Valor: ${money(sale.total)}</div>
-      ${waLink ? `<a href="${waLink}" target="_blank" class="checkout-btn" style="display:block;margin-top:16px;background:#25D366">Enviar comprovante no WhatsApp</a>` : `<p style="margin-top:14px;font-size:12.5px" class="text-muted">Entre em contato com a loja para confirmar o pagamento.</p>`}
+      ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener noreferrer" class="checkout-btn" style="display:block;margin-top:16px;background:#25D366">Enviar comprovante no WhatsApp</a>` : `<p style="margin-top:14px;font-size:12.5px" class="text-muted">Entre em contato com a loja para confirmar o pagamento.</p>`}
       <button class="checkout-btn" style="margin-top:10px" id="closeConfirm">Voltar à loja</button>
     </div>`;
   document.body.appendChild(overlay);
