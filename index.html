@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estilo & Cia — Sistema</title>
+<link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <img src="marca/simbolo.svg" alt="" class="brand-mark">
+    <h1>Estilo & Cia</h1>
+    <p class="slogan">Estilo que é só seu ✨</p>
+    <form id="loginForm">
+      <label for="loginUser">Usuário</label>
+      <input id="loginUser" autocomplete="username" required>
+      <label for="loginPass">Senha</label>
+      <input id="loginPass" type="password" autocomplete="current-password" required>
+      <div class="login-error" id="loginError"></div>
+      <button type="submit" class="btn-primary">Entrar</button>
+    </form>
+    <div class="login-hint">admin / 1234</div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="marca/simbolo.svg" alt="">
+      <span id="sidebarStoreName">Estilo & Cia</span>
+    </div>
+    <ul class="nav-list" id="navList"></ul>
+    <div class="sidebar-footer">
+      <div id="userPill" style="margin-bottom:8px"></div>
+      <button id="logoutBtn">Sair</button>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="menuToggle" class="btn btn-icon" style="display:none">☰</button>
+        <h1 id="viewTitle">Painel</h1>
+      </div>
+    </div>
+    <div class="view" id="view"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
