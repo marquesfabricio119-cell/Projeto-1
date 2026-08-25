@@ -245,6 +245,14 @@ function renderShell(){
   const navEl = document.getElementById('navList');
   navEl.innerHTML = NAV.map(n=>`<li><a href="#${n.id}" data-route="${n.id}">${n.icon} ${n.label}</a></li>`).join('');
 }
+function toggleSidebar(){
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebarBackdrop')?.classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebarBackdrop')?.classList.remove('open');
+}
 
 function navigate(route){
   currentRoute = route;
@@ -1471,11 +1479,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('logoutBtn').addEventListener('click', logout);
   document.getElementById('navList').addEventListener('click', e=>{
     const a = e.target.closest('a[data-route]');
-    if(a){ e.preventDefault(); navigate(a.dataset.route); }
+    if(a){ e.preventDefault(); navigate(a.dataset.route); closeSidebar(); }
   });
-  document.getElementById('menuToggle')?.addEventListener('click', ()=>{
-    document.querySelector('.sidebar').classList.toggle('open');
-  });
+  document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
+  document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
   if(SESSION){ showApp(); } else { showLogin(); }
 });
