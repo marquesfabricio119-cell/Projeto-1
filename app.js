@@ -56,7 +56,8 @@ function defaultDB(){
     monthlyExpenses: {
       categories: ["Aluguel","Água","Luz","Internet","Telefone","Manutenção","Salários e encargos","Contador","Segurança/Alarme","Embalagens","Marketing","IPTU","Taxas de maquininha","Limpeza","Outros"],
       records: []
-    }
+    },
+    barcodeSeq: 0
   };
 }
 
@@ -73,6 +74,24 @@ function loadDB(){
   if(!DB.monthlyExpenses.categories) DB.monthlyExpenses.categories = d.monthlyExpenses.categories;
   if(!DB.monthlyExpenses.records) DB.monthlyExpenses.records = [];
   if(!DB.cashRegister.closedHistory) DB.cashRegister.closedHistory = [];
+  if(!DB.barcodeSeq) DB.barcodeSeq = 0;
+}
+
+/* ---------- Código de barras interno (gerado pela loja) ---------- */
+function nextBarcodeCode(){
+  DB.barcodeSeq = (DB.barcodeSeq||0) + 1;
+  return 'EC' + String(DB.barcodeSeq).padStart(6,'0');
+}
+function allBarcodes(){
+  const set = new Set();
+  DB.products.forEach(p=>p.variations.forEach(v=>{ if(v.barcode) set.add(v.barcode); }));
+  return set;
+}
+function generateUniqueBarcode(){
+  const used = allBarcodes();
+  let code = nextBarcodeCode();
+  while(used.has(code)) code = nextBarcodeCode();
+  return code;
 }
 
 function saveDB(skipCloud){
@@ -198,6 +217,7 @@ const NAV = [
   { id:'pdv', label:'PDV', icon:'🛒' },
   { id:'produtos', label:'Produtos', icon:'👗' },
   { id:'estoque', label:'Estoque', icon:'📦' },
+  { id:'etiquetas', label:'Etiquetas', icon:'🏷️' },
   { id:'clientes', label:'Clientes', icon:'👤' },
   { id:'vendas', label:'Vendas', icon:'🧾' },
   { id:'caixa', label:'Caixa', icon:'💰' },
@@ -235,8 +255,9 @@ function navigate(route){
   const view = document.getElementById('view');
   const renderers = {
     painel: renderPainel, pdv: renderPDV, produtos: renderProdutos, estoque: renderEstoque,
-    clientes: renderClientes, vendas: renderVendas, caixa: renderCaixa, financeiro: renderFinanceiro,
-    gastos: renderGastos, abrirloja: renderAbrirLoja, relatorios: renderRelatorios, config: renderConfig
+    etiquetas: renderEtiquetas, clientes: renderClientes, vendas: renderVendas, caixa: renderCaixa,
+    financeiro: renderFinanceiro, gastos: renderGastos, abrirloja: renderAbrirLoja,
+    relatorios: renderRelatorios, config: renderConfig
   };
   view.innerHTML = '';
   (renderers[route]||renderPainel)(view);
@@ -381,7 +402,8 @@ function openProductModal(id){
         <input placeholder="Estoque" type="number" value="${v.stock}" data-i="${i}" data-k="stock">
         <input placeholder="Cód. barras" value="${escapeHtml(v.barcode||'')}" data-i="${i}" data-k="barcode">
         <div style="display:flex;gap:4px">
-          <button class="btn btn-icon btn-sm" type="button" data-scan="${i}" title="Ler código">📷</button>
+          <button class="btn btn-icon btn-sm" type="button" data-scan="${i}" title="Ler código pela câmera">📷</button>
+          <button class="btn btn-icon btn-sm" type="button" data-gen="${i}" title="Gerar código interno">🔢</button>
           <button class="btn btn-icon btn-sm btn-danger" type="button" data-rm="${i}" title="Remover">✕</button>
         </div>
       </div>`).join('');
@@ -398,6 +420,11 @@ function openProductModal(id){
       const i = Number(e.target.dataset.scan);
       openScanner(code=>{ variations[i].barcode = code; renderVars(); });
     }));
+    overlay.querySelectorAll('[data-gen]').forEach(btn=>btn.addEventListener('click', e=>{
+      const i = Number(e.target.dataset.gen);
+      variations[i].barcode = generateUniqueBarcode(); saveDB(); renderVars();
+      toast('Código gerado: '+variations[i].barcode);
+    }));
   }
   renderVars();
   overlay.querySelector('#addVarBtn').addEventListener('click', ()=>{ variations.push({size:'',color:'',stock:0,barcode:''}); renderVars(); });
@@ -405,6 +432,8 @@ function openProductModal(id){
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
     const name = overlay.querySelector('#f_name').value.trim();
     if(!name){ toast('Informe o nome do produto','error'); return; }
+    const finalVariations = variations.filter(v=>v.size || v.color || v.stock);
+    finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
     const data = {
       id:p.id, name,
       sku: overlay.querySelector('#f_sku').value.trim(),
@@ -416,7 +445,7 @@ function openProductModal(id){
       description: overlay.querySelector('#f_desc').value.trim(),
       showInStore: overlay.querySelector('#f_show').checked,
       isNew: overlay.querySelector('#f_new').checked,
-      variations: variations.filter(v=>v.size || v.color || v.stock)
+      variations: finalVariations
     };
     if(editing){ Object.assign(editing, data); }
     else DB.products.push(data);
@@ -454,8 +483,9 @@ function renderEstoque(el){
   });
   if(estoqueMode){
     const inp = document.getElementById('bipeInput');
-    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleBipe(inp.value.trim()); inp.value=''; } });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleBipe(inp.value.trim()); inp.value=''; inp.focus(); } });
     document.getElementById('bipeCamBtn').addEventListener('click', ()=>openScanner(code=>handleBipe(code)));
+    inp.focus();
   }
   renderStockTable();
 }
@@ -504,6 +534,137 @@ function adjustStock(pid,size,color,val){
   const v = p.variations.find(x=>x.size===size && x.color===color);
   v.stock = Number(val)||0;
   saveDB(); renderStockTable(); toast('Estoque ajustado');
+}
+
+/* =========================================================
+   ETIQUETAS — geração e impressão de códigos de barras
+   ========================================================= */
+const LABEL_LAYOUTS = {
+  pimaco: { name:'Folha A4 — 3 colunas (padrão Pimaco 6180)', cols:3, labelW:'63.5mm', labelH:'26.6mm', gap:'3mm', page:'A4', pageMargin:'8mm' },
+  termica50: { name:'Rolo térmico 50mm — 1 coluna', cols:1, labelW:'46mm', labelH:'30mm', gap:'2mm', page:'50mm auto', pageMargin:'2mm' },
+  termica40: { name:'Rolo térmico 40mm — 1 coluna', cols:1, labelW:'36mm', labelH:'24mm', gap:'2mm', page:'40mm auto', pageMargin:'2mm' },
+};
+let etiquetaLayout = 'pimaco';
+let etiquetaQty = {}; // key -> quantidade selecionada
+
+function varKey(pid,size,color){ return `${pid}|${size}|${color}`; }
+
+function renderEtiquetas(el){
+  const missing = countMissingBarcodes();
+  el.innerHTML = `
+    <div class="panel">
+      <h3>Imprimir etiquetas com código de barras</h3>
+      <p class="text-muted" style="margin-bottom:14px">Selecione as variações e a quantidade de etiquetas de cada uma, escolha o layout da folha/rolo e clique em Imprimir. O código de barras é gerado automaticamente para variações que ainda não têm um.</p>
+      <div class="toolbar">
+        <label style="font-size:12px;color:var(--muted);font-weight:600">Layout:</label>
+        <select id="layoutSel">
+          ${Object.entries(LABEL_LAYOUTS).map(([k,v])=>`<option value="${k}" ${etiquetaLayout===k?'selected':''}>${v.name}</option>`).join('')}
+        </select>
+        <div class="spacer"></div>
+        ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
+        <button class="btn" id="selAllBtn">Selecionar todas (estoque atual)</button>
+        <button class="btn btn-accent" id="printLabelsBtn">🖨️ Imprimir etiquetas</button>
+      </div>
+    </div>
+    <div id="etiquetasTableWrap"></div>
+    <div id="labelSheet"></div>`;
+  el.querySelector('#layoutSel').addEventListener('change', e=>{ etiquetaLayout = e.target.value; });
+  el.querySelector('#genMissingBtn')?.addEventListener('click', ()=>{
+    generateMissingBarcodes(); saveDB(); renderEtiquetas(el); toast('Códigos gerados');
+  });
+  el.querySelector('#selAllBtn').addEventListener('click', ()=>{
+    DB.products.forEach(p=>p.variations.forEach(v=>{
+      if(v.stock>0) etiquetaQty[varKey(p.id,v.size,v.color)] = v.stock;
+    }));
+    renderEtiquetasTable();
+  });
+  el.querySelector('#printLabelsBtn').addEventListener('click', printLabels);
+  renderEtiquetasTable();
+}
+function countMissingBarcodes(){
+  let n=0;
+  DB.products.forEach(p=>p.variations.forEach(v=>{ if(!v.barcode) n++; }));
+  return n;
+}
+function generateMissingBarcodes(){
+  DB.products.forEach(p=>p.variations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); }));
+}
+function renderEtiquetasTable(){
+  const wrap = document.getElementById('etiquetasTableWrap');
+  if(!wrap) return;
+  const rows=[];
+  DB.products.forEach(p=>p.variations.forEach(v=>rows.push({p,v})));
+  if(!rows.length){ wrap.innerHTML = `<div class="empty-state">Nenhum produto cadastrado</div>`; return; }
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
+    <th></th><th>Produto</th><th>Tam/Cor</th><th>Código</th><th>Estoque</th><th>Qtd. etiquetas</th>
+  </tr></thead><tbody>
+    ${rows.map(({p,v})=>{
+      const key = varKey(p.id,v.size,v.color);
+      const checked = etiquetaQty[key] > 0;
+      return `<tr>
+        <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
+        <td>${escapeHtml(v.barcode||'(sem código — será gerado ao imprimir)')}</td>
+        <td>${v.stock}</td>
+        <td><input type="number" min="1" style="width:70px" data-qty="${key}" value="${etiquetaQty[key]||v.stock||1}"></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+  wrap.querySelectorAll('[data-check]').forEach(chk=>chk.addEventListener('change', e=>{
+    const key = e.target.dataset.check;
+    if(e.target.checked){
+      const qtyInput = wrap.querySelector(`[data-qty="${key}"]`);
+      etiquetaQty[key] = Number(qtyInput.value)||1;
+    } else delete etiquetaQty[key];
+  }));
+  wrap.querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input', e=>{
+    const key = e.target.dataset.qty;
+    if(etiquetaQty[key] !== undefined) etiquetaQty[key] = Number(e.target.value)||1;
+  }));
+}
+function printLabels(){
+  const selected = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
+  if(!selected.length){ toast('Selecione ao menos uma variação','error'); return; }
+  if(typeof JsBarcode === 'undefined'){
+    toast('Não foi possível carregar o gerador de código de barras. Verifique sua conexão com a internet e tente novamente.','error');
+    return;
+  }
+  generateMissingBarcodes(); saveDB();
+
+  const items = [];
+  selected.forEach(([key, qty])=>{
+    const [pid,size,color] = key.split('|');
+    const p = DB.products.find(x=>x.id===pid);
+    const v = p && p.variations.find(x=>x.size===size && x.color===color);
+    if(!p || !v) return;
+    for(let i=0;i<qty;i++) items.push({ p, v });
+  });
+
+  const layout = LABEL_LAYOUTS[etiquetaLayout];
+  const sheet = document.getElementById('labelSheet');
+  sheet.innerHTML = items.map((item,idx)=>`
+    <div class="label">
+      <div class="label-store">${escapeHtml(DB.storeName)}</div>
+      <div class="label-name">${escapeHtml(item.p.name)} ${escapeHtml(item.v.size)}/${escapeHtml(item.v.color)}</div>
+      <svg id="lbl-bc-${idx}"></svg>
+      <div class="label-price">${money(item.p.price)}</div>
+    </div>`).join('');
+
+  let styleTag = document.getElementById('labelPrintStyle');
+  if(!styleTag){ styleTag = document.createElement('style'); styleTag.id='labelPrintStyle'; document.head.appendChild(styleTag); }
+  styleTag.textContent = `
+    @media print {
+      @page { size:${layout.page}; margin:${layout.pageMargin}; }
+      #labelSheet { display:grid; grid-template-columns: repeat(${layout.cols}, ${layout.labelW}); gap:${layout.gap}; }
+      .label { width:${layout.labelW}; height:${layout.labelH}; }
+    }`;
+
+  items.forEach((item,idx)=>{
+    JsBarcode(`#lbl-bc-${idx}`, item.v.barcode, { format:'CODE128', width:1.3, height:32, fontSize:10, margin:0, displayValue:true });
+  });
+
+  setTimeout(()=>window.print(), 200);
 }
 
 /* =========================================================
@@ -610,15 +771,20 @@ function renderPDV(el){
   input.addEventListener('input', e=>{ pdvSearch=e.target.value; renderPDVResults(); });
   input.addEventListener('keydown', e=>{
     if(e.key==='Enter'){
-      const found = findVariationByBarcode(pdvSearch.trim());
-      if(found){ addToCart(found.product, found.variation); pdvSearch=''; input.value=''; renderPDVResults(); }
+      const code = pdvSearch.trim();
+      const found = findVariationByBarcode(code);
+      if(found){ addToCart(found.product, found.variation); }
+      else if(code) toast('Código não encontrado','error');
+      pdvSearch=''; input.value=''; renderPDVResults(); input.focus();
     }
   });
   el.querySelector('#pdvCamBtn').addEventListener('click', ()=>openScanner(code=>{
     const found = findVariationByBarcode(code);
     if(found) addToCart(found.product, found.variation);
     else toast('Código não encontrado','error');
+    input.focus();
   }));
+  input.focus();
   el.querySelectorAll('[data-pay]').forEach(b=>b.addEventListener('click', e=>{ pdvPayment=e.target.dataset.pay; renderPDV(el); }));
   el.querySelector('#pdvCustomerSel').addEventListener('change', e=>pdvCustomer=e.target.value);
   el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Number(e.target.value)||0; renderCartItems(); });
@@ -1253,6 +1419,39 @@ function exportBackup(){
   a.download = `estilo-e-cia-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
 }
+
+/* =========================================================
+   LEITOR FÍSICO (USB/Bluetooth) — captura global de segurança
+   Um leitor "de balcão" digita o código + Enter como se fosse um
+   teclado. Os campos do PDV e do Estoque já capturam isso
+   normalmente; este listener é só uma rede de segurança para
+   quando o foco escapa do campo durante o corre-corre do caixa.
+   ========================================================= */
+let scanBuffer = '';
+let scanLastTime = 0;
+document.addEventListener('keydown', e=>{
+  const active = document.activeElement;
+  const inField = active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
+  if(inField){ scanBuffer=''; return; }
+  if(!SESSION || (currentRoute!=='pdv' && !estoqueMode)) return;
+  const now = Date.now();
+  if(now - scanLastTime > 80) scanBuffer = '';
+  scanLastTime = now;
+  if(e.key==='Enter'){
+    if(scanBuffer.length>=3){
+      if(currentRoute==='pdv'){
+        const found = findVariationByBarcode(scanBuffer);
+        if(found) addToCart(found.product, found.variation);
+        else toast('Código não encontrado','error');
+      } else if(estoqueMode){
+        handleBipe(scanBuffer);
+      }
+    }
+    scanBuffer='';
+  } else if(e.key.length===1){
+    scanBuffer += e.key;
+  }
+});
 
 /* =========================================================
    INIT

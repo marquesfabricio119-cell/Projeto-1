@@ -168,15 +168,29 @@ table tr:hover td{background:var(--cream)}
 .pay-methods button{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12.5px}
 .pay-methods button.active{background:var(--terracotta);color:#fff;border-color:var(--terracotta)}
 
-/* ===== Receipt / print ===== */
+/* ===== Receipt / labels / print ===== */
 #receipt{display:none}
+#labelSheet{display:none}
 @media print{
   body *{visibility:hidden}
-  #receipt,#receipt *{visibility:visible}
+  #receipt,#receipt *,#labelSheet,#labelSheet *{visibility:visible}
   #receipt{display:block;position:absolute;top:0;left:0;width:100%}
+  #labelSheet{display:block;position:absolute;top:0;left:0;width:100%}
 }
 .receipt-sheet{width:300px;padding:14px;font-family:monospace;font-size:12px}
 .receipt-sheet hr{border:none;border-top:1px dashed #999;margin:8px 0}
+
+.label{
+  border:1px dashed #ccc;
+  padding:2mm;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;overflow:hidden;box-sizing:border-box;
+  break-inside:avoid;page-break-inside:avoid;
+}
+.label-store{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.label-name{font-size:7.5px;line-height:1.2;margin:1px 0;max-height:18px;overflow:hidden}
+.label-price{font-size:10px;font-weight:700}
+.label svg{max-width:100%}
 
 /* ===== Charts (canvas) ===== */
 canvas{max-width:100%}
