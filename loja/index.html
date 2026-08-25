@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Estilo & Cia — moda feminina online. Vestidos, blusas e muito mais, com entrega combinada por WhatsApp e pagamento via PIX.">
+<meta property="og:title" content="Estilo & Cia">
+<meta property="og:description" content="Estilo que é só seu ✨ — confira nossa vitrine online.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#211F1F">
+<title>Estilo & Cia</title>
+<link rel="icon" href="../marca/simbolo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://sjuvryprgbkrbzkvnnhw.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --graphite:#211F1F; --terracotta:#C1694F; --terracotta-dark:#9C4E39;
+  --blush:#E8C4B8; --cream:#FBF6F1; --sand:#EFE4D8; --gold:#B08D57; --text:#2B2623; --muted:#8A7F77;
+  --border:#E4D8CC;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',sans-serif;background:var(--cream);color:var(--text)}
+h1,h2,h3,.title{font-family:'Playfair Display',serif}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+img{max-width:100%;display:block}
+
+header{background:var(--graphite);color:#fff;position:sticky;top:0;z-index:50}
+.topbar{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:36px;height:36px}
+.brand span{font-family:'Playfair Display',serif;font-size:19px}
+.cart-btn{background:var(--terracotta);color:#fff;border:none;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600;position:relative}
+.cart-count{position:absolute;top:-6px;right:-6px;background:var(--gold);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center}
+.hero{background:linear-gradient(160deg,var(--graphite),var(--terracotta-dark));color:#fff;text-align:center;padding:56px 20px}
+.hero h1{font-size:32px;margin-bottom:8px}
+.hero p{color:var(--blush);font-style:italic;font-size:15px}
+
+.wrap{max-width:1100px;margin:0 auto;padding:30px 20px}
+.cat-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+.cat-tabs button{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px}
+.cat-tabs button.active{background:var(--terracotta);color:#fff;border-color:var(--terracotta)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
+.pcard{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(33,31,31,.06);transition:transform .15s}
+.pcard:hover{transform:translateY(-3px)}
+.pcard .imgwrap{position:relative;height:230px;background:var(--sand)}
+.pcard .imgwrap img{width:100%;height:100%;object-fit:cover}
+.pcard .badge-new{position:absolute;top:10px;left:10px;background:var(--gold);color:#fff;font-size:10.5px;padding:3px 9px;border-radius:6px}
+.pcard .info{padding:14px}
+.pcard .pname{font-size:14px;font-weight:600;margin-bottom:4px}
+.pcard .pcat{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+.pcard .pprice{color:var(--terracotta-dark);font-weight:700;font-size:16px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+
+/* produto */
+.back-link{display:inline-block;margin-bottom:18px;color:var(--terracotta-dark);font-weight:600;font-size:13.5px}
+.product-detail{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.product-detail .imgwrap{border-radius:14px;overflow:hidden;background:var(--sand)}
+.product-detail .imgwrap img{width:100%;height:420px;object-fit:cover}
+.product-detail h1{font-size:26px;margin-bottom:6px}
+.product-detail .cat{color:var(--muted);font-size:13px;margin-bottom:14px}
+.product-detail .price{font-size:26px;color:var(--terracotta-dark);font-weight:700;margin-bottom:18px}
+.product-detail .desc{margin-bottom:20px;color:var(--text);line-height:1.7}
+.opt-group{margin-bottom:16px}
+.opt-group label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase}
+.opt-btns{display:flex;gap:8px;flex-wrap:wrap}
+.opt-btns button{padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px}
+.opt-btns button.active{background:var(--graphite);color:#fff;border-color:var(--graphite)}
+.opt-btns button:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+.add-cart-btn{background:var(--terracotta);color:#fff;border:none;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:600;width:100%;margin-top:10px}
+.add-cart-btn:disabled{background:var(--border);cursor:not-allowed}
+
+/* carrinho / checkout */
+.cart-drawer-overlay{position:fixed;inset:0;background:rgba(33,31,31,.5);z-index:100;display:flex;justify-content:flex-end}
+.cart-drawer{background:#fff;width:100%;max-width:420px;height:100%;padding:24px;overflow-y:auto}
+.cart-drawer h2{font-size:20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.cart-line{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.cart-line img{width:60px;height:70px;object-fit:cover;border-radius:8px;background:var(--sand)}
+.cart-line .cl-name{font-weight:600;font-size:13.5px}
+.cart-line .cl-meta{font-size:11.5px;color:var(--muted);margin:2px 0}
+.cart-line .cl-qty{display:flex;align-items:center;gap:6px;margin-top:6px}
+.cart-line .cl-qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:#fff}
+.cart-line .cl-remove{font-size:11px;color:var(--terracotta-dark);margin-top:6px;background:none;border:none}
+.cart-summary{margin-top:16px;padding-top:16px;border-top:2px solid var(--border)}
+.cart-summary .row{display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px}
+.checkout-btn{width:100%;background:var(--graphite);color:#fff;border:none;padding:14px;border-radius:10px;font-weight:600}
+.close-drawer{background:none;border:none;font-size:20px}
+
+.checkout-form .field{margin-bottom:14px}
+.checkout-form label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.checkout-form input,.checkout-form textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
+.pix-box{background:var(--sand);border-radius:10px;padding:16px;margin-top:16px;text-align:center;font-size:13.5px}
+.pix-box strong{display:block;font-size:15px;margin-bottom:4px;word-break:break-all}
+
+footer.site-footer{text-align:center;padding:40px 20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);margin-top:40px}
+
+@media (max-width:700px){
+  .product-detail{grid-template-columns:1fr}
+  .product-detail .imgwrap img{height:320px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topbar">
+    <a href="#/" class="brand"><img src="../marca/simbolo.svg" alt=""><span>Estilo & Cia</span></a>
+    <button class="cart-btn" id="cartBtn">🛍️ Sacola <span class="cart-count" id="cartCount">0</span></button>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>Estilo & Cia</h1>
+  <p id="heroPhrase">Estilo que é só seu ✨</p>
+</div>
+
+<div class="wrap" id="content"></div>
+
+<footer class="site-footer" id="siteFooter">Estilo & Cia — todos os direitos reservados</footer>
+
+<script>
+const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
+const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
+const SUPABASE_TABLE = "loja_roupas_db";
+const CART_KEY = "estiloCiaCart";
+
+let DB = null;
+let cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+let activeCategory = "Todas";
+
+function money(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function saveCart(){ localStorage.setItem(CART_KEY, JSON.stringify(cart)); updateCartCount(); }
+function updateCartCount(){ document.getElementById('cartCount').textContent = cart.reduce((a,i)=>a+i.qty,0); }
+
+async function fetchDB(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&select=data`, {
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+  });
+  const rows = await res.json();
+  return rows && rows[0] ? rows[0].data : null;
+}
+async function pushDB(){
+  await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+    method:'POST',
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ id:'main', data: DB, updated_at: new Date().toISOString() })
+  });
+}
+
+function storeProducts(){
+  return (DB?.products || []).filter(p => p.showInStore !== false && p.variations.some(v=>v.stock>0));
+}
+function productStock(p){ return p.variations.reduce((a,v)=>a+Number(v.stock||0),0); }
+function categories(){
+  const set = new Set(storeProducts().map(p=>p.category).filter(Boolean));
+  return ["Todas", ...set];
+}
+
+function router(){
+  const hash = location.hash.replace('#','') || '/';
+  if(hash.startsWith('/produto/')) renderProductPage(hash.split('/produto/')[1]);
+  else renderCatalog();
+}
+
+function renderCatalog(){
+  const content = document.getElementById('content');
+  const cats = categories();
+  const list = storeProducts().filter(p => activeCategory==='Todas' || p.category===activeCategory);
+  content.innerHTML = `
+    <div class="cat-tabs">
+      ${cats.map(c=>`<button class="${activeCategory===c?'active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('')}
+    </div>
+    ${list.length ? `<div class="grid">
+      ${list.map(p=>`
+        <a href="#/produto/${p.id}" class="pcard">
+          <div class="imgwrap">
+            ${p.isNew?'<span class="badge-new">NOVO</span>':''}
+            <img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.background='var(--sand)';this.src=''">
+          </div>
+          <div class="info">
+            <div class="pname">${escapeHtml(p.name)}</div>
+            <div class="pcat">${escapeHtml(p.category||'')}</div>
+            <div class="pprice">${money(p.price)}</div>
+          </div>
+        </a>`).join('')}
+    </div>` : `<div class="empty">Nenhum produto disponível nesta categoria no momento.</div>`}
+  `;
+  content.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click', e=>{
+    activeCategory = e.target.dataset.cat; renderCatalog();
+  }));
+}
+
+let selectedSize=null, selectedColor=null;
+function renderProductPage(id){
+  const p = (DB?.products||[]).find(x=>x.id===id);
+  const content = document.getElementById('content');
+  if(!p){ content.innerHTML = `<div class="empty">Produto não encontrado. <a href="#/">Voltar</a></div>`; return; }
+  const sizes = [...new Set(p.variations.map(v=>v.size).filter(Boolean))];
+  const colors = [...new Set(p.variations.map(v=>v.color).filter(Boolean))];
+  selectedSize = sizes[0] || null;
+  selectedColor = colors[0] || null;
+
+  content.innerHTML = `
+    <a href="#/" class="back-link">← Voltar ao catálogo</a>
+    <div class="product-detail">
+      <div class="imgwrap"><img src="${escapeHtml(p.photo||'')}" loading="eager" decoding="async"></div>
+      <div>
+        <h1>${escapeHtml(p.name)} ${p.isNew?'<span class="badge-new" style="position:static;display:inline-block">NOVO</span>':''}</h1>
+        <div class="cat">${escapeHtml(p.category||'')} ${p.brand?'· '+escapeHtml(p.brand):''}</div>
+        <div class="price">${money(p.price)}</div>
+        <div class="desc">${escapeHtml(p.description||'')}</div>
+        ${sizes.length ? `<div class="opt-group"><label>Tamanho</label><div class="opt-btns" id="sizeOpts">
+          ${sizes.map(s=>`<button data-size="${escapeHtml(s)}" class="${s===selectedSize?'active':''}">${escapeHtml(s)}</button>`).join('')}
+        </div></div>` : ''}
+        ${colors.length ? `<div class="opt-group"><label>Cor</label><div class="opt-btns" id="colorOpts">
+          ${colors.map(c=>`<button data-color="${escapeHtml(c)}" class="${c===selectedColor?'active':''}">${escapeHtml(c)}</button>`).join('')}
+        </div></div>` : ''}
+        <div id="stockMsg" style="font-size:12.5px;color:var(--muted);margin-bottom:6px"></div>
+        <button class="add-cart-btn" id="addToCartBtn">Adicionar à sacola</button>
+      </div>
+    </div>`;
+
+  function refreshOptions(){
+    content.querySelectorAll('#sizeOpts button').forEach(b=>b.classList.toggle('active', b.dataset.size===selectedSize));
+    content.querySelectorAll('#colorOpts button').forEach(b=>b.classList.toggle('active', b.dataset.color===selectedColor));
+    const variation = p.variations.find(v=>(!sizes.length || v.size===selectedSize) && (!colors.length || v.color===selectedColor));
+    const stockMsg = document.getElementById('stockMsg');
+    const addBtn = document.getElementById('addToCartBtn');
+    if(variation && variation.stock>0){
+      stockMsg.textContent = `${variation.stock} em estoque`;
+      addBtn.disabled = false;
+    } else {
+      stockMsg.textContent = 'Sem estoque para esta combinação';
+      addBtn.disabled = true;
+    }
+  }
+  content.querySelectorAll('#sizeOpts button').forEach(b=>b.addEventListener('click', e=>{ selectedSize=e.target.dataset.size; refreshOptions(); }));
+  content.querySelectorAll('#colorOpts button').forEach(b=>b.addEventListener('click', e=>{ selectedColor=e.target.dataset.color; refreshOptions(); }));
+  document.getElementById('addToCartBtn').addEventListener('click', ()=>{
+    const variation = p.variations.find(v=>(!sizes.length || v.size===selectedSize) && (!colors.length || v.color===selectedColor));
+    if(!variation || variation.stock<=0) return;
+    const existing = cart.find(i=>i.productId===p.id && i.size===selectedSize && i.color===selectedColor);
+    if(existing){
+      if(existing.qty>=variation.stock){ alert('Estoque insuficiente'); return; }
+      existing.qty++;
+    } else {
+      cart.push({ productId:p.id, name:p.name, photo:p.photo, price:p.price, size:selectedSize, color:selectedColor, qty:1 });
+    }
+    saveCart();
+    openCartDrawer();
+  });
+  refreshOptions();
+}
+
+/* ---------- Carrinho ---------- */
+function openCartDrawer(){
+  const overlay = document.createElement('div');
+  overlay.className='cart-drawer-overlay';
+  overlay.id='cartOverlay';
+  const subtotal = cart.reduce((a,i)=>a+i.price*i.qty,0);
+  overlay.innerHTML = `
+    <div class="cart-drawer">
+      <h2>Sua sacola <button class="close-drawer" id="closeDrawer">✕</button></h2>
+      <div id="cartLines">
+        ${cart.length ? cart.map((i,idx)=>`
+          <div class="cart-line">
+            <img src="${escapeHtml(i.photo||'')}">
+            <div style="flex:1">
+              <div class="cl-name">${escapeHtml(i.name)}</div>
+              <div class="cl-meta">${escapeHtml(i.size||'')} ${i.color?'/ '+escapeHtml(i.color):''}</div>
+              <div class="cl-meta">${money(i.price)}</div>
+              <div class="cl-qty">
+                <button data-dec="${idx}">-</button><span>${i.qty}</span><button data-inc="${idx}">+</button>
+              </div>
+              <button class="cl-remove" data-rm="${idx}">Remover</button>
+            </div>
+          </div>`).join('') : `<div class="empty">Sua sacola está vazia</div>`}
+      </div>
+      ${cart.length ? `
+        <div class="cart-summary">
+          <div class="row"><span>Total</span><span>${money(subtotal)}</span></div>
+          <button class="checkout-btn" id="goCheckoutBtn">Finalizar pedido</button>
+        </div>` : ''}
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target.id==='cartOverlay') overlay.remove(); });
+  document.getElementById('closeDrawer').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelectorAll('[data-inc]').forEach(b=>b.addEventListener('click', e=>{ cart[e.target.dataset.inc].qty++; saveCart(); overlay.remove(); openCartDrawer(); }));
+  overlay.querySelectorAll('[data-dec]').forEach(b=>b.addEventListener('click', e=>{
+    const idx=e.target.dataset.dec; cart[idx].qty--; if(cart[idx].qty<=0) cart.splice(idx,1);
+    saveCart(); overlay.remove(); openCartDrawer();
+  }));
+  overlay.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click', e=>{
+    cart.splice(e.target.dataset.rm,1); saveCart(); overlay.remove(); openCartDrawer();
+  }));
+  const goBtn = document.getElementById('goCheckoutBtn');
+  if(goBtn) goBtn.addEventListener('click', ()=>{ overlay.remove(); openCheckoutModal(); });
+}
+
+/* ---------- Checkout ---------- */
+function openCheckoutModal(){
+  if(!cart.length) return;
+  const subtotal = cart.reduce((a,i)=>a+i.price*i.qty,0);
+  const overlay = document.createElement('div');
+  overlay.className='cart-drawer-overlay';
+  overlay.innerHTML = `
+    <div class="cart-drawer">
+      <h2>Finalizar pedido <button class="close-drawer" id="closeCheckout">✕</button></h2>
+      <form class="checkout-form" id="checkoutForm">
+        <div class="field"><label>Nome completo</label><input id="ck_name" required></div>
+        <div class="field"><label>Telefone / WhatsApp</label><input id="ck_phone" required></div>
+        <div class="field"><label>Endereço de entrega</label><textarea id="ck_address" rows="2" required></textarea></div>
+        <div class="cart-summary" style="border-top:none;padding-top:0">
+          <div class="row"><span>Total</span><span>${money(subtotal)}</span></div>
+        </div>
+        <button type="submit" class="checkout-btn">Confirmar pedido</button>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.getElementById('closeCheckout').addEventListener('click', ()=>overlay.remove());
+  document.getElementById('checkoutForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const btn = overlay.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Processando...';
+    try{ await submitOrder({
+      name: document.getElementById('ck_name').value.trim(),
+      phone: document.getElementById('ck_phone').value.trim(),
+      address: document.getElementById('ck_address').value.trim()
+    }); overlay.remove(); }
+    catch(err){ alert(err.message || 'Erro ao finalizar pedido'); btn.disabled=false; btn.textContent='Confirmar pedido'; }
+  });
+}
+
+async function submitOrder(customer){
+  // revalida estoque com dados frescos do Supabase
+  const fresh = await fetchDB();
+  if(fresh) DB = fresh;
+
+  for(const item of cart){
+    const p = DB.products.find(x=>x.id===item.productId);
+    const v = p && p.variations.find(v=>v.size===item.size && v.color===item.color);
+    if(!v || v.stock < item.qty) throw new Error(`Estoque insuficiente para "${item.name}". Atualize a página e tente novamente.`);
+  }
+  // baixa estoque
+  cart.forEach(item=>{
+    const p = DB.products.find(x=>x.id===item.productId);
+    const v = p.variations.find(v=>v.size===item.size && v.color===item.color);
+    v.stock -= item.qty;
+  });
+  const total = cart.reduce((a,i)=>a+i.price*i.qty,0);
+  const custRecord = { id:uid(), name:customer.name, phone:customer.phone, address:customer.address, email:'', createdAt:new Date().toISOString() };
+  DB.customers.push(custRecord);
+  const sale = {
+    id: uid(), date: new Date().toISOString(),
+    items: cart.map(i=>({productId:i.productId, name:i.name, size:i.size, color:i.color, price:i.price, qty:i.qty})),
+    discount:0, payment:'PIX', customerId: custRecord.id, seller:'Loja virtual',
+    total, status:'pendente', origin:'loja', canceled:false
+  };
+  DB.sales.push(sale);
+  await pushDB();
+
+  showOrderConfirmation(sale, custRecord);
+  cart = []; saveCart();
+}
+
+function showOrderConfirmation(sale, customer){
+  const pixKey = DB.config?.pixKey || '(chave PIX não configurada)';
+  const whats = (DB.config?.whatsapp || '').replace(/\D/g,'');
+  const itemsText = sale.items.map(i=>`- ${i.name} (${i.size||''}${i.color?'/'+i.color:''}) x${i.qty}`).join('%0A');
+  const msg = `Olá! Acabei de fazer um pedido no site *Estilo & Cia* 🛍️%0A%0APedido #${sale.id.slice(-6)}%0A${itemsText}%0A%0ATotal: ${money(sale.total)}%0APagamento: PIX%0A%0AMeu nome: ${customer.name}%0AEndereço: ${customer.address}`;
+  const waLink = whats ? `https://wa.me/${whats}?text=${msg}` : null;
+
+  const overlay = document.createElement('div');
+  overlay.className='cart-drawer-overlay';
+  overlay.innerHTML = `
+    <div class="cart-drawer" style="max-width:420px;text-align:center">
+      <h2 style="justify-content:center">Pedido recebido! 🎉</h2>
+      <p style="margin-bottom:10px">Seu pedido <strong>#${sale.id.slice(-6)}</strong> foi registrado. Finalize o pagamento via PIX:</p>
+      <div class="pix-box"><span>Chave PIX</span><strong>${escapeHtml(pixKey)}</strong>Valor: ${money(sale.total)}</div>
+      ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener noreferrer" class="checkout-btn" style="display:block;margin-top:16px;background:#25D366">Enviar comprovante no WhatsApp</a>` : `<p style="margin-top:14px;font-size:12.5px" class="text-muted">Entre em contato com a loja para confirmar o pagamento.</p>`}
+      <button class="checkout-btn" style="margin-top:10px" id="closeConfirm">Voltar à loja</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('closeConfirm').addEventListener('click', ()=>{ overlay.remove(); location.hash='#/'; });
+}
+
+/* ---------- Init ---------- */
+document.getElementById('cartBtn').addEventListener('click', openCartDrawer);
+window.addEventListener('hashchange', router);
+
+(async function init(){
+  updateCartCount();
+  document.getElementById('content').innerHTML = `<div class="empty">Carregando vitrine...</div>`;
+  try{
+    DB = await fetchDB();
+  }catch(e){ DB = null; }
+  if(!DB){ document.getElementById('content').innerHTML = `<div class="empty">Não foi possível carregar a loja no momento. Tente novamente em instantes.</div>`; return; }
+  document.getElementById('heroPhrase').textContent = DB.config?.heroPhrase || 'Estilo que é só seu ✨';
+  document.getElementById('siteFooter').textContent = `${DB.storeName || 'Estilo & Cia'} — ${DB.config?.address || ''}`;
+  router();
+})();
+</script>
+</body>
+</html>
