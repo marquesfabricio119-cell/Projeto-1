@@ -61,13 +61,57 @@ function defaultDB(){
   };
 }
 
+/* ---------- Seed único: custos de abertura trazidos do sistema antigo ---------- */
+function seedInitialData(){
+  if(DB.seedV1AbrirLoja) return;
+  const items = [
+    ['Compra do Ponto','Ponto/Aluguel',6000.00],
+    ['Aluguel','Ponto/Aluguel',1410.00],
+    ['Compra da porta de vidro','Material para reforma',2500.00],
+    ['Hospedagem do sistema','Outros',67.00],
+    ['Tinta stand 20L rende muito coral','Material para reforma',404.15],
+    ['Massa corrida coral Bd 25kg','Material para reforma',95.64],
+    ['Soleira para porta de entrada e soleira do wc','Material para reforma',300.00],
+    ['Lâmpada filamento 2 und','Material para reforma',66.00],
+    ['Trilho eletrificado 6und','Material para reforma',48.00],
+    ['Corda transada 2und','Material para reforma',62.00],
+    ['Luminária led spot 18 und','Material para reforma',288.00],
+    ['Tapete porta de entrada','Outros',20.00],
+    ['Luminária ventilador','Outros',58.00],
+    ['Camera inteligente Wi-Fi','Equipamentos',182.00],
+    ['Cabide','Móveis e araras',80.00],
+    ['Tapete para fotografia','Marketing/Fachada',35.00],
+    ['Cortinas para provador','Outros',32.94],
+    ['Caixa de luz 4x4,4x2,Argamassa, conduíte, gesso, rejunte','Material para reforma',155.17],
+    ['Conduíte, caixa de luz 4x4','Material para reforma',53.57],
+    ['Fachada em acm + Logotipo','Marketing/Fachada',2500.00],
+    ['Gesso liso é conduíte','Material para reforma',26.40],
+    ['Material para limpeza','Material para reforma',67.50],
+    ['Espelho para provador','Marketing/Fachada',420.00],
+    ['Alteração do CNPJ','Documentação/Alvará',150.00],
+    ['Compra de araras','Móveis e araras',1300.00],
+    ['Compra de cabide','Outros',400.00],
+    ['Balizador de piso Conduíte e conector','Material para reforma',130.00],
+    ['Embalagens','Marketing/Fachada',337.15],
+    ['Manequim','Móveis e araras',1400.00],
+    ['Drywall Material é Mão de Obra','Mão de obra',900.00],
+    ['Lâmpada para degrau + conduíte','Material para reforma',130.00],
+    ['Verniz para pintar porta de Aço Fundo preparador ,Fita crepe, Gesso liso, Lona plástica,palha de Aço e Tinner','Material para reforma',390.00],
+    ['Gesso liso e Conduíte','Material para reforma',51.80],
+    ['Areia, cimento, tijolo comum e lixa','Material para reforma',95.08],
+    ['Mão de obra de Pintor','Mão de obra',300.00],
+    ['Leitor de código de barras','Equipamentos',169.90],
+    ['Compra de mercadoria','Estoque inicial',5000.00],
+  ];
+  items.forEach(([name,category,value])=>{
+    DB.storeSetup.items.push({ id: uid(), category, name, planned: value, paid: value });
+  });
+  DB.seedV1AbrirLoja = true;
+}
+
 /* ---------- Load / Save ---------- */
-function loadDB(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    DB = raw ? JSON.parse(raw) : defaultDB();
-  }catch(e){ DB = defaultDB(); }
-  // migração: garante campos novos em bancos antigos
+function migrateDB(){
+  // garante campos novos em bancos antigos, sem tocar no localStorage
   const d = defaultDB();
   for(const k in d){ if(!(k in DB)) DB[k] = d[k]; }
   if(!DB.monthlyExpenses) DB.monthlyExpenses = d.monthlyExpenses;
@@ -75,6 +119,14 @@ function loadDB(){
   if(!DB.monthlyExpenses.records) DB.monthlyExpenses.records = [];
   if(!DB.cashRegister.closedHistory) DB.cashRegister.closedHistory = [];
   if(!DB.barcodeSeq) DB.barcodeSeq = 0;
+  seedInitialData();
+}
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    DB = raw ? JSON.parse(raw) : defaultDB();
+  }catch(e){ DB = defaultDB(); }
+  migrateDB();
 }
 
 /* ---------- Código de barras interno (gerado pela loja) ---------- */
@@ -112,9 +164,9 @@ async function cloudPull(){
     const rows = await res.json();
     if(rows && rows[0] && rows[0].data){
       DB = rows[0].data;
-      loadDB(); // reaplica migração de campos novos
+      migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       saveDB(true);
-      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')) render();
+      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')){ renderShell(); navigate(currentRoute); }
     }
   }catch(e){ /* offline: segue com dados locais */ }
 }
