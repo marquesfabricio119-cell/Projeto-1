@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Área da cliente: acompanhe seu pedido e faça a anamnese da sua consultoria de skin care.">
+<meta name="robots" content="noindex">
+<title>Área da cliente</title>
+<link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="site-header" id="siteHeader"></header>
+
+<main class="secao">
+  <div class="wrap-sm" id="conteudo"></div>
+</main>
+
+<footer class="site-footer" id="siteFooter"></footer>
+
+<script src="app.js?v=1"></script>
+<script src="quiz.js?v=1"></script>
+<script>
+function telaLogin(msgErro){
+  $('#conteudo').innerHTML = `
+    <div class="secao-head" style="margin-bottom:26px">
+      <h2>Área da cliente</h2>
+      <p>Entre com o código de acesso que você recebeu ao contratar a consultoria.</p>
+    </div>
+    <div class="painel">
+      <div class="campo">
+        <label for="codigo">Código de acesso</label>
+        <input id="codigo" placeholder="SKIN-XXXXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+      </div>
+      <div class="campo">
+        <label for="email">E-mail usado na compra</label>
+        <input id="email" type="email" autocomplete="email" placeholder="voce@email.com">
+      </div>
+      <div class="erro-msg" id="erro">${msgErro ? esc(msgErro) : ''}</div>
+      <button class="btn btn-primary btn-block btn-wide" id="btnEntrar">Entrar</button>
+      <p class="tiny center" style="margin-top:14px">
+        Perdeu o código? <a href="${linkWhats('Oi! Perdi meu código de acesso da consultoria. Pode me ajudar?')}"
+        target="_blank" rel="noopener" style="color:var(--nude-esc)">me chame no WhatsApp</a>.
+      </p>
+      <p class="tiny center" style="margin-top:6px">Ainda não contratou? <a href="index.html#planos" style="color:var(--nude-esc)">Ver os planos</a>.</p>
+    </div>`;
+
+  const entrar = () => {
+    const cod = $('#codigo').value.trim().toUpperCase();
+    const em  = normEmail($('#email').value);
+    const o   = pedidoPorCodigo(cod);
+    if(!o || normEmail(o.email) !== em){
+      $('#erro').textContent = 'Código ou e-mail não encontrado. Confira os dados ou me chame no WhatsApp.';
+      return;
+    }
+    setSession(o);
+    telaPainel(o);
+  };
+  $('#btnEntrar').addEventListener('click', entrar);
+  $$('#codigo, #email').forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); }));
+}
+
+function cartaoResultado(a){
+  const r = a.resultado || {};
+  return `
+    <div class="painel" style="margin-top:16px">
+      <h3 style="font-size:21px;margin-bottom:4px">A leitura da sua pele</h3>
+      <p class="tiny" style="margin-bottom:18px">Enviada em ${fmtDate(a.criadoEm)} · esta é a primeira leitura automática das suas respostas. O protocolo final vem depois da minha análise.</p>
+
+      <div class="perfil">
+        <div class="perfil-item"><span>Tipo de pele</span><strong>${esc(r.tipoPele || '—')}</strong></div>
+        <div class="perfil-item"><span>Sensibilidade</span><strong>${esc(r.sensibilidade || '—')}</strong></div>
+        <div class="perfil-item"><span>Barreira cutânea</span><strong>${esc(r.barreira || '—')}</strong></div>
+        <div class="perfil-item"><span>Fotoproteção</span><strong>${esc(r.fotoprotecao || '—')}</strong></div>
+        <div class="perfil-item"><span>Sua rotina hoje</span><strong>${esc(r.rotina || '—')}</strong></div>
+      </div>
+
+      <h4 style="font-family:var(--sans);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--nude-esc);margin:20px 0 10px">Prioridades do seu tratamento</h4>
+      <ul class="lista-check">${(r.prioridades || []).map(p => `<li>${esc(p)}</li>`).join('') || '<li>—</li>'}</ul>
+
+      <h4 style="font-family:var(--sans);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--nude-esc);margin:22px 0 10px">Esqueleto da sua rotina</h4>
+      <div class="rotina-2">
+        <div class="bloco"><h4>☀️ Manhã</h4>
+          <ul class="lista-check">${(r.sugestao?.manha || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+        <div class="bloco"><h4>🌙 Noite</h4>
+          <ul class="lista-check">${(r.sugestao?.noite || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+      </div>
+
+      <div class="aviso" style="margin-top:18px">
+        <strong>Ainda não saia comprando 🙂</strong>
+        Aqui estão as categorias, não as marcas. Os produtos exatos, as concentrações e a frequência vão no seu
+        protocolo personalizado, que eu te envio depois de revisar tudo o que você respondeu.
+      </div>
+
+      <div style="display:grid;gap:10px;margin-top:18px">
+        <a class="btn btn-nude btn-block" target="_blank" rel="noopener"
+           href="${linkWhats(`Oi! Sou ${a.nome}, código ${a.codigo}. Terminei minha anamnese 💛`)}">Avisar que terminei a anamnese</a>
+        <button class="btn btn-ghost btn-block" onclick="window.print()">Salvar em PDF / imprimir</button>
+      </div>
+    </div>`;
+}
+
+function telaPainel(o){
+  const a = anamnesePorPedido(o.id);
+  const temRascunho = !!localStorage.getItem(DRAFT_KEY + ':' + o.codigo);
+  const acao = a
+    ? `<a class="btn btn-ghost btn-block" href="anamnese.html">Rever minhas respostas</a>`
+    : `<a class="btn btn-primary btn-block btn-wide" href="anamnese.html">${temRascunho ? 'Continuar minha anamnese' : 'Fazer minha anamnese'}</a>`;
+
+  $('#conteudo').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+      <div>
+        <h2 style="font-size:clamp(26px,4vw,34px)">Oi, ${esc(String(o.nome).split(' ')[0])} 💛</h2>
+        <p class="muted">Aqui é onde a sua consultoria acontece.</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btnSair">Sair</button>
+    </div>
+
+    <div class="painel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div>
+          <h3 style="font-size:20px">Plano ${esc(o.planoNome)}</h3>
+          <p class="tiny">Contratado em ${fmtDateShort(o.criadoEm)} · ${money(o.preco)}</p>
+        </div>
+        <span class="selo selo-${esc(o.status)}">${esc(statusLabel(o.status))}</span>
+      </div>
+
+      <div class="perfil" style="margin-bottom:18px">
+        <div class="perfil-item"><span>Seu código</span><strong>${esc(o.codigo)}</strong></div>
+        <div class="perfil-item"><span>Anamnese</span><strong>${a ? 'Enviada' : temRascunho ? 'Em andamento' : 'Pendente'}</strong></div>
+        <div class="perfil-item"><span>Protocolo</span><strong>${o.status === 'concluido' ? 'Entregue' : a ? 'Em análise' : 'Aguardando anamnese'}</strong></div>
+      </div>
+
+      ${o.status === 'pendente' ? `
+        <div class="aviso" style="margin-bottom:16px">
+          <strong>Pagamento ainda não confirmado</strong>
+          Assim que eu conferir o comprovante, isso muda aqui sozinho. Você já pode ir adiantando a anamnese —
+          ela fica salva do mesmo jeito.
+        </div>` : ''}
+
+      ${acao}
+
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <a class="btn btn-ghost btn-block" target="_blank" rel="noopener"
+           href="${linkWhats(`Oi! Sou ${o.nome}, código ${o.codigo}. Tenho uma dúvida sobre a minha consultoria.`)}">Falar comigo no WhatsApp</a>
+      </div>
+    </div>
+
+    ${a ? cartaoResultado(a) : ''}`;
+
+  $('#btnSair').addEventListener('click', () => { clearSession(); telaLogin(); });
+}
+
+(async function(){
+  await initDB();
+  montarHeader('area');
+  montarFooter();
+  const o = pedidoDaSessao();
+  if(o) telaPainel(o); else telaLogin();
+})();
+</script>
+</body>
+</html>

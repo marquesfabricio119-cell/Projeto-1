@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Finalize a contratação da sua consultoria de skin care e receba seu código de acesso à anamnese.">
+<meta name="robots" content="noindex">
+<title>Finalizar consultoria</title>
+<link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="site-header" id="siteHeader"></header>
+
+<main class="secao">
+  <div class="wrap-sm">
+
+    <!-- etapa 1: dados -->
+    <section id="etapaDados">
+      <div class="secao-head" style="margin-bottom:26px">
+        <h2>Finalizar minha consultoria</h2>
+        <p>Só preciso de três informações para gerar o seu acesso.</p>
+      </div>
+
+      <div class="painel">
+        <div class="campo">
+          <label for="plano">Plano escolhido</label>
+          <select id="plano"></select>
+          <p class="dica" id="planoResumo"></p>
+        </div>
+
+        <div class="campo">
+          <label for="nome">Seu nome completo</label>
+          <input id="nome" autocomplete="name" placeholder="Como você quer ser chamada">
+        </div>
+
+        <div class="linha-2">
+          <div class="campo">
+            <label for="email">Seu e-mail</label>
+            <input id="email" type="email" autocomplete="email" placeholder="voce@email.com">
+          </div>
+          <div class="campo">
+            <label for="fone">WhatsApp (com DDD)</label>
+            <input id="fone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="11 99999-9999">
+          </div>
+        </div>
+
+        <label class="opcao" for="aceite" style="margin-bottom:6px">
+          <input type="checkbox" id="aceite">
+          <span>Entendi que a consultoria é orientação estética e educativa sobre cuidados com a pele, e que
+          <strong>não substitui consulta, diagnóstico ou prescrição médica</strong>.</span>
+        </label>
+
+        <div class="erro-msg" id="erro"></div>
+
+        <button class="btn btn-primary btn-block btn-wide" id="btnGerar">Gerar meu acesso e ver o PIX</button>
+        <p class="tiny center" style="margin-top:12px">Seus dados ficam só comigo e são usados para montar o seu protocolo.</p>
+      </div>
+    </section>
+
+    <!-- etapa 2: pagamento + código -->
+    <section id="etapaPix" class="hidden">
+      <div class="secao-head" style="margin-bottom:22px">
+        <h2>Falta só o pagamento 💛</h2>
+        <p>Seu acesso já está criado. Guarde o código abaixo — é com ele que você entra na sua área.</p>
+      </div>
+
+      <div class="painel">
+        <div class="codigo-box">
+          <span>Seu código de acesso</span>
+          <strong id="codigoOut">SKIN-XXXXXX</strong>
+        </div>
+
+        <div id="blocoPix"></div>
+
+        <div class="aviso" style="margin:18px 0">
+          <strong>Importante</strong>
+          Depois de fazer o PIX, me envie o comprovante no WhatsApp. Assim que eu confirmar, seu pedido muda para
+          <em>pagamento confirmado</em> e a anamnese fica liberada na sua área.
+        </div>
+
+        <div style="display:grid;gap:10px">
+          <a class="btn btn-nude btn-block" id="btnWhats" target="_blank" rel="noopener">Enviar comprovante no WhatsApp</a>
+          <a class="btn btn-ghost btn-block" href="area.html">Ir para a minha área</a>
+        </div>
+
+        <p class="tiny center" style="margin-top:14px" id="statusNuvem"></p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-footer" id="siteFooter"></footer>
+
+<script src="app.js?v=1"></script>
+<script>
+let PEDIDO = null;
+
+function planoDaUrl(){
+  const id = new URLSearchParams(location.search).get('plano');
+  return planoPorId(id) ? id : (DB.settings.planos.find(p => p.destaque) || DB.settings.planos[0]).id;
+}
+
+function pintarResumo(){
+  const p = planoPorId($('#plano').value);
+  $('#planoResumo').textContent = p ? `${money(p.preco)} — ${p.resumo || ''}` : '';
+}
+
+function validar(){
+  const nome  = $('#nome').value.trim();
+  const email = normEmail($('#email').value);
+  const fone  = onlyDigits($('#fone').value);
+  if(nome.length < 3)                        return 'Escreva seu nome completo.';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return 'Confira seu e-mail — ele é a sua chave de acesso.';
+  if(fone.length < 10 || fone.length > 13)   return 'Digite seu WhatsApp com DDD.';
+  if(!$('#aceite').checked)                  return 'Confirme que você leu o aviso acima para continuar.';
+  return '';
+}
+
+function blocoPix(){
+  const s = DB.settings;
+  if(!s.pix){
+    return `<div class="aviso"><strong>Chave PIX ainda não cadastrada</strong>
+      Me chame no WhatsApp que eu te envio a chave para pagamento agora mesmo.</div>`;
+  }
+  return `
+    <div class="campo">
+      <label>Chave PIX${s.pixNome ? ' — ' + esc(s.pixNome) : ''}</label>
+      <div class="copia">
+        <input id="pixInput" readonly value="${esc(s.pix)}">
+        <button class="btn btn-ghost btn-sm" id="btnCopiar" type="button">Copiar</button>
+      </div>
+    </div>
+    <div class="campo" style="margin-bottom:0">
+      <label>Valor</label>
+      <input readonly value="${money(PEDIDO.preco)}">
+    </div>`;
+}
+
+async function gerar(){
+  const msg = validar();
+  $('#erro').textContent = msg;
+  if(msg){ $('#erro').scrollIntoView({ block:'center', behavior:'smooth' }); return; }
+
+  const btn = $('#btnGerar');
+  btn.disabled = true;
+  btn.textContent = 'Gerando seu acesso...';
+
+  const plano = planoPorId($('#plano').value);
+  const pedido = {
+    id: uid(),
+    codigo: gerarCodigo(),
+    nome:  $('#nome').value.trim(),
+    email: normEmail($('#email').value),
+    fone:  onlyDigits($('#fone').value),
+    planoId: plano.id,
+    planoNome: plano.nome,
+    preco: Number(plano.preco) || 0,
+    status: 'pendente',
+    criadoEm: new Date().toISOString(),
+    pagoEm: null,
+    anamneseId: null
+  };
+
+  const gravou = await salvarComMerge(db => {
+    // garante código único mesmo depois de reler a nuvem
+    while(db.orders.some(o => o.codigo === pedido.codigo)) pedido.codigo = gerarCodigo();
+    db.orders.push(pedido);
+  });
+
+  PEDIDO = pedido;
+  setSession(pedido);
+
+  $('#codigoOut').textContent = pedido.codigo;
+  $('#blocoPix').innerHTML = blocoPix();
+  $('#btnWhats').href = linkWhats(
+    `Oi! Sou ${pedido.nome}. Acabei de contratar a consultoria *${pedido.planoNome}* (${money(pedido.preco)}). ` +
+    `Meu código de acesso é ${pedido.codigo}. Estou enviando o comprovante do PIX.`
+  );
+  $('#statusNuvem').textContent = gravou
+    ? 'Pedido registrado ✓'
+    : 'Pedido salvo neste aparelho. Me mande o código no WhatsApp para eu registrar do meu lado.';
+
+  const copiar = $('#btnCopiar');
+  if(copiar){
+    copiar.addEventListener('click', async () => {
+      const v = $('#pixInput').value;
+      try{ await navigator.clipboard.writeText(v); }
+      catch(e){ $('#pixInput').select(); document.execCommand('copy'); }
+      toast('Chave PIX copiada');
+    });
+  }
+
+  $('#etapaDados').classList.add('hidden');
+  $('#etapaPix').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+(async function(){
+  await initDB();
+  montarHeader();
+  montarFooter();
+
+  $('#plano').innerHTML = DB.settings.planos
+    .map(p => `<option value="${esc(p.id)}">${esc(p.nome)} — ${money(p.preco)}</option>`).join('');
+  $('#plano').value = planoDaUrl();
+  pintarResumo();
+  $('#plano').addEventListener('change', pintarResumo);
+
+  // se já existe uma sessão, oferece continuar de onde parou
+  const jaTem = pedidoDaSessao();
+  if(jaTem && jaTem.status === 'pendente'){
+    $('#erro').innerHTML = `Você já tem um pedido em aberto (<strong>${esc(jaTem.codigo)}</strong>). ` +
+      `<a href="area.html" style="color:var(--nude-esc)">Ir para a minha área</a>`;
+  }
+
+  $('#btnGerar').addEventListener('click', gerar);
+  $$('#nome, #email, #fone').forEach(el =>
+    el.addEventListener('keydown', e => { if(e.key === 'Enter') gerar(); }));
+})();
+</script>
+</body>
+</html>

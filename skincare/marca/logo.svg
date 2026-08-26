@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-label="Logo">
+  <defs>
+    <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D9A98F"/>
+      <stop offset="1" stop-color="#A8896F"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="26" fill="url(#lg)"/>
+  <path d="M32 18c7.6 5.1 11 10.2 11 15.3A11 11 0 0 1 21 33.3c0-5.1 3.4-10.2 11-15.3z" fill="#FDF8F4"/>
+  <text x="72" y="34" font-family="Georgia, 'Times New Roman', serif" font-size="24" fill="#2E2A28">Skin Care</text>
+  <text x="73" y="50" font-family="Helvetica, Arial, sans-serif" font-size="10.5" letter-spacing="3.2" fill="#A8896F">CONSULTORIA</text>
+</svg>

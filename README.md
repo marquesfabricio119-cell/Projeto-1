@@ -16,6 +16,9 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
   Financeiro, Gastos Mensais, Abrir Loja, Relatórios, Configurações)
 - `loja/index.html` — loja virtual (arquivo único, lê o mesmo Supabase)
 - `marca/` — `logo.svg`, `simbolo.svg`, `identidade.html` (manual da marca)
+- `skincare/` — **site da consultoria de skin care**: página de vendas, checkout com código de acesso,
+  área da cliente, quiz da anamnese e painel da consultora. Projeto independente do sistema da loja —
+  veja `skincare/README.md`.
 
 ## Funcionalidades
 
