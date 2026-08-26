@@ -554,30 +554,43 @@ function openProductModal(id){
   overlay.querySelector('#addVarBtn').addEventListener('click', ()=>{ variations.push({size:'',color:'',stock:0,barcode:''}); renderVars(); });
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
-    const name = overlay.querySelector('#f_name').value.trim();
-    if(!name){ toast('Informe o nome do produto','error'); return; }
-    const finalVariations = variations.filter(v=>v.size || v.color || v.stock);
-    finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
-    const data = {
-      id:p.id, name,
-      sku: overlay.querySelector('#f_sku').value.trim(),
-      category: overlay.querySelector('#f_category').value.trim(),
-      brand: overlay.querySelector('#f_brand').value.trim(),
-      cost: Number(overlay.querySelector('#f_cost').value)||0,
-      price: Number(overlay.querySelector('#f_price').value)||0,
-      photo: overlay.querySelector('#f_photo').value.trim(),
-      description: overlay.querySelector('#f_desc').value.trim(),
-      showInStore: overlay.querySelector('#f_show').checked,
-      isNew: overlay.querySelector('#f_new').checked,
-      variations: finalVariations
-    };
-    if(editing){ Object.assign(editing, data); }
-    else DB.products.push(data);
-    saveDB(); overlay.remove(); renderProdutosTable();
-    // vincula com Etiquetas: a etiqueta da variação já fica pronta pra imprimir
-    data.variations.forEach(v=>{ etiquetaQty[varKey(data.id, v.size, v.color)] = v.stock>0 ? v.stock : 1; });
-    if(editing){ toast('Produto salvo'); }
-    else toast('Produto salvo! Etiqueta pronta — clique para imprimir 🏷️', 'ok', ()=>navigate('etiquetas'));
+    try{
+      const name = overlay.querySelector('#f_name').value.trim();
+      if(!name){ toast('Informe o nome do produto','error'); return; }
+      const finalVariations = variations.filter(v=>v.size || v.color || v.stock);
+      finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
+      const data = {
+        id:p.id, name,
+        sku: overlay.querySelector('#f_sku').value.trim(),
+        category: overlay.querySelector('#f_category').value.trim(),
+        brand: overlay.querySelector('#f_brand').value.trim(),
+        cost: Number(overlay.querySelector('#f_cost').value)||0,
+        price: Number(overlay.querySelector('#f_price').value)||0,
+        photo: overlay.querySelector('#f_photo').value.trim(),
+        description: overlay.querySelector('#f_desc').value.trim(),
+        showInStore: overlay.querySelector('#f_show').checked,
+        isNew: overlay.querySelector('#f_new').checked,
+        variations: finalVariations
+      };
+      if(editing){ Object.assign(editing, data); }
+      else DB.products.push(data);
+      saveDB();
+      // vincula com Etiquetas: a etiqueta da variação já fica pronta pra imprimir
+      data.variations.forEach(v=>{ etiquetaQty[varKey(data.id, v.size, v.color)] = v.stock>0 ? v.stock : 1; });
+      overlay.remove();
+      if(!editing){
+        // garante que o produto recém-criado apareça, mesmo com um filtro de busca antigo aplicado
+        prodFilter = '';
+        const searchInput = document.getElementById('prodSearch');
+        if(searchInput) searchInput.value = '';
+      }
+      renderProdutosTable();
+      if(editing){ toast('Produto salvo'); }
+      else toast('Produto salvo! Etiqueta pronta — clique para imprimir 🏷️', 'ok', ()=>navigate('etiquetas'));
+    }catch(err){
+      console.error('Erro ao salvar produto:', err);
+      toast('Não foi possível salvar o produto: '+err.message, 'error');
+    }
   });
 }
 
