@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "9";
+const APP_VERSION = "10";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -142,14 +142,19 @@ function normalizeDB(){
     // `loja` era o nome antigo do "mostrar na loja virtual"
     showInStore: p.showInStore !== undefined ? p.showInStore !== false : p.loja !== false,
     isNew: !!p.isNew,
-    variations: arr(p.variations).filter(Boolean).map(v=>({
-      ...v,
-      size: v.size || '',
-      color: v.color || '',
-      stock: num(v.stock),
-      // `bar` era o nome antigo do código de barras
-      barcode: v.barcode || v.bar || ''
-    }))
+    variations: (()=>{
+      const vs = arr(p.variations).filter(Boolean).map(v=>({
+        ...v,
+        size: v.size || '',
+        color: v.color || '',
+        stock: num(v.stock),
+        // `bar` era o nome antigo do código de barras
+        barcode: v.barcode || v.bar || ''
+      }));
+      // Um produto sem variação some do Estoque, do PDV e das Etiquetas,
+      // que são montados a partir delas. Garante a variação padrão.
+      return vs.length ? vs : [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
+    })()
   }));
 
   DB.customers = arr(DB.customers).filter(Boolean).map(c=>({ ...c, id: c.id || uid(), name: c.name || 'Cliente' }));
@@ -653,7 +658,11 @@ function openProductModal(id){
     try{
       const name = overlay.querySelector('#f_name').value.trim();
       if(!name){ toast('Informe o nome do produto','error'); return; }
-      const finalVariations = variations.filter(v=>v.size || v.color || v.stock);
+      const finalVariations = variations.filter(v=>v.size || v.color || v.stock || v.barcode);
+      // Sem nenhuma variação o produto sumiria do Estoque, do PDV e das
+      // Etiquetas (essas telas são montadas a partir das variações). Um
+      // produto sem tamanho/cor ganha a variação padrão "Único".
+      if(!finalVariations.length) finalVariations.push({ size:'Único', color:'Padrão', stock:0, barcode:'' });
       finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
       const data = {
         id:p.id, name,
@@ -746,12 +755,19 @@ function handleBipe(code){
   if(msg) msg.innerHTML = `<span class="text-success">${estoqueMode==='entrada'?'+1':'-1'} — ${escapeHtml(product.name)} (${escapeHtml(variation.size)}/${escapeHtml(variation.color)}) → estoque: ${variation.stock}</span>`;
   renderStockTable();
 }
+/* Estoque e Etiquetas são montados a partir das variações. Se existem
+   produtos mas nenhuma variação, "Nenhum produto cadastrado" mentiria. */
+function emptyProductsMessage(){
+  return DB.products.length
+    ? `<div class="empty-state">Os produtos cadastrados ainda não têm variação (tamanho/cor).<br>Abra o produto em <strong>Produtos</strong> e adicione ao menos uma variação.</div>`
+    : `<div class="empty-state">Nenhum produto cadastrado</div>`;
+}
 function renderStockTable(){
   const wrap = document.getElementById('stockTableWrap');
   if(!wrap) return;
   const rows=[];
   DB.products.forEach(p=>p.variations.forEach(v=>rows.push({p,v})));
-  if(!rows.length){ wrap.innerHTML = `<div class="empty-state">Nenhum produto cadastrado</div>`; return; }
+  if(!rows.length){ wrap.innerHTML = emptyProductsMessage(); return; }
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
     <th>Produto</th><th>Tam/Cor</th><th>Cód. barras</th><th>Estoque</th><th>Status</th><th>Ajuste manual</th>
   </tr></thead><tbody>
@@ -830,7 +846,7 @@ function renderEtiquetasTable(){
   if(!wrap) return;
   const rows=[];
   DB.products.forEach(p=>p.variations.forEach(v=>rows.push({p,v})));
-  if(!rows.length){ wrap.innerHTML = `<div class="empty-state">Nenhum produto cadastrado</div>`; return; }
+  if(!rows.length){ wrap.innerHTML = emptyProductsMessage(); return; }
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
     <th></th><th>Produto</th><th>Tam/Cor</th><th>Código</th><th>Estoque</th><th>Qtd. etiquetas</th>
   </tr></thead><tbody>
