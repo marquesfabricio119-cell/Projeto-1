@@ -9,6 +9,7 @@ const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
 const SUPABASE_TABLE = "loja_roupas_db";
 const STORAGE_KEY = "estiloCiaDB";
+const LOCAL_TS_KEY = "estiloCiaDB_ts";
 const SESSION_KEY = "estiloCiaSession";
 
 let DB = null;
@@ -24,13 +25,15 @@ function dateBR(iso){ if(!iso) return '-'; const d=new Date(iso); return d.toLoc
 function monthKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(mk){ const [y,m]=mk.split('-'); const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return names[Number(m)-1]+'/'+y; }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function toast(msg, type='ok'){
+function toast(msg, type='ok', onClick){
   let t = document.getElementById('toast');
   if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t);
     t.style.cssText='position:fixed;bottom:20px;right:20px;z-index:999;padding:12px 18px;border-radius:10px;color:#fff;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.2);transition:opacity .3s'; }
   t.style.background = type==='error' ? '#B33A3A' : (type==='warn' ? '#C1874F' : '#4C8B5C');
+  t.style.cursor = onClick ? 'pointer' : 'default';
   t.textContent = msg; t.style.opacity='1';
-  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; },2200);
+  t.onclick = onClick || null;
+  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; },onClick?4000:2200);
 }
 
 /* ---------- DB default schema ---------- */
@@ -148,6 +151,7 @@ function generateUniqueBarcode(){
 
 function saveDB(skipCloud){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+  localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
   if(!skipCloud){
     clearTimeout(pushTimer);
     pushTimer = setTimeout(cloudPush, 800);
@@ -163,6 +167,9 @@ async function cloudPull(){
     if(!res.ok) return;
     const rows = await res.json();
     if(rows && rows[0] && rows[0].data){
+      const cloudTs = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
+      const localTs = Number(localStorage.getItem(LOCAL_TS_KEY)) || 0;
+      if(cloudTs <= localTs) return; // dados locais estão iguais ou mais novos: não sobrescreve
       DB = rows[0].data;
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       saveDB(true);
@@ -415,10 +422,41 @@ function renderProdutosTable(){
         <td class="${total<=DB.config.minStock?'text-danger':''}">${total}</td>
         <td>${p.showInStore!==false?'<span class="badge badge-success">Visível</span>':'<span class="badge badge-muted">Oculto</span>'}</td>
         <td><button class="btn btn-sm" onclick="openProductModal('${p.id}')">Editar</button>
+            <button class="btn btn-sm" title="Ir para Etiquetas" onclick="goToLabels('${p.id}')">🏷️</button>
             <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Excluir</button></td>
       </tr>`;
     }).join('')}
   </tbody></table></div>`;
+}
+/* Lê um arquivo de imagem, redimensiona (maior lado = maxDim) e comprime
+   em JPEG, devolvendo uma data URL — assim a foto vai junto no mesmo
+   JSON sincronizado com o Supabase, sem precisar de um bucket separado. */
+function resizeImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev=>{
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else if(h >= w && h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function goToLabels(pid){
+  const p = DB.products.find(x=>x.id===pid);
+  if(!p) return;
+  p.variations.forEach(v=>{ etiquetaQty[varKey(p.id, v.size, v.color)] = v.stock>0 ? v.stock : 1; });
+  navigate('etiquetas');
 }
 function deleteProduct(id){
   if(!confirm('Excluir este produto?')) return;
@@ -439,7 +477,17 @@ function openProductModal(id){
       <div class="field"><label>Marca</label><input id="f_brand" value="${escapeHtml(p.brand)}"></div>
       <div class="field"><label>Custo (R$)</label><input id="f_cost" type="number" step="0.01" value="${p.cost}"></div>
       <div class="field"><label>Preço de venda (R$)</label><input id="f_price" type="number" step="0.01" value="${p.price}"></div>
-      <div class="field full"><label>Foto (URL)</label><input id="f_photo" value="${escapeHtml(p.photo)}" placeholder="https://..."></div>
+      <div class="field full">
+        <label>Foto do produto</label>
+        <input id="f_photo" value="${escapeHtml(p.photo)}" placeholder="Cole uma URL ou envie um arquivo abaixo">
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+          <label class="btn btn-sm" style="cursor:pointer;margin:0">📁 Enviar do computador/celular
+            <input type="file" id="f_photoFile" accept="image/*" style="display:none">
+          </label>
+          <img id="f_photoPreview" src="${escapeHtml(p.photo||'')}" style="height:52px;width:52px;object-fit:cover;border-radius:8px;background:var(--sand);${p.photo?'':'display:none'}">
+          <span id="f_photoStatus" class="text-muted" style="font-size:12px"></span>
+        </div>
+      </div>
       <div class="field full"><label>Descrição</label><textarea id="f_desc" rows="2">${escapeHtml(p.description)}</textarea></div>
       <div class="field"><label><input type="checkbox" id="f_show" ${p.showInStore!==false?'checked':''}> Mostrar na loja virtual</label></div>
       <div class="field"><label><input type="checkbox" id="f_new" ${p.isNew?'checked':''}> Selo NOVO</label></div>
@@ -453,6 +501,22 @@ function openProductModal(id){
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  overlay.querySelector('#f_photo').addEventListener('input', e=>{
+    const preview = overlay.querySelector('#f_photoPreview');
+    preview.src = e.target.value; preview.style.display = e.target.value ? '' : 'none';
+  });
+  overlay.querySelector('#f_photoFile').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const status = overlay.querySelector('#f_photoStatus');
+    status.textContent = 'Processando...';
+    resizeImageFile(file, 900, 0.75).then(dataUrl=>{
+      overlay.querySelector('#f_photo').value = dataUrl;
+      const preview = overlay.querySelector('#f_photoPreview');
+      preview.src = dataUrl; preview.style.display = '';
+      status.textContent = `Pronto (${Math.round(dataUrl.length/1024)} KB)`;
+    }).catch(()=>{ status.textContent=''; toast('Não foi possível ler essa imagem','error'); });
+  });
   let variations = p.variations.map(v=>({...v}));
   function renderVars(){
     overlay.querySelector('#varRows').innerHTML = variations.map((v,i)=>`
@@ -510,7 +574,10 @@ function openProductModal(id){
     if(editing){ Object.assign(editing, data); }
     else DB.products.push(data);
     saveDB(); overlay.remove(); renderProdutosTable();
-    toast('Produto salvo');
+    // vincula com Etiquetas: a etiqueta da variação já fica pronta pra imprimir
+    data.variations.forEach(v=>{ etiquetaQty[varKey(data.id, v.size, v.color)] = v.stock>0 ? v.stock : 1; });
+    if(editing){ toast('Produto salvo'); }
+    else toast('Produto salvo! Etiqueta pronta — clique para imprimir 🏷️', 'ok', ()=>navigate('etiquetas'));
   });
 }
 
