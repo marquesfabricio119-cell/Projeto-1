@@ -1195,6 +1195,7 @@ function renderFinanceTable(){
       <td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description||'-')}</td><td>${money(e.amount)}</td>
       <td>${e.status==='pago'?'<span class="badge badge-success">Pago</span>':'<span class="badge badge-warning">Pendente</span>'}</td>
       <td>${e.status==='pendente'?`<button class="btn btn-sm btn-accent" onclick="markFinanceEntryPaid('${e.id}')">Marcar pago</button>`:''}
+          <button class="btn btn-sm" onclick="openFinanceModal('${e.type}','${e.id}')">Editar</button>
           <button class="btn btn-sm btn-danger" onclick="deleteFinanceEntry('${e.id}')">Excluir</button></td>
     </tr>`).join('')}
   </tbody></table></div>`;
@@ -1208,26 +1209,36 @@ function deleteFinanceEntry(id){
   DB.finance.entries = DB.finance.entries.filter(e=>e.id!==id);
   saveDB(); renderFinanceTable();
 }
-function openFinanceModal(type){
+function openFinanceModal(type, id){
+  const editing = id ? DB.finance.entries.find(x=>x.id===id) : null;
+  const e = editing || { id:uid(), type, category:'', description:'', amount:0, status:'pago' };
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:420px">
-    <h2>${type==='receita'?'+ Receita':'+ Despesa'}</h2>
-    <div class="field"><label>Categoria</label><input id="fe_cat"></div>
-    <div class="field" style="margin-top:10px"><label>Descrição</label><input id="fe_desc"></div>
-    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="fe_amount" step="0.01"></div>
+    <h2>${editing?'Editar':'+'} ${type==='receita'?'Receita':'Despesa'}</h2>
+    <div class="field"><label>Categoria</label><input id="fe_cat" value="${escapeHtml(e.category)}"></div>
+    <div class="field" style="margin-top:10px"><label>Descrição</label><input id="fe_desc" value="${escapeHtml(e.description||'')}"></div>
+    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="fe_amount" step="0.01" value="${e.amount}"></div>
     <div class="field" style="margin-top:10px"><label>Status</label>
-      <select id="fe_status"><option value="pago">Pago</option><option value="pendente">Pendente</option></select>
+      <select id="fe_status"><option value="pago" ${e.status==='pago'?'selected':''}>Pago</option><option value="pendente" ${e.status==='pendente'?'selected':''}>Pendente</option></select>
     </div>
-    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button></div>
+    <div class="modal-actions">
+      ${editing?`<button class="btn btn-danger" id="deleteBtn" style="margin-right:auto">Excluir</button>`:''}
+      <button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button>
+    </div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#deleteBtn')?.addEventListener('click', ()=>{
+    overlay.remove(); deleteFinanceEntry(e.id);
+  });
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
     const amount = Number(overlay.querySelector('#fe_amount').value)||0;
     if(amount<=0){ toast('Informe um valor','error'); return; }
-    DB.finance.entries.push({ id:uid(), type, category: overlay.querySelector('#fe_cat').value.trim()||'Outros',
-      description: overlay.querySelector('#fe_desc').value.trim(), amount, date: todayISO(), status: overlay.querySelector('#fe_status').value });
+    const data = { category: overlay.querySelector('#fe_cat').value.trim()||'Outros',
+      description: overlay.querySelector('#fe_desc').value.trim(), amount, status: overlay.querySelector('#fe_status').value };
+    if(editing){ Object.assign(editing, data); }
+    else DB.finance.entries.push({ ...e, ...data, date: todayISO() });
     saveDB(); overlay.remove(); renderFinanceiro(document.getElementById('view'));
     toast('Lançamento salvo');
   });
@@ -1269,6 +1280,7 @@ function renderGastosTable(){
       <td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.note||'-')}</td><td>${money(r.amount)}</td>
       <td>${r.status==='pago'?'<span class="badge badge-success">Pago</span>':'<span class="badge badge-warning">Pendente</span>'}</td>
       <td>${r.status==='pendente'?`<button class="btn btn-sm btn-accent" onclick="markGastoPaid('${r.id}')">Marcar pago</button>`:''}
+          <button class="btn btn-sm" onclick="openGastoModal('${r.id}')">Editar</button>
           <button class="btn btn-sm btn-danger" onclick="deleteGasto('${r.id}')">Excluir</button></td>
     </tr>`).join('')}
   </tbody></table></div>`;
@@ -1280,35 +1292,47 @@ function openCategoryModal(){
     saveDB(); toast('Categoria adicionada');
   }
 }
-function openGastoModal(){
+function openGastoModal(id){
+  const editing = id ? DB.monthlyExpenses.records.find(x=>x.id===id) : null;
   const cats = DB.monthlyExpenses.categories;
+  const r = editing || { id:uid(), month:gastosMonth, category:cats[0], note:'', amount:0, status:'pendente' };
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:420px">
-    <h2>Lançar gasto mensal — ${monthLabel(gastosMonth)}</h2>
+    <h2>${editing?'Editar gasto':'Lançar gasto mensal'} — ${monthLabel(r.month)}</h2>
     <div class="field"><label>Categoria</label>
-      <select id="g_cat">${cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>
+      <select id="g_cat">${cats.map(c=>`<option value="${escapeHtml(c)}" ${r.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
     </div>
-    <div class="field" style="margin-top:10px"><label>Descrição (opcional)</label><input id="g_note"></div>
-    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="g_amount" step="0.01"></div>
+    <div class="field" style="margin-top:10px"><label>Descrição (opcional)</label><input id="g_note" value="${escapeHtml(r.note||'')}"></div>
+    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="g_amount" step="0.01" value="${r.amount}"></div>
     <div class="field" style="margin-top:10px"><label>Status</label>
-      <select id="g_status"><option value="pendente">Pendente</option><option value="pago">Pago</option></select>
+      <select id="g_status"><option value="pendente" ${r.status==='pendente'?'selected':''}>Pendente</option><option value="pago" ${r.status==='pago'?'selected':''}>Pago</option></select>
     </div>
-    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button></div>
+    <div class="modal-actions">
+      ${editing?`<button class="btn btn-danger" id="deleteBtn" style="margin-right:auto">Excluir</button>`:''}
+      <button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button>
+    </div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#deleteBtn')?.addEventListener('click', ()=>{
+    overlay.remove(); deleteGasto(r.id);
+  });
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
     const amount = Number(overlay.querySelector('#g_amount').value)||0;
     if(amount<=0){ toast('Informe um valor','error'); return; }
     const status = overlay.querySelector('#g_status').value;
-    const record = { id:uid(), month:gastosMonth, category: overlay.querySelector('#g_cat').value, note: overlay.querySelector('#g_note').value.trim(), amount, status, paidDate: status==='pago'?todayISO():null };
-    DB.monthlyExpenses.records.push(record);
-    if(status==='pago'){
-      DB.finance.entries.push({ id:uid(), type:'despesa', category:`Gasto mensal — ${record.category}`, amount, date: todayISO(), status:'pago', description: record.note||record.category });
+    const data = { category: overlay.querySelector('#g_cat').value, note: overlay.querySelector('#g_note').value.trim(), amount, status };
+    if(editing){
+      Object.assign(editing, data);
+    } else {
+      DB.monthlyExpenses.records.push({ ...r, ...data, paidDate: status==='pago'?todayISO():null });
+      if(status==='pago'){
+        DB.finance.entries.push({ id:uid(), type:'despesa', category:`Gasto mensal — ${data.category}`, amount, date: todayISO(), status:'pago', description: data.note||data.category });
+      }
     }
     saveDB(); overlay.remove(); renderGastos(document.getElementById('view'));
-    toast('Gasto lançado');
+    toast('Gasto salvo');
   });
 }
 function markGastoPaid(id){
@@ -1350,27 +1374,43 @@ function renderSetupTable(){
       <td>${escapeHtml(i.category)}</td><td>${escapeHtml(i.name||'-')}</td><td>${money(i.planned)}</td><td>${money(i.paid)}</td>
       <td class="${i.planned-i.paid>0?'text-danger':'text-success'}">${money(Math.max(0,i.planned-i.paid))}</td>
       <td>${i.paid<i.planned?`<button class="btn btn-sm btn-accent" onclick="markSetupPaid('${i.id}')">Marcar pago</button>`:''}
+          <button class="btn btn-sm" onclick="openSetupModal('${i.id}')">Editar</button>
           <button class="btn btn-sm btn-danger" onclick="deleteSetup('${i.id}')">Excluir</button></td>
     </tr>`).join('')}
   </tbody></table></div>`;
 }
-function openSetupModal(){
+function openSetupModal(id){
+  const editing = id ? DB.storeSetup.items.find(x=>x.id===id) : null;
+  const i = editing || { id:uid(), category:SETUP_CATEGORIES[0], name:'', planned:0, paid:0 };
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:420px">
-    <h2>+ Custo de abertura</h2>
+    <h2>${editing?'Editar':'+'} custo de abertura</h2>
     <div class="field"><label>Categoria</label>
-      <select id="s_cat">${SETUP_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
+      <select id="s_cat">${SETUP_CATEGORIES.map(c=>`<option value="${c}" ${i.category===c?'selected':''}>${c}</option>`).join('')}</select>
     </div>
-    <div class="field" style="margin-top:10px"><label>Descrição</label><input id="s_name"></div>
-    <div class="field" style="margin-top:10px"><label>Valor previsto (R$)</label><input type="number" id="s_planned" step="0.01"></div>
-    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button></div>
+    <div class="field" style="margin-top:10px"><label>Descrição</label><input id="s_name" value="${escapeHtml(i.name)}"></div>
+    <div class="field" style="margin-top:10px"><label>Valor previsto (R$)</label><input type="number" id="s_planned" step="0.01" value="${i.planned}"></div>
+    <div class="field" style="margin-top:10px"><label>Valor pago (R$)</label><input type="number" id="s_paid" step="0.01" value="${i.paid}"></div>
+    <div class="modal-actions">
+      ${editing?`<button class="btn btn-danger" id="deleteBtn" style="margin-right:auto">Excluir</button>`:''}
+      <button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button>
+    </div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#deleteBtn')?.addEventListener('click', ()=>{
+    overlay.remove(); deleteSetup(i.id);
+  });
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
-    const planned = Number(overlay.querySelector('#s_planned').value)||0;
-    DB.storeSetup.items.push({ id:uid(), category: overlay.querySelector('#s_cat').value, name: overlay.querySelector('#s_name').value.trim(), planned, paid:0 });
+    const data = {
+      category: overlay.querySelector('#s_cat').value,
+      name: overlay.querySelector('#s_name').value.trim(),
+      planned: Number(overlay.querySelector('#s_planned').value)||0,
+      paid: Number(overlay.querySelector('#s_paid').value)||0,
+    };
+    if(editing){ Object.assign(editing, data); }
+    else DB.storeSetup.items.push({ id:i.id, ...data });
     saveDB(); overlay.remove(); renderAbrirLoja(document.getElementById('view'));
     toast('Custo salvo');
   });
