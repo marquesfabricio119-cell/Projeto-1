@@ -113,14 +113,79 @@ function seedInitialData(){
 }
 
 /* ---------- Load / Save ---------- */
+/* Repara e normaliza o formato dos dados.
+   Bancos vindos do sistema antigo (ou de versões anteriores) podem ter
+   produtos sem a lista de variações, ou com os nomes de campo antigos
+   (`bar` em vez de `barcode`, `loja` em vez de `showInStore`). Sem isso,
+   qualquer tela que percorre `p.variations` estoura e fica em branco. */
+function normalizeDB(){
+  const arr = v => Array.isArray(v) ? v : [];
+  const num = v => Number(v) || 0;
+
+  DB.products = arr(DB.products).filter(Boolean).map(p=>({
+    ...p,
+    id: p.id || uid(),
+    name: p.name || 'Produto sem nome',
+    sku: p.sku || '',
+    category: p.category || '',
+    brand: p.brand || '',
+    cost: num(p.cost),
+    price: num(p.price),
+    photo: p.photo || '',
+    description: p.description || '',
+    // `loja` era o nome antigo do "mostrar na loja virtual"
+    showInStore: p.showInStore !== undefined ? p.showInStore !== false : p.loja !== false,
+    isNew: !!p.isNew,
+    variations: arr(p.variations).filter(Boolean).map(v=>({
+      ...v,
+      size: v.size || '',
+      color: v.color || '',
+      stock: num(v.stock),
+      // `bar` era o nome antigo do código de barras
+      barcode: v.barcode || v.bar || ''
+    }))
+  }));
+
+  DB.customers = arr(DB.customers).filter(Boolean).map(c=>({ ...c, id: c.id || uid(), name: c.name || 'Cliente' }));
+
+  DB.sales = arr(DB.sales).filter(Boolean).map(s=>({
+    ...s,
+    id: s.id || uid(),
+    date: s.date || todayISO(),
+    items: arr(s.items).filter(Boolean).map(i=>({ ...i, qty: num(i.qty), price: num(i.price) })),
+    discount: num(s.discount),
+    total: num(s.total),
+    payment: s.payment || 'Dinheiro',
+    seller: s.seller || '-',
+    // `origem` era o nome antigo de `origin`
+    origin: s.origin || s.origem || 'pdv',
+    canceled: !!s.canceled
+  }));
+
+  if(!DB.finance || typeof DB.finance !== 'object') DB.finance = { entries: [] };
+  DB.finance.entries = arr(DB.finance.entries).filter(Boolean).map(e=>({ ...e, id: e.id || uid(), amount: num(e.amount) }));
+
+  if(!DB.storeSetup || typeof DB.storeSetup !== 'object') DB.storeSetup = { items: [] };
+  DB.storeSetup.items = arr(DB.storeSetup.items).filter(Boolean).map(i=>({ ...i, id: i.id || uid(), planned: num(i.planned), paid: num(i.paid) }));
+
+  if(!DB.cashRegister || typeof DB.cashRegister !== 'object') DB.cashRegister = defaultDB().cashRegister;
+  DB.cashRegister.movements = arr(DB.cashRegister.movements);
+  DB.cashRegister.closedHistory = arr(DB.cashRegister.closedHistory);
+
+  DB.users = arr(DB.users).filter(Boolean);
+  if(!DB.users.length) DB.users = defaultDB().users;
+}
+
 function migrateDB(){
   // garante campos novos em bancos antigos, sem tocar no localStorage
   const d = defaultDB();
   for(const k in d){ if(!(k in DB)) DB[k] = d[k]; }
   if(!DB.monthlyExpenses) DB.monthlyExpenses = d.monthlyExpenses;
   if(!DB.monthlyExpenses.categories) DB.monthlyExpenses.categories = d.monthlyExpenses.categories;
-  if(!DB.monthlyExpenses.records) DB.monthlyExpenses.records = [];
-  if(!DB.cashRegister.closedHistory) DB.cashRegister.closedHistory = [];
+  if(!Array.isArray(DB.monthlyExpenses.records)) DB.monthlyExpenses.records = [];
+  if(!DB.config || typeof DB.config !== 'object') DB.config = d.config;
+  if(!DB.storeName) DB.storeName = d.storeName;
+  normalizeDB();
   if(!DB.barcodeSeq) DB.barcodeSeq = 0;
   seedInitialData();
 }
@@ -327,7 +392,30 @@ function navigate(route){
     relatorios: renderRelatorios, config: renderConfig
   };
   view.innerHTML = '';
-  (renderers[route]||renderPainel)(view);
+  try{
+    (renderers[route]||renderPainel)(view);
+  }catch(err){
+    // Uma tela em branco não diz nada a quem está usando: mostra o que houve
+    // e oferece o reparo, em vez de engolir o erro.
+    console.error('Erro ao abrir a tela "'+route+'":', err);
+    view.innerHTML = `<div class="panel">
+      <h3 style="color:var(--danger)">Não foi possível carregar esta tela</h3>
+      <p class="text-muted" style="margin-bottom:14px">Detalhe técnico: ${escapeHtml(err.message)}</p>
+      <button class="btn btn-accent" onclick="repairAndReload()">Reparar dados e recarregar</button>
+    </div>`;
+  }
+}
+
+/* Reparo manual: renormaliza o banco local e recarrega a tela. */
+function repairAndReload(){
+  try{
+    normalizeDB();
+    saveDB();
+    toast('Dados reparados');
+    navigate(currentRoute);
+  }catch(err){
+    toast('Falha ao reparar: '+err.message, 'error');
+  }
 }
 
 /* =========================================================
@@ -1636,6 +1724,12 @@ document.addEventListener('keydown', e=>{
 /* =========================================================
    INIT
    ========================================================= */
+/* Rede de segurança: qualquer erro não tratado vira um aviso visível,
+   em vez de deixar a tela em branco sem explicação. */
+window.addEventListener('error', e=>{
+  if(e && e.message) toast('Erro: '+e.message, 'error');
+});
+
 document.addEventListener('DOMContentLoaded', ()=>{
   loadDB();
   restoreSession();
