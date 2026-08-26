@@ -5,6 +5,12 @@
    ========================================================= */
 
 /* ---------- Supabase ---------- */
+/* Versão do app. Aparece no rodapé do menu lateral e deve bater com o
+   ?v= das tags <script>/<link> do index.html — serve para confirmar num
+   piscar de olhos se o navegador está rodando o código mais recente ou
+   uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
+const APP_VERSION = "9";
+
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
 const SUPABASE_TABLE = "loja_roupas_db";
@@ -368,6 +374,8 @@ function renderShell(){
   document.getElementById('userPill').textContent = `${SESSION.name} · ${SESSION.role==='admin'?'Admin':'Vendedor(a)'}`;
   const navEl = document.getElementById('navList');
   navEl.innerHTML = NAV.map(n=>`<li><a href="#${n.id}" data-route="${n.id}">${n.icon} ${n.label}</a></li>`).join('');
+  const ver = document.getElementById('appVersion');
+  if(ver) ver.textContent = 'versão '+APP_VERSION;
 }
 function toggleSidebar(){
   document.getElementById('sidebar')?.classList.toggle('open');
