@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "14";
+const APP_VERSION = "15";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -45,13 +45,13 @@ function toast(msg, type='ok', onClick){
 /* ---------- DB default schema ---------- */
 function defaultDB(){
   return {
-    storeName: "Estilo & Cia",
+    storeName: "Estilo Fashion",
     config: {
       minStock: 5,
       whatsapp: "",
       pixKey: "",
       address: "",
-      heroPhrase: "Estilo que é só seu ✨"
+      heroPhrase: "Moda que realça quem você é ✨"
     },
     users: [
       { id: uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' }
@@ -206,7 +206,15 @@ function migrateDB(){
   if(!Array.isArray(DB.monthlyExpenses.records)) DB.monthlyExpenses.records = [];
   if(!DB.config || typeof DB.config !== 'object') DB.config = d.config;
   if(!DB.storeName) DB.storeName = d.storeName;
-  const reparou = normalizeDB();
+  // Renome da marca: quem já usava o sistema tem o nome antigo gravado no
+  // banco e continuaria vendo "Estilo & Cia" na tela. Só troca quando é o
+  // nome padrão antigo — um nome escolhido pela loja é preservado.
+  let renomeou = false;
+  if(DB.storeName === 'Estilo & Cia'){ DB.storeName = d.storeName; renomeou = true; }
+  if(DB.config && DB.config.heroPhrase === 'Estilo que é só seu ✨'){
+    DB.config.heroPhrase = d.config.heroPhrase; renomeou = true;
+  }
+  const reparou = normalizeDB() || renomeou;
   if(!DB.barcodeSeq) DB.barcodeSeq = 0;
   seedInitialData();
   // Grava o reparo: sem isso os ids recém-criados só existem em memória e

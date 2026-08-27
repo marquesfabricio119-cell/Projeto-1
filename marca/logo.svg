@@ -1,7 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100">
-  <circle cx="50" cy="50" r="42" fill="#2E1140"/>
-  <circle cx="50" cy="50" r="42" fill="none" stroke="#C9A45C" stroke-width="1.6"/>
-  <text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="32" fill="#F6EFE7">E<tspan fill="#B9766F">&amp;</tspan>C</text>
-  <text x="110" y="52" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="34" fill="#2E1140">Estilo <tspan fill="#B9766F">&amp;</tspan> Cia</text>
-  <text x="112" y="76" font-family="Poppins, sans-serif" font-size="13" letter-spacing="2" fill="#C9A45C">ESTILO QUE É SÓ SEU</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 130">
+  <defs>
+    <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E3AE9C"/>
+      <stop offset="55%" stop-color="#C08574"/>
+      <stop offset="100%" stop-color="#9E6555"/>
+    </linearGradient>
+    <!-- folha reutilizável, ~15 de comprimento -->
+    <path id="folha" d="M0 0 C5 -4.5 12 -4 15 0 C12 4 5 4.5 0 0 Z"/>
+  </defs>
+
+  <!-- selo -->
+  <circle cx="62" cy="65" r="46" fill="#F6E7E1"/>
+  <circle cx="62" cy="65" r="39" fill="none" stroke="url(#rg)" stroke-width="1.2"/>
+  <text x="62" y="78" text-anchor="middle" font-family="Playfair Display, Georgia, serif"
+        font-weight="700" font-size="38" fill="url(#rg)" letter-spacing="0.5">EF</text>
+
+  <!-- ramo, acompanhando a lateral direita do selo -->
+  <g fill="url(#rg)">
+    <path d="M120 98 C114 82 113 66 118 48" stroke="url(#rg)" stroke-width="1.3" fill="none"/>
+    <use href="#folha" transform="translate(118,50) rotate(-34)"/>
+    <use href="#folha" transform="translate(116,64) rotate(-16)"/>
+    <use href="#folha" transform="translate(117,79) rotate(0)"/>
+    <use href="#folha" transform="translate(115,57) rotate(-148) scale(.78)"/>
+    <use href="#folha" transform="translate(115,72) rotate(-164) scale(.78)"/>
+  </g>
+
+  <!-- assinatura -->
+  <text x="146" y="62" font-family="Playfair Display, Georgia, serif" font-weight="700"
+        font-size="35" fill="url(#rg)" letter-spacing="4">ESTILO</text>
+  <text x="148" y="85" font-family="Poppins, sans-serif" font-size="15"
+        letter-spacing="8" fill="#C08574">FASHION</text>
+  <text x="148" y="105" font-family="Poppins, sans-serif" font-size="9.5"
+        letter-spacing="2.6" fill="#A9786C">MODA QUE REALÇA QUEM VOCÊ É</text>
 </svg>

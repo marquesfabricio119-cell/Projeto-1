@@ -1,4 +1,4 @@
-# Estilo & Cia — Sistema de Loja de Roupas
+# Estilo Fashion — Sistema de Loja de Roupas
 
 Sistema completo para loja de roupas feminina (ERP/PDV) + loja virtual integrada + identidade visual.
 HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supabase (estado inteiro num JSON).

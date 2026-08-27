@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Estilo & Cia — moda feminina online. Vestidos, blusas e muito mais, com entrega combinada por WhatsApp e pagamento via PIX.">
-<meta property="og:title" content="Estilo & Cia">
-<meta property="og:description" content="Estilo que é só seu ✨ — confira nossa vitrine online.">
+<meta name="description" content="Estilo Fashion — moda feminina online. Vestidos, blusas e muito mais, com entrega combinada por WhatsApp e pagamento via PIX.">
+<meta property="og:title" content="Estilo Fashion">
+<meta property="og:description" content="Moda que realça quem você é ✨ — confira nossa vitrine online.">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#2E1140">
-<title>Estilo & Cia</title>
+<meta name="theme-color" content="#4A3630">
+<title>Estilo Fashion</title>
 <link rel="icon" href="../marca/simbolo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,9 +16,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ameixa:#4A1F63; --ameixa-escura:#2E1140; --rose:#D9A5A0; --rose-escuro:#B9766F;
-  --cream:#F6EFE7; --sand:#E9DDD0; --gold:#C9A45C; --text:#33262E; --muted:#8A7A82;
-  --border:#E6D9CF;
+  --rose-gold:#C08574; --rose-gold-esc:#9E6555; --rose-claro:#E8CDC4; --nude:#D9B8AE;
+  --cream:#FBF4F0; --sand:#F1E3DC; --marrom:#4A3630; --marrom-esc:#33231F;
+  --text:#3A2C27; --muted:#8C7A72; --border:#EBDCD4;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Poppins',sans-serif;background:var(--cream);color:var(--text)}
@@ -27,53 +27,53 @@ a{color:inherit;text-decoration:none}
 button{cursor:pointer;font-family:inherit}
 img{max-width:100%;display:block}
 
-header{background:var(--ameixa-escura);color:#fff;position:sticky;top:0;z-index:50}
+header{background:var(--marrom);color:#fff;position:sticky;top:0;z-index:50}
 .topbar{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px}
 .brand img{width:36px;height:36px}
 .brand span{font-family:'Playfair Display',serif;font-size:19px}
-.cart-btn{background:var(--ameixa);color:#fff;border:none;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600;position:relative}
-.cart-count{position:absolute;top:-6px;right:-6px;background:var(--gold);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center}
-.hero{background:linear-gradient(160deg,var(--ameixa-escura),var(--rose-escuro));color:#fff;text-align:center;padding:56px 20px}
+.cart-btn{background:var(--rose-gold);color:#fff;border:none;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600;position:relative}
+.cart-count{position:absolute;top:-6px;right:-6px;background:var(--rose-gold-esc);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center}
+.hero{background:linear-gradient(160deg,var(--marrom-esc),var(--rose-gold));color:#fff;text-align:center;padding:56px 20px}
 .hero h1{font-size:32px;margin-bottom:8px}
-.hero p{color:var(--rose);font-style:italic;font-size:15px}
+.hero p{color:var(--rose-claro);font-style:italic;font-size:15px}
 
 .wrap{max-width:1100px;margin:0 auto;padding:30px 20px}
 .cat-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
 .cat-tabs button{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px}
-.cat-tabs button.active{background:var(--ameixa);color:#fff;border-color:var(--ameixa)}
+.cat-tabs button.active{background:var(--rose-gold);color:#fff;border-color:var(--rose-gold)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
-.pcard{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(46,17,64,.06);transition:transform .15s}
+.pcard{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(74,54,48,.06);transition:transform .15s}
 .pcard:hover{transform:translateY(-3px)}
 .pcard .imgwrap{position:relative;height:230px;background:var(--sand)}
 .pcard .imgwrap img{width:100%;height:100%;object-fit:cover}
-.pcard .badge-new{position:absolute;top:10px;left:10px;background:var(--gold);color:#fff;font-size:10.5px;padding:3px 9px;border-radius:6px}
+.pcard .badge-new{position:absolute;top:10px;left:10px;background:var(--rose-gold-esc);color:#fff;font-size:10.5px;padding:3px 9px;border-radius:6px}
 .pcard .info{padding:14px}
 .pcard .pname{font-size:14px;font-weight:600;margin-bottom:4px}
 .pcard .pcat{font-size:11.5px;color:var(--muted);margin-bottom:8px}
-.pcard .pprice{color:var(--rose-escuro);font-weight:700;font-size:16px}
+.pcard .pprice{color:var(--rose-gold-esc);font-weight:700;font-size:16px}
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 
 /* produto */
-.back-link{display:inline-block;margin-bottom:18px;color:var(--rose-escuro);font-weight:600;font-size:13.5px}
+.back-link{display:inline-block;margin-bottom:18px;color:var(--rose-gold-esc);font-weight:600;font-size:13.5px}
 .product-detail{display:grid;grid-template-columns:1fr 1fr;gap:40px}
 .product-detail .imgwrap{border-radius:14px;overflow:hidden;background:var(--sand)}
 .product-detail .imgwrap img{width:100%;height:420px;object-fit:cover}
 .product-detail h1{font-size:26px;margin-bottom:6px}
 .product-detail .cat{color:var(--muted);font-size:13px;margin-bottom:14px}
-.product-detail .price{font-size:26px;color:var(--rose-escuro);font-weight:700;margin-bottom:18px}
+.product-detail .price{font-size:26px;color:var(--rose-gold-esc);font-weight:700;margin-bottom:18px}
 .product-detail .desc{margin-bottom:20px;color:var(--text);line-height:1.7}
 .opt-group{margin-bottom:16px}
 .opt-group label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase}
 .opt-btns{display:flex;gap:8px;flex-wrap:wrap}
 .opt-btns button{padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px}
-.opt-btns button.active{background:var(--ameixa-escura);color:#fff;border-color:var(--ameixa-escura)}
+.opt-btns button.active{background:var(--marrom);color:#fff;border-color:var(--marrom)}
 .opt-btns button:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
-.add-cart-btn{background:var(--ameixa);color:#fff;border:none;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:600;width:100%;margin-top:10px}
+.add-cart-btn{background:var(--rose-gold);color:#fff;border:none;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:600;width:100%;margin-top:10px}
 .add-cart-btn:disabled{background:var(--border);cursor:not-allowed}
 
 /* carrinho / checkout */
-.cart-drawer-overlay{position:fixed;inset:0;background:rgba(46,17,64,.5);z-index:100;display:flex;justify-content:flex-end}
+.cart-drawer-overlay{position:fixed;inset:0;background:rgba(51,35,31,.5);z-index:100;display:flex;justify-content:flex-end}
 .cart-drawer{background:#fff;width:100%;max-width:420px;height:100%;padding:24px;overflow-y:auto}
 .cart-drawer h2{font-size:20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
 .cart-line{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
@@ -82,10 +82,10 @@ header{background:var(--ameixa-escura);color:#fff;position:sticky;top:0;z-index:
 .cart-line .cl-meta{font-size:11.5px;color:var(--muted);margin:2px 0}
 .cart-line .cl-qty{display:flex;align-items:center;gap:6px;margin-top:6px}
 .cart-line .cl-qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:#fff}
-.cart-line .cl-remove{font-size:11px;color:var(--rose-escuro);margin-top:6px;background:none;border:none}
+.cart-line .cl-remove{font-size:11px;color:var(--rose-gold-esc);margin-top:6px;background:none;border:none}
 .cart-summary{margin-top:16px;padding-top:16px;border-top:2px solid var(--border)}
 .cart-summary .row{display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px}
-.checkout-btn{width:100%;background:var(--ameixa-escura);color:#fff;border:none;padding:14px;border-radius:10px;font-weight:600}
+.checkout-btn{width:100%;background:var(--marrom);color:#fff;border:none;padding:14px;border-radius:10px;font-weight:600}
 .close-drawer{background:none;border:none;font-size:20px}
 
 .checkout-form .field{margin-bottom:14px}
@@ -116,19 +116,19 @@ footer.site-footer{text-align:center;padding:40px 20px;color:var(--muted);font-s
 
 <header>
   <div class="topbar">
-    <a href="#/" class="brand"><img src="../marca/simbolo.svg" alt=""><span>Estilo & Cia</span></a>
+    <a href="#/" class="brand"><img src="../marca/simbolo.svg" alt=""><span>Estilo Fashion</span></a>
     <button class="cart-btn" id="cartBtn">🛍️ Sacola <span class="cart-count" id="cartCount">0</span></button>
   </div>
 </header>
 
 <div class="hero">
-  <h1>Estilo & Cia</h1>
-  <p id="heroPhrase">Estilo que é só seu ✨</p>
+  <h1>Estilo Fashion</h1>
+  <p id="heroPhrase">Moda que realça quem você é ✨</p>
 </div>
 
 <div class="wrap" id="content"></div>
 
-<footer class="site-footer" id="siteFooter">Estilo & Cia — todos os direitos reservados</footer>
+<footer class="site-footer" id="siteFooter">Estilo Fashion — todos os direitos reservados</footer>
 
 <script>
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
@@ -382,7 +382,7 @@ function showOrderConfirmation(sale, customer){
   const pixKey = DB.config?.pixKey || '(chave PIX não configurada)';
   const whats = (DB.config?.whatsapp || '').replace(/\D/g,'');
   const itemsText = sale.items.map(i=>`- ${i.name} (${i.size||''}${i.color?'/'+i.color:''}) x${i.qty}`).join('%0A');
-  const msg = `Olá! Acabei de fazer um pedido no site *Estilo & Cia* 🛍️%0A%0APedido #${sale.id.slice(-6)}%0A${itemsText}%0A%0ATotal: ${money(sale.total)}%0APagamento: PIX%0A%0AMeu nome: ${customer.name}%0AEndereço: ${customer.address}`;
+  const msg = `Olá! Acabei de fazer um pedido no site *Estilo Fashion* 🛍️%0A%0APedido #${sale.id.slice(-6)}%0A${itemsText}%0A%0ATotal: ${money(sale.total)}%0APagamento: PIX%0A%0AMeu nome: ${customer.name}%0AEndereço: ${customer.address}`;
   const waLink = whats ? `https://wa.me/${whats}?text=${msg}` : null;
 
   const overlay = document.createElement('div');
@@ -410,8 +410,8 @@ window.addEventListener('hashchange', router);
     DB = await fetchDB();
   }catch(e){ DB = null; }
   if(!DB){ document.getElementById('content').innerHTML = `<div class="empty">Não foi possível carregar a loja no momento. Tente novamente em instantes.</div>`; return; }
-  document.getElementById('heroPhrase').textContent = DB.config?.heroPhrase || 'Estilo que é só seu ✨';
-  document.getElementById('siteFooter').textContent = `${DB.storeName || 'Estilo & Cia'} — ${DB.config?.address || ''}`;
+  document.getElementById('heroPhrase').textContent = DB.config?.heroPhrase || 'Moda que realça quem você é ✨';
+  document.getElementById('siteFooter').textContent = `${DB.storeName || 'Estilo Fashion'} — ${DB.config?.address || ''}`;
   router();
 })();
 </script>
