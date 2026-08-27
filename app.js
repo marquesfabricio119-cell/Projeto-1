@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "10";
+const APP_VERSION = "11";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -20,7 +20,7 @@ const SESSION_KEY = "estiloCiaSession";
 
 let DB = null;
 let SESSION = null;
-let currentRoute = "painel";
+let currentRoute = "pdv"; // quem abre o sistema na loja quer vender
 let pushTimer = null;
 
 /* ---------- Util ---------- */
@@ -347,20 +347,24 @@ function restoreSession(){
 /* =========================================================
    SHELL / ROUTER
    ========================================================= */
+/* O menu é separado pelo uso: em cima o que a loja abre todo dia, embaixo
+   o que se mexe de vez em quando. Nada foi removido — só deixou de
+   competir por atenção com o balcão. */
 const NAV = [
-  { id:'painel', label:'Painel', icon:'🏠' },
-  { id:'pdv', label:'PDV', icon:'🛒' },
-  { id:'produtos', label:'Produtos', icon:'👗' },
-  { id:'estoque', label:'Estoque', icon:'📦' },
-  { id:'etiquetas', label:'Etiquetas', icon:'🏷️' },
-  { id:'clientes', label:'Clientes', icon:'👤' },
-  { id:'vendas', label:'Vendas', icon:'🧾' },
-  { id:'caixa', label:'Caixa', icon:'💰' },
-  { id:'financeiro', label:'Financeiro', icon:'📊' },
-  { id:'gastos', label:'Gastos Mensais', icon:'🧮' },
-  { id:'abrirloja', label:'Abrir Loja', icon:'🏗️' },
-  { id:'relatorios', label:'Relatórios', icon:'📈' },
-  { id:'config', label:'Configurações', icon:'⚙️' },
+  { id:'pdv', label:'Vender (PDV)', icon:'🛒', group:'dia' },
+  { id:'produtos', label:'Produtos', icon:'👗', group:'dia' },
+  { id:'estoque', label:'Estoque', icon:'📦', group:'dia' },
+  { id:'vendas', label:'Vendas', icon:'🧾', group:'dia' },
+
+  { id:'painel', label:'Painel', icon:'🏠', group:'gestao' },
+  { id:'caixa', label:'Caixa', icon:'💰', group:'gestao' },
+  { id:'etiquetas', label:'Etiquetas', icon:'🏷️', group:'gestao' },
+  { id:'clientes', label:'Clientes', icon:'👤', group:'gestao' },
+  { id:'financeiro', label:'Financeiro', icon:'📊', group:'gestao' },
+  { id:'gastos', label:'Gastos Mensais', icon:'🧮', group:'gestao' },
+  { id:'abrirloja', label:'Abrir Loja', icon:'🏗️', group:'gestao' },
+  { id:'relatorios', label:'Relatórios', icon:'📈', group:'gestao' },
+  { id:'config', label:'Configurações', icon:'⚙️', group:'gestao' },
 ];
 
 function showLogin(){
@@ -378,7 +382,11 @@ function renderShell(){
   document.getElementById('sidebarStoreName').textContent = DB.storeName;
   document.getElementById('userPill').textContent = `${SESSION.name} · ${SESSION.role==='admin'?'Admin':'Vendedor(a)'}`;
   const navEl = document.getElementById('navList');
-  navEl.innerHTML = NAV.map(n=>`<li><a href="#${n.id}" data-route="${n.id}">${n.icon} ${n.label}</a></li>`).join('');
+  const item = n => `<li><a href="#${n.id}" data-route="${n.id}">${n.icon} ${n.label}</a></li>`;
+  navEl.innerHTML =
+      NAV.filter(n=>n.group==='dia').map(item).join('')
+    + `<li class="nav-sep">Gerenciar</li>`
+    + NAV.filter(n=>n.group==='gestao').map(item).join('');
   const ver = document.getElementById('appVersion');
   if(ver) ver.textContent = 'versão '+APP_VERSION;
 }
@@ -569,39 +577,66 @@ function openProductModal(id){
   const p = editing || { id:uid(), sku:'', name:'', category:'', brand:'', cost:0, price:0, photo:'', description:'', showInStore:true, isNew:false, variations:[{size:'',color:'',stock:0,barcode:''}] };
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
+  // Produto com grade (vários tamanhos/cores) precisa do editor de variações
+  // à mostra; o produto simples do dia a dia se resolve com uma quantidade.
+  const temGrade = p.variations.length > 1 || p.variations.some(v=>v.size && v.size!=='Único');
   overlay.innerHTML = `<div class="modal" style="max-width:640px">
     <h2>${editing?'Editar':'Novo'} produto</h2>
-    <div class="form-grid">
-      <div class="field"><label>Nome</label><input id="f_name" value="${escapeHtml(p.name)}"></div>
-      <div class="field"><label>SKU</label><input id="f_sku" value="${escapeHtml(p.sku)}"></div>
-      <div class="field"><label>Categoria</label><input id="f_category" value="${escapeHtml(p.category)}" placeholder="Vestidos, Blusas..."></div>
-      <div class="field"><label>Marca</label><input id="f_brand" value="${escapeHtml(p.brand)}"></div>
-      <div class="field"><label>Custo (R$)</label><input id="f_cost" type="number" step="0.01" value="${p.cost}"></div>
-      <div class="field"><label>Preço de venda (R$)</label><input id="f_price" type="number" step="0.01" value="${p.price}"></div>
-      <div class="field full">
-        <label>Foto do produto</label>
-        <input id="f_photo" value="${escapeHtml(p.photo)}" placeholder="Cole uma URL ou envie um arquivo abaixo">
-        <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-          <label class="btn btn-sm" style="cursor:pointer;margin:0">📁 Enviar do computador/celular
-            <input type="file" id="f_photoFile" accept="image/*" style="display:none">
-          </label>
-          <img id="f_photoPreview" src="${escapeHtml(p.photo||'')}" style="height:52px;width:52px;object-fit:cover;border-radius:8px;background:var(--sand);${p.photo?'':'display:none'}">
-          <span id="f_photoStatus" class="text-muted" style="font-size:12px"></span>
-        </div>
-      </div>
-      <div class="field full"><label>Descrição</label><textarea id="f_desc" rows="2">${escapeHtml(p.description)}</textarea></div>
-      <div class="field"><label><input type="checkbox" id="f_show" ${p.showInStore!==false?'checked':''}> Mostrar na loja virtual</label></div>
-      <div class="field"><label><input type="checkbox" id="f_new" ${p.isNew?'checked':''}> Selo NOVO</label></div>
+
+    <div class="field"><label>Nome do produto</label>
+      <input id="f_name" value="${escapeHtml(p.name)}" placeholder="Ex.: Vestido Floral"></div>
+
+    <div class="form-grid" style="margin-top:12px">
+      <div class="field"><label>Preço de venda (R$)</label>
+        <input id="f_price" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
+      <div class="field" id="qtyField" ${temGrade?'style="display:none"':''}>
+        <label>Quantidade em estoque</label>
+        <input id="f_qty" type="number" inputmode="numeric" value="${temGrade?0:(p.variations[0]?.stock||0)}"></div>
     </div>
-    <h3 style="margin:18px 0 10px;font-size:14px">Variações (tamanho / cor / estoque / código de barras)</h3>
-    <div id="varRows"></div>
-    <button class="btn btn-sm" id="addVarBtn" type="button">+ Adicionar variação</button>
+
+    <button class="btn btn-sm" id="toggleMore" type="button" style="margin-top:16px">
+      ${temGrade?'▾':'▸'} Mais opções (tamanhos, foto, custo, categoria)
+    </button>
+
+    <div id="moreOptions" style="${temGrade?'':'display:none'};margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+      <div class="form-grid">
+        <div class="field"><label>Categoria</label><input id="f_category" value="${escapeHtml(p.category)}" placeholder="Vestidos, Blusas..."></div>
+        <div class="field"><label>Custo (R$)</label><input id="f_cost" type="number" step="0.01" value="${p.cost||''}" placeholder="0,00"></div>
+        <div class="field"><label>SKU</label><input id="f_sku" value="${escapeHtml(p.sku)}"></div>
+        <div class="field"><label>Marca</label><input id="f_brand" value="${escapeHtml(p.brand)}"></div>
+        <div class="field full">
+          <label>Foto do produto</label>
+          <input id="f_photo" value="${escapeHtml(p.photo)}" placeholder="Cole uma URL ou envie um arquivo abaixo">
+          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+            <label class="btn btn-sm" style="cursor:pointer;margin:0">📁 Enviar do computador/celular
+              <input type="file" id="f_photoFile" accept="image/*" style="display:none">
+            </label>
+            <img id="f_photoPreview" src="${escapeHtml(p.photo||'')}" style="height:52px;width:52px;object-fit:cover;border-radius:8px;background:var(--sand);${p.photo?'':'display:none'}">
+            <span id="f_photoStatus" class="text-muted" style="font-size:12px"></span>
+          </div>
+        </div>
+        <div class="field full"><label>Descrição</label><textarea id="f_desc" rows="2">${escapeHtml(p.description)}</textarea></div>
+        <div class="field"><label><input type="checkbox" id="f_show" ${p.showInStore!==false?'checked':''}> Mostrar na loja virtual</label></div>
+        <div class="field"><label><input type="checkbox" id="f_new" ${p.isNew?'checked':''}> Selo NOVO</label></div>
+      </div>
+      <h3 style="margin:18px 0 6px;font-size:14px">Tamanhos e cores</h3>
+      <p class="text-muted" style="font-size:12px;margin-bottom:10px">Use só se a peça tiver grade. Ao adicionar aqui, a quantidade acima é substituída pelo estoque de cada tamanho.</p>
+      <div id="varRows"></div>
+      <button class="btn btn-sm" id="addVarBtn" type="button">+ Adicionar tamanho/cor</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" id="cancelBtn">Cancelar</button>
       <button class="btn btn-accent" id="saveBtn">Salvar</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  overlay.querySelector('#toggleMore').addEventListener('click', e=>{
+    const box = overlay.querySelector('#moreOptions');
+    const aberto = box.style.display !== 'none';
+    box.style.display = aberto ? 'none' : '';
+    e.target.textContent = (aberto?'▸':'▾') + ' Mais opções (tamanhos, foto, custo, categoria)';
+  });
   overlay.querySelector('#f_photo').addEventListener('input', e=>{
     const preview = overlay.querySelector('#f_photoPreview');
     preview.src = e.target.value; preview.style.display = e.target.value ? '' : 'none';
@@ -658,11 +693,21 @@ function openProductModal(id){
     try{
       const name = overlay.querySelector('#f_name').value.trim();
       if(!name){ toast('Informe o nome do produto','error'); return; }
-      const finalVariations = variations.filter(v=>v.size || v.color || v.stock || v.barcode);
+      const preenchidas = variations.filter(v=>v.size || v.color || v.stock || v.barcode);
       // Sem nenhuma variação o produto sumiria do Estoque, do PDV e das
       // Etiquetas (essas telas são montadas a partir das variações). Um
       // produto sem tamanho/cor ganha a variação padrão "Único".
-      if(!finalVariations.length) finalVariations.push({ size:'Único', color:'Padrão', stock:0, barcode:'' });
+      const finalVariations = preenchidas.length
+        ? preenchidas
+        : [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
+      // O campo simples "Quantidade" só manda quando o produto não tem grade.
+      // Se a pessoa informou tamanho ou cor, quem manda é o estoque de cada
+      // variação — senão a quantidade simples apagaria o que ela digitou.
+      const temGradeAgora = preenchidas.some(v=>v.size || v.color);
+      const qtyInput = overlay.querySelector('#f_qty');
+      if(qtyInput && !temGradeAgora && overlay.querySelector('#qtyField').style.display !== 'none'){
+        finalVariations[0].stock = Number(qtyInput.value) || 0;
+      }
       finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
       const data = {
         id:p.id, name,
@@ -1102,7 +1147,12 @@ function clearCart(){ cart=[]; pdvDiscount=0; renderPDV(document.getElementById(
 
 function finalizeSale(){
   if(!cart.length){ toast('Carrinho vazio','error'); return; }
-  if(!DB.cashRegister.open){ toast('Abra o caixa antes de vender','error'); return; }
+  // Vender é o que não pode parar. Se o caixa não foi aberto, abre sozinho
+  // com valor inicial zero em vez de bloquear a venda — quem controla o
+  // caixa continua podendo abrir com troco pela tela de Caixa.
+  if(!DB.cashRegister.open){
+    DB.cashRegister = { open:true, openedAt: todayISO(), openingAmount:0, movements:[], closedHistory: DB.cashRegister.closedHistory || [] };
+  }
   const total = Math.max(0, cartSubtotal()-pdvDiscount);
   const sale = {
     id: uid(), date: todayISO(),
