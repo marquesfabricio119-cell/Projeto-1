@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -515,21 +515,25 @@ function renderProdutosTable(){
   const wrap = document.getElementById('prodTableWrap');
   if(!wrap) return;
   const f = prodFilter.toLowerCase();
-  const list = DB.products.filter(p=> !f || p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f) || (p.category||'').toLowerCase().includes(f));
+  const list = DB.products.filter(p=> !f || p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f)
+    || (p.category||'').toLowerCase().includes(f) || p.variations.some(v=>(v.barcode||'').toLowerCase().includes(f)));
   if(!list.length){ wrap.innerHTML = `<div class="empty-state">Nenhum produto cadastrado</div>`; return; }
+  const mostra = t => (!t || t==='Único' || t==='Padrão') ? '-' : escapeHtml(t);
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
-    <th>Foto</th><th>Produto</th><th>SKU</th><th>Categoria</th><th>Preço</th><th>Estoque total</th><th>Loja</th><th></th>
+    <th>Foto</th><th>Peça</th><th>Cor</th><th>Tam.</th><th>Código de barras</th><th>Preço</th><th>Estoque</th><th></th>
   </tr></thead><tbody>
     ${list.map(p=>{
       const total = p.variations.reduce((a,v)=>a+Number(v.stock||0),0);
+      const v0 = p.variations[0] || {};
+      const grade = p.variations.length > 1;
       return `<tr>
         <td><img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
         <td>${escapeHtml(p.name)} ${p.isNew?'<span class="tag-new">NOVO</span>':''}</td>
-        <td>${escapeHtml(p.sku||'-')}</td>
-        <td>${escapeHtml(p.category||'-')}</td>
+        <td>${grade ? `<span class="text-muted">${p.variations.length} combinações</span>` : mostra(v0.color)}</td>
+        <td>${grade ? '' : mostra(v0.size)}</td>
+        <td>${grade ? `<span class="text-muted">${p.variations.length} códigos</span>` : escapeHtml(v0.barcode||'-')}</td>
         <td>${money(p.price)}</td>
         <td class="${total<=DB.config.minStock?'text-danger':''}">${total}</td>
-        <td>${p.showInStore!==false?'<span class="badge badge-success">Visível</span>':'<span class="badge badge-muted">Oculto</span>'}</td>
         <td><button class="btn btn-sm" onclick="openProductModal('${p.id}')">Editar</button>
             <button class="btn btn-sm" title="Ir para Etiquetas" onclick="goToLabels('${p.id}')">🏷️</button>
             <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Excluir</button></td>
@@ -577,25 +581,37 @@ function openProductModal(id){
   const p = editing || { id:uid(), sku:'', name:'', category:'', brand:'', cost:0, price:0, photo:'', description:'', showInStore:true, isNew:false, variations:[{size:'',color:'',stock:0,barcode:''}] };
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
-  // Produto com grade (vários tamanhos/cores) precisa do editor de variações
-  // à mostra; o produto simples do dia a dia se resolve com uma quantidade.
-  const temGrade = p.variations.length > 1 || p.variations.some(v=>v.size && v.size!=='Único');
+  // Uma peça é nome + cor + tamanho + quantidade. Só quando a mesma peça
+  // tem várias combinações é que o editor de grade entra em cena.
+  const temGrade = p.variations.length > 1;
+  const v0 = p.variations[0] || { size:'', color:'', stock:0 };
   overlay.innerHTML = `<div class="modal" style="max-width:640px">
-    <h2>${editing?'Editar':'Novo'} produto</h2>
+    <h2>${editing?'Editar':'Nova'} peça</h2>
 
-    <div class="field"><label>Nome do produto</label>
+    <div class="field"><label>Nome da peça</label>
       <input id="f_name" value="${escapeHtml(p.name)}" placeholder="Ex.: Vestido Floral"></div>
 
-    <div class="form-grid" style="margin-top:12px">
+    <div id="pecaSimples" ${temGrade?'style="display:none"':''}>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="field"><label>Cor</label>
+          <input id="f_color" value="${escapeHtml(v0.color==='Padrão'?'':v0.color)}" placeholder="Ex.: Preto"></div>
+        <div class="field"><label>Tamanho</label>
+          <input id="f_size" value="${escapeHtml(v0.size==='Único'?'':v0.size)}" placeholder="Ex.: M"></div>
+        <div class="field"><label>Quantidade</label>
+          <input id="f_qty" type="number" inputmode="numeric" value="${v0.stock||0}"></div>
+        <div class="field"><label>Preço de venda (R$)</label>
+          <input id="f_price" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
+      </div>
+      <p class="text-muted" style="font-size:12px;margin-top:8px">O código de barras é gerado automaticamente ao salvar.</p>
+    </div>
+
+    <div id="precoGrade" ${temGrade?'':'style="display:none"'} style="margin-top:12px">
       <div class="field"><label>Preço de venda (R$)</label>
-        <input id="f_price" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
-      <div class="field" id="qtyField" ${temGrade?'style="display:none"':''}>
-        <label>Quantidade em estoque</label>
-        <input id="f_qty" type="number" inputmode="numeric" value="${temGrade?0:(p.variations[0]?.stock||0)}"></div>
+        <input id="f_price_grade" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
     </div>
 
     <button class="btn btn-sm" id="toggleMore" type="button" style="margin-top:16px">
-      ${temGrade?'▾':'▸'} Mais opções (tamanhos, foto, custo, categoria)
+      ${temGrade?'▾':'▸'} Mais opções (foto, custo, categoria, mais tamanhos)
     </button>
 
     <div id="moreOptions" style="${temGrade?'':'display:none'};margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
@@ -619,8 +635,8 @@ function openProductModal(id){
         <div class="field"><label><input type="checkbox" id="f_show" ${p.showInStore!==false?'checked':''}> Mostrar na loja virtual</label></div>
         <div class="field"><label><input type="checkbox" id="f_new" ${p.isNew?'checked':''}> Selo NOVO</label></div>
       </div>
-      <h3 style="margin:18px 0 6px;font-size:14px">Tamanhos e cores</h3>
-      <p class="text-muted" style="font-size:12px;margin-bottom:10px">Use só se a peça tiver grade. Ao adicionar aqui, a quantidade acima é substituída pelo estoque de cada tamanho.</p>
+      <h3 style="margin:18px 0 6px;font-size:14px">Mais tamanhos e cores da mesma peça</h3>
+      <p class="text-muted" style="font-size:12px;margin-bottom:10px">Use só se a mesma peça tiver várias combinações. Cada linha vira um código de barras e um estoque próprio.</p>
       <div id="varRows"></div>
       <button class="btn btn-sm" id="addVarBtn" type="button">+ Adicionar tamanho/cor</button>
     </div>
@@ -693,29 +709,41 @@ function openProductModal(id){
     try{
       const name = overlay.querySelector('#f_name').value.trim();
       if(!name){ toast('Informe o nome do produto','error'); return; }
-      const preenchidas = variations.filter(v=>v.size || v.color || v.stock || v.barcode);
-      // Sem nenhuma variação o produto sumiria do Estoque, do PDV e das
-      // Etiquetas (essas telas são montadas a partir das variações). Um
-      // produto sem tamanho/cor ganha a variação padrão "Único".
-      const finalVariations = preenchidas.length
-        ? preenchidas
-        : [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
-      // O campo simples "Quantidade" só manda quando o produto não tem grade.
-      // Se a pessoa informou tamanho ou cor, quem manda é o estoque de cada
-      // variação — senão a quantidade simples apagaria o que ela digitou.
-      const temGradeAgora = preenchidas.some(v=>v.size || v.color);
-      const qtyInput = overlay.querySelector('#f_qty');
-      if(qtyInput && !temGradeAgora && overlay.querySelector('#qtyField').style.display !== 'none'){
-        finalVariations[0].stock = Number(qtyInput.value) || 0;
+      const usandoGrade = overlay.querySelector('#pecaSimples').style.display === 'none';
+      let finalVariations;
+      if(usandoGrade){
+        // Peça com várias combinações: cada linha tem seu estoque e código.
+        finalVariations = variations.filter(v=>v.size || v.color || v.stock || v.barcode);
+      } else {
+        // Peça simples: cor, tamanho e quantidade vêm da tela principal.
+        const cor = overlay.querySelector('#f_color').value.trim();
+        const tam = overlay.querySelector('#f_size').value.trim();
+        const qtd = Number(overlay.querySelector('#f_qty').value) || 0;
+        const extras = variations.slice(1).filter(v=>v.size || v.color || v.stock || v.barcode);
+        finalVariations = [{
+          ...(variations[0] || {}),
+          size: tam || 'Único',
+          color: cor || 'Padrão',
+          stock: qtd,
+          barcode: (variations[0] && variations[0].barcode) || ''
+        }, ...extras];
       }
-      finalVariations.forEach(v=>{ if(!v.barcode) v.barcode = generateUniqueBarcode(); });
+      // Sem nenhuma variação a peça sumiria do Estoque, do PDV e das
+      // Etiquetas, que são montados a partir delas.
+      if(!finalVariations.length) finalVariations = [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
+      // Cada peça recebe seu próprio código de barras.
+      const novosCodigos = [];
+      finalVariations.forEach(v=>{
+        if(!v.barcode){ v.barcode = generateUniqueBarcode(); novosCodigos.push(v.barcode); }
+      });
+      const precoInput = usandoGrade ? overlay.querySelector('#f_price_grade') : overlay.querySelector('#f_price');
       const data = {
         id:p.id, name,
         sku: overlay.querySelector('#f_sku').value.trim(),
         category: overlay.querySelector('#f_category').value.trim(),
         brand: overlay.querySelector('#f_brand').value.trim(),
         cost: Number(overlay.querySelector('#f_cost').value)||0,
-        price: Number(overlay.querySelector('#f_price').value)||0,
+        price: Number(precoInput.value)||0,
         photo: overlay.querySelector('#f_photo').value.trim(),
         description: overlay.querySelector('#f_desc').value.trim(),
         showInStore: overlay.querySelector('#f_show').checked,
@@ -735,8 +763,10 @@ function openProductModal(id){
         if(searchInput) searchInput.value = '';
       }
       renderProdutosTable();
-      if(editing){ toast('Produto salvo'); }
-      else toast('Produto salvo! Etiqueta pronta — clique para imprimir 🏷️', 'ok', ()=>navigate('etiquetas'));
+      const codigo = novosCodigos.length === 1 ? ' · código '+novosCodigos[0]
+                   : novosCodigos.length > 1 ? ' · '+novosCodigos.length+' códigos gerados' : '';
+      if(editing){ toast('Peça salva'+codigo); }
+      else toast('Peça salva'+codigo+' — clique para imprimir a etiqueta 🏷️', 'ok', ()=>navigate('etiquetas'));
     }catch(err){
       console.error('Erro ao salvar produto:', err);
       toast('Não foi possível salvar o produto: '+err.message, 'error');
