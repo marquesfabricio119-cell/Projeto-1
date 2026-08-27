@@ -1,5 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="31" fill="#2E1140"/>
-  <circle cx="32" cy="32" r="31" fill="none" stroke="#C9A45C" stroke-width="1.4"/>
-  <text x="32" y="40" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="24" fill="#F6EFE7">E<tspan fill="#B9766F">&amp;</tspan>C</text>
+  <defs>
+    <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E3AE9C"/>
+      <stop offset="55%" stop-color="#C08574"/>
+      <stop offset="100%" stop-color="#9E6555"/>
+    </linearGradient>
+  </defs>
+  <!-- Em tamanho de favicon o ramo de folhas vira ruído: o símbolo fica
+       só com o monograma. O ramo aparece no logotipo completo. -->
+  <circle cx="32" cy="32" r="31" fill="#F6E7E1"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="url(#rg)" stroke-width="1.1"/>
+  <text x="32" y="41" text-anchor="middle" font-family="Playfair Display, Georgia, serif"
+        font-weight="700" font-size="26" fill="url(#rg)" letter-spacing="0.5">EF</text>
 </svg>
