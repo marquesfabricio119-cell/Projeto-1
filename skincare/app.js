@@ -111,7 +111,9 @@ const SETTINGS_PADRAO = {
 };
 
 function dbVazio(){
-  return { settings: structuredClone(SETTINGS_PADRAO), orders: [], anamneses: [] };
+  // `removidos` guarda os ids do que foi excluído de propósito. Sem isso, um
+  // registro apagado num aparelho voltaria ao sincronizar com outro.
+  return { settings: structuredClone(SETTINGS_PADRAO), orders: [], anamneses: [], removidos: [] };
 }
 
 let DB = dbVazio();
@@ -126,6 +128,7 @@ function normalizarDB(raw){
   }
   base.orders    = Array.isArray(raw.orders) ? raw.orders : [];
   base.anamneses = Array.isArray(raw.anamneses) ? raw.anamneses : [];
+  base.removidos = Array.isArray(raw.removidos) ? raw.removidos : [];
   return base;
 }
 
@@ -182,9 +185,33 @@ function mesclarListas(remota, local){
 }
 function mesclarDB(remoto, local){
   const base = normalizarDB(remoto);
-  base.orders    = mesclarListas(base.orders,    local.orders    || []);
-  base.anamneses = mesclarListas(base.anamneses, local.anamneses || []);
+  base.removidos = [...new Set([...(base.removidos || []), ...(local.removidos || [])])];
+  const apagado = new Set(base.removidos);
+  base.orders    = mesclarListas(base.orders,    local.orders    || []).filter(o => !apagado.has(o.id));
+  base.anamneses = mesclarListas(base.anamneses, local.anamneses || []).filter(a => !apagado.has(a.id));
   return base;
+}
+
+/* Exclui de vez uma anamnese: some da lista e o pedido volta a poder ser respondido. */
+function excluirAnamnese(db, anamneseId){
+  const a = db.anamneses.find(x => x.id === anamneseId);
+  if(!a) return false;
+  db.anamneses = db.anamneses.filter(x => x.id !== anamneseId);
+  const pedido = db.orders.find(o => o.id === a.orderId);
+  if(pedido) pedido.anamneseId = null;
+  db.removidos.push(anamneseId);
+  return true;
+}
+
+/* Exclui um pedido e, junto, a anamnese que pertencia a ele. */
+function excluirPedido(db, orderId){
+  const o = db.orders.find(x => x.id === orderId);
+  if(!o) return false;
+  db.anamneses.filter(a => a.orderId === orderId).forEach(a => db.removidos.push(a.id));
+  db.anamneses = db.anamneses.filter(a => a.orderId !== orderId);
+  db.orders = db.orders.filter(x => x.id !== orderId);
+  db.removidos.push(orderId);
+  return true;
 }
 
 /* Carrega a nuvem; se falhar, cai para o localStorage sem quebrar a página. */

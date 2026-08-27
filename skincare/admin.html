@@ -87,6 +87,7 @@ function tabelaPedidos(){
         <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener"
            href="https://wa.me/55${esc(onlyDigits(o.fone).replace(/^55/, ''))}?text=${encodeURIComponent('Oi, ' + String(o.nome).split(' ')[0] + '! Aqui é a ' + DB.settings.consultora + ' 💛')}">WhatsApp</a>
         ${o.status !== 'cancelado' ? `<button class="btn btn-ghost btn-sm" data-status="cancelado" data-id="${esc(o.id)}">Cancelar</button>` : ''}
+        <button class="btn btn-perigo btn-sm" data-excluir-pedido="${esc(o.id)}">Excluir</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -106,7 +107,10 @@ function tabelaAnamneses(){
       <td>${esc(r.sensibilidade || '—')}</td>
       <td>${esc(r.barreira || '—')}</td>
       <td>${alertas ? `<span class="selo selo-cancelado">${alertas} alerta${alertas > 1 ? 's' : ''}</span>` : '<span class="tiny">—</span>'}</td>
-      <td><button class="btn btn-ghost btn-sm" data-ver="${esc(a.id)}">Abrir</button></td>
+      <td><div class="acoes-linha">
+        <button class="btn btn-ghost btn-sm" data-ver="${esc(a.id)}">Abrir</button>
+        <button class="btn btn-perigo btn-sm" data-excluir-anamnese="${esc(a.id)}">Excluir</button>
+      </div></td>
     </tr>`;
   }).join('');
   return `<div class="tabela-wrap"><table>
@@ -152,12 +156,18 @@ function telaConfig(){
           </div>
           <div class="campo"><label>Resumo</label><input data-plano="${i}" data-campo="resumo" value="${esc(p.resumo || '')}"></div>
           <div class="campo"><label>O que está incluso</label><textarea data-plano="${i}" data-campo="itens" style="min-height:120px">${esc((p.itens || []).join('\n'))}</textarea></div>
-          <label class="opcao" style="margin:0">
-            <input type="checkbox" data-plano="${i}" data-campo="destaque" ${p.destaque ? 'checked' : ''}>
-            <span>Marcar como “mais escolhido”</span>
-          </label>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <label class="opcao" style="margin:0;flex:1 1 240px">
+              <input type="checkbox" data-plano="${i}" data-campo="destaque" ${p.destaque ? 'checked' : ''}>
+              <span>Marcar como “mais escolhido”</span>
+            </label>
+            <button class="btn btn-perigo btn-sm" data-remover-plano="${i}">Remover plano</button>
+          </div>
         </div>`).join('')}
-      <button class="btn btn-primary" id="btnSalvarPlanos">Salvar planos</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btnSalvarPlanos">Salvar planos</button>
+        <button class="btn btn-ghost" id="btnAddPlano">Adicionar plano</button>
+      </div>
     </div>
 
     <div class="painel">
@@ -199,11 +209,16 @@ function telaPainel(){
 
   $$('[data-status]').forEach(b => b.addEventListener('click', () => mudarStatus(b.dataset.id, b.dataset.status)));
   $$('[data-ver]').forEach(b => b.addEventListener('click', () => abrirAnamnese(b.dataset.ver)));
+  $$('[data-excluir-pedido]').forEach(b => b.addEventListener('click', () => apagarPedido(b.dataset.excluirPedido)));
+  $$('[data-excluir-anamnese]').forEach(b => b.addEventListener('click', () => apagarAnamnese(b.dataset.excluirAnamnese)));
 
   if(aba === 'config'){
     $('#btnSalvarCfg').addEventListener('click', salvarConfig);
     $('#btnSalvarPlanos').addEventListener('click', salvarPlanos);
+    $('#btnAddPlano').addEventListener('click', adicionarPlano);
     $('#btnBackup').addEventListener('click', baixarBackup);
+    $$('[data-remover-plano]').forEach(b =>
+      b.addEventListener('click', () => removerPlano(Number(b.dataset.removerPlano))));
   }
 }
 
@@ -217,6 +232,29 @@ async function mudarStatus(id, status){
   });
   telaPainel();
   toast(ok ? 'Pedido atualizado' : 'Salvo só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
+}
+
+async function apagarPedido(id){
+  const o = DB.orders.find(x => x.id === id);
+  if(!o) return;
+  const temAnamnese = !!anamnesePorPedido(o.id);
+  const aviso = `Excluir o pedido de ${o.nome} (${o.codigo})?` +
+    (temAnamnese ? '\n\nA anamnese dela será excluída junto.' : '') +
+    '\n\nIsso não tem volta e ela perde o acesso com esse código.';
+  if(!confirm(aviso)) return;
+  const ok = await salvarComMerge(db => excluirPedido(db, id));
+  telaPainel();
+  toast(ok ? 'Pedido excluído' : 'Excluído só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
+}
+
+async function apagarAnamnese(id){
+  const a = DB.anamneses.find(x => x.id === id);
+  if(!a) return;
+  if(!confirm(`Excluir a anamnese de ${a.nome} (${a.codigo})?\n\n` +
+              'O pedido continua ativo e ela poderá responder de novo pela área dela.')) return;
+  const ok = await salvarComMerge(db => excluirAnamnese(db, id));
+  telaPainel();
+  toast(ok ? 'Anamnese excluída' : 'Excluída só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
 }
 
 function abrirAnamnese(id){
@@ -278,6 +316,7 @@ function abrirAnamnese(id){
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-primary" id="salvarNotas">Salvar anotações</button>
         <button class="btn btn-ghost" onclick="window.print()">Imprimir</button>
+        <button class="btn btn-perigo" id="excluirDoModal">Excluir anamnese</button>
         <a class="btn btn-ghost" target="_blank" rel="noopener"
            href="https://wa.me/55${esc(onlyDigits(a.fone).replace(/^55/, ''))}?text=${encodeURIComponent('Oi, ' + String(a.nome).split(' ')[0] + '! Terminei de analisar a sua anamnese 💛')}">Falar com ela</a>
       </div>
@@ -287,6 +326,7 @@ function abrirAnamnese(id){
   const fechar = () => back.remove();
   $('#fecharModal', back).addEventListener('click', fechar);
   back.addEventListener('click', e => { if(e.target === back) fechar(); });
+  $('#excluirDoModal', back).addEventListener('click', async () => { fechar(); await apagarAnamnese(id); });
   $('#salvarNotas', back).addEventListener('click', async () => {
     const txt = $('#notas', back).value;
     const ok = await salvarComMerge(db => {
@@ -318,7 +358,15 @@ async function salvarConfig(){
 }
 
 async function salvarPlanos(){
-  const novos = DB.settings.planos.map((p, i) => ({ ...p }));
+  const novos = planosDaTela();
+  const ok = await salvarComMerge(db => { db.settings.planos = novos; });
+  telaPainel();
+  toast(ok ? 'Planos salvos' : 'Salvo só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+/* Lê o que está na tela agora, para não perder edições não salvas ao mexer na lista. */
+function planosDaTela(){
+  const novos = DB.settings.planos.map(p => ({ ...p }));
   $$('[data-plano]').forEach(el => {
     const i = Number(el.dataset.plano), campo = el.dataset.campo;
     if(!novos[i]) return;
@@ -327,9 +375,38 @@ async function salvarPlanos(){
     else if(campo === 'destaque')  novos[i].destaque = el.checked;
     else                           novos[i][campo] = el.value.trim();
   });
+  return novos;
+}
+
+async function removerPlano(indice){
+  const plano = DB.settings.planos[indice];
+  if(!plano) return;
+  if(DB.settings.planos.length === 1){
+    toast('Você precisa de pelo menos um plano no site.', 'erro');
+    return;
+  }
+  const vendidos = DB.orders.filter(o => o.planoId === plano.id).length;
+  if(!confirm(`Remover o plano ${plano.nome} do site?` +
+    (vendidos ? `\n\n${vendidos} pedido(s) já foram feitos nele. Os pedidos continuam na lista, o plano é que deixa de aparecer para novas clientes.` : ''))) return;
+  const novos = planosDaTela();
+  novos.splice(indice, 1);
   const ok = await salvarComMerge(db => { db.settings.planos = novos; });
   telaPainel();
-  toast(ok ? 'Planos salvos' : 'Salvo só neste aparelho', ok ? 'ok' : 'erro');
+  toast(ok ? 'Plano removido' : 'Removido só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+async function adicionarPlano(){
+  const novos = planosDaTela();
+  novos.push({
+    id: 'plano-' + uid(),
+    nome: 'Novo plano',
+    preco: 0,
+    resumo: '',
+    itens: ['Descreva aqui o que está incluso']
+  });
+  const ok = await salvarComMerge(db => { db.settings.planos = novos; });
+  telaPainel();
+  toast(ok ? 'Plano adicionado — agora é só editar' : 'Adicionado só neste aparelho', ok ? 'ok' : 'erro');
 }
 
 function baixarBackup(){

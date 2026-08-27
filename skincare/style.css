@@ -77,6 +77,8 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.18;letter-spa
 .btn-nude:hover:not(:disabled){background:var(--nude-esc)}
 .btn-ghost{background:transparent;border-color:var(--linha);color:var(--tinta)}
 .btn-ghost:hover:not(:disabled){border-color:var(--nude);background:var(--papel)}
+.btn-perigo{background:transparent;border-color:#E3C6C1;color:var(--alerta)}
+.btn-perigo:hover:not(:disabled){background:var(--alerta);border-color:var(--alerta);color:#fff}
 .btn-sm{padding:8px 15px;font-size:13.5px}
 .btn-block{width:100%}
 .btn-wide{padding:15px 34px;font-size:16px}

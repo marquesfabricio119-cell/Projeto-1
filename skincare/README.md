@@ -13,7 +13,7 @@ HTML/CSS/JS puro, sem framework — no mesmo padrão do resto do repositório.
 | `checkout.html` | Dados da cliente → gera o **código de acesso** e mostra o PIX.                          |
 | `area.html`     | Área da cliente: entra com código + e-mail, vê o status e faz/rever a anamnese.        |
 | `anamnese.html` | **O quiz da anamnese**: 6 blocos, salva sozinho, revisão final e envio.                 |
-| `admin.html`    | Painel da consultora: pedidos, anamneses, configurações e backup.                      |
+| `admin.html`    | Painel da consultora: pedidos, anamneses, exclusões, configurações e backup.            |
 | `app.js`        | Núcleo: estado, sincronização, sessão, cabeçalho e rodapé.                             |
 | `quiz.js`       | Perguntas da anamnese e a leitura automática do resultado.                             |
 
@@ -68,9 +68,23 @@ Entre em `admin.html` (senha inicial **`duda123`**) e preencha em *Configuraçõ
 - Nome da marca, Instagram, e-mail, título e subtítulo da página inicial.
 - Nome, preço e itens de cada plano.
 
+## Excluindo coisas
+
+No painel:
+
+- **Excluir pedido** — apaga o pedido e, junto, a anamnese dele. A cliente perde o acesso por aquele código.
+- **Excluir anamnese** — apaga só as respostas (pela lista ou de dentro da ficha). O pedido continua ativo e a
+  cliente pode responder de novo pela área dela — útil quando ela pede para refazer.
+- **Remover plano** (em *Configurações*) — tira o plano do site. Pedidos já feitos nele continuam na lista.
+  O site sempre mantém pelo menos um plano.
+- **Cancelar** é diferente de excluir: mantém o registro na lista, só marca como cancelado.
+
+Toda exclusão pede confirmação e não tem volta. Os ids excluídos ficam guardados em `removidos` para que um
+registro apagado num aparelho não reapareça ao sincronizar com outro.
+
 ## Dados e sincronização
 
-Tudo fica num único JSON: `{ settings, orders, anamneses }`.
+Tudo fica num único JSON: `{ settings, orders, anamneses, removidos }`.
 
 - Grava sempre no `localStorage` (chave `skincareDB`) e tenta o Supabase em seguida.
 - Supabase: tabela `loja_roupas_db`, linha `id = 'skincare'` — separada da linha `main`, que é do sistema da loja.
