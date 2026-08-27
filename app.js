@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "13";
+const APP_VERSION = "14";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -124,13 +124,19 @@ function seedInitialData(){
    produtos sem a lista de variações, ou com os nomes de campo antigos
    (`bar` em vez de `barcode`, `loja` em vez de `showInStore`). Sem isso,
    qualquer tela que percorre `p.variations` estoura e fica em branco. */
+/* Devolve true quando precisou reparar algo — o chamador grava o reparo,
+   senão os ids inventados aqui se perdem e mudam a cada carregamento,
+   deixando os botões de Editar e Excluir apontando para ids que não
+   existem mais. */
 function normalizeDB(){
   const arr = v => Array.isArray(v) ? v : [];
   const num = v => Number(v) || 0;
+  let reparou = false;
+  const novoId = () => { reparou = true; return uid(); };
 
   DB.products = arr(DB.products).filter(Boolean).map(p=>({
     ...p,
-    id: p.id || uid(),
+    id: p.id || novoId(),
     name: p.name || 'Produto sem nome',
     sku: p.sku || '',
     category: p.category || '',
@@ -153,15 +159,17 @@ function normalizeDB(){
       }));
       // Um produto sem variação some do Estoque, do PDV e das Etiquetas,
       // que são montados a partir delas. Garante a variação padrão.
-      return vs.length ? vs : [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
+      if(vs.length) return vs;
+      reparou = true;
+      return [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
     })()
   }));
 
-  DB.customers = arr(DB.customers).filter(Boolean).map(c=>({ ...c, id: c.id || uid(), name: c.name || 'Cliente' }));
+  DB.customers = arr(DB.customers).filter(Boolean).map(c=>({ ...c, id: c.id || novoId(), name: c.name || 'Cliente' }));
 
   DB.sales = arr(DB.sales).filter(Boolean).map(s=>({
     ...s,
-    id: s.id || uid(),
+    id: s.id || novoId(),
     date: s.date || todayISO(),
     items: arr(s.items).filter(Boolean).map(i=>({ ...i, qty: num(i.qty), price: num(i.price) })),
     discount: num(s.discount),
@@ -174,10 +182,10 @@ function normalizeDB(){
   }));
 
   if(!DB.finance || typeof DB.finance !== 'object') DB.finance = { entries: [] };
-  DB.finance.entries = arr(DB.finance.entries).filter(Boolean).map(e=>({ ...e, id: e.id || uid(), amount: num(e.amount) }));
+  DB.finance.entries = arr(DB.finance.entries).filter(Boolean).map(e=>({ ...e, id: e.id || novoId(), amount: num(e.amount) }));
 
   if(!DB.storeSetup || typeof DB.storeSetup !== 'object') DB.storeSetup = { items: [] };
-  DB.storeSetup.items = arr(DB.storeSetup.items).filter(Boolean).map(i=>({ ...i, id: i.id || uid(), planned: num(i.planned), paid: num(i.paid) }));
+  DB.storeSetup.items = arr(DB.storeSetup.items).filter(Boolean).map(i=>({ ...i, id: i.id || novoId(), planned: num(i.planned), paid: num(i.paid) }));
 
   if(!DB.cashRegister || typeof DB.cashRegister !== 'object') DB.cashRegister = defaultDB().cashRegister;
   DB.cashRegister.movements = arr(DB.cashRegister.movements);
@@ -185,6 +193,8 @@ function normalizeDB(){
 
   DB.users = arr(DB.users).filter(Boolean);
   if(!DB.users.length) DB.users = defaultDB().users;
+
+  return reparou;
 }
 
 function migrateDB(){
@@ -196,9 +206,13 @@ function migrateDB(){
   if(!Array.isArray(DB.monthlyExpenses.records)) DB.monthlyExpenses.records = [];
   if(!DB.config || typeof DB.config !== 'object') DB.config = d.config;
   if(!DB.storeName) DB.storeName = d.storeName;
-  normalizeDB();
+  const reparou = normalizeDB();
   if(!DB.barcodeSeq) DB.barcodeSeq = 0;
   seedInitialData();
+  // Grava o reparo: sem isso os ids recém-criados só existem em memória e
+  // mudam a cada carregamento, e os botões de Editar/Excluir passam a
+  // apontar para registros que não existem mais.
+  if(reparou) saveDB();
 }
 function loadDB(){
   try{
@@ -573,8 +587,13 @@ function goToLabels(pid){
 }
 function deleteProduct(id){
   if(!confirm('Excluir este produto?')) return;
+  const antes = DB.products.length;
   DB.products = DB.products.filter(p=>p.id!==id);
-  saveDB(); renderProdutosTable(); toast('Produto excluído');
+  saveDB(); renderProdutosTable();
+  // Dizer "excluído" sem ter excluído nada é o que faz o usuário achar que
+  // o botão não funciona. Só confirma quando a lista realmente encolheu.
+  if(DB.products.length < antes) toast('Produto excluído');
+  else toast('Esse produto não foi encontrado. Atualize a página e tente de novo.','error');
 }
 function openProductModal(id){
   const editing = id ? DB.products.find(p=>p.id===id) : null;
