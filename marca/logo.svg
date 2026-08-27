@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100">
-  <circle cx="50" cy="50" r="42" fill="#211F1F"/>
-  <circle cx="50" cy="50" r="42" fill="none" stroke="#B08D57" stroke-width="1.6"/>
-  <text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="32" fill="#FBF6F1">E<tspan fill="#C1694F">&amp;</tspan>C</text>
-  <text x="110" y="52" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="34" fill="#211F1F">Estilo <tspan fill="#C1694F">&amp;</tspan> Cia</text>
-  <text x="112" y="76" font-family="Poppins, sans-serif" font-size="13" letter-spacing="2" fill="#B08D57">ESTILO QUE É SÓ SEU</text>
+  <circle cx="50" cy="50" r="42" fill="#2E1140"/>
+  <circle cx="50" cy="50" r="42" fill="none" stroke="#C9A45C" stroke-width="1.6"/>
+  <text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="32" fill="#F6EFE7">E<tspan fill="#B9766F">&amp;</tspan>C</text>
+  <text x="110" y="52" font-family="Playfair Display, Georgia, serif" font-weight="700" font-size="34" fill="#2E1140">Estilo <tspan fill="#B9766F">&amp;</tspan> Cia</text>
+  <text x="112" y="76" font-family="Poppins, sans-serif" font-size="13" letter-spacing="2" fill="#C9A45C">ESTILO QUE É SÓ SEU</text>
 </svg>

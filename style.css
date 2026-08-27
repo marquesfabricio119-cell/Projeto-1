@@ -1,22 +1,23 @@
 /* ===== Estilo & Cia — Sistema (ERP/PDV) ===== */
 
 :root{
-  --graphite:#211F1F;
-  --graphite-soft:#3A3532;
-  --terracotta:#C1694F;
-  --terracotta-dark:#9C4E39;
-  --blush:#E8C4B8;
-  --cream:#FBF6F1;
-  --sand:#EFE4D8;
-  --gold:#B08D57;
-  --text:#2B2623;
-  --muted:#8A7F77;
+  /* Paleta ameixa + rosé — a identidade feminina da loja.
+     ameixa manda nas ações; rosé é o destaque quente sobre fundo claro. */
+  --ameixa:#4A1F63;
+  --ameixa-escura:#2E1140;
+  --rose:#D9A5A0;
+  --rose-escuro:#B9766F;
+  --cream:#F6EFE7;
+  --sand:#E9DDD0;
+  --gold:#C9A45C;
+  --text:#33262E;
+  --muted:#8A7A82;
   --success:#4C8B5C;
   --danger:#B33A3A;
   --warning:#C1874F;
-  --border:#E4D8CC;
+  --border:#E6D9CF;
   --white:#FFFFFF;
-  --shadow:0 4px 16px rgba(33,31,31,.08);
+  --shadow:0 4px 16px rgba(46,17,64,.08);
   --radius:12px;
   --font-title:'Playfair Display', Georgia, serif;
   --font-body:'Poppins', -apple-system, sans-serif;
@@ -36,7 +37,7 @@ a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:14px}
 ::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-thumb{background:var(--blush);border-radius:8px}
+::-webkit-scrollbar-thumb{background:var(--rose);border-radius:8px}
 
 .hidden{display:none !important}
 
@@ -44,7 +45,7 @@ input,select,textarea{font-family:inherit;font-size:14px}
 #login-screen{
   min-height:100vh;
   display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(160deg,var(--graphite) 0%,var(--terracotta-dark) 100%);
+  background:linear-gradient(160deg,var(--ameixa-escura) 0%,var(--rose-escuro) 100%);
   padding:20px;
 }
 .login-card{
@@ -56,25 +57,25 @@ input,select,textarea{font-family:inherit;font-size:14px}
   text-align:center;
 }
 .login-card .brand-mark{width:56px;height:56px;margin:0 auto 14px}
-.login-card h1{font-size:28px;color:var(--graphite);letter-spacing:.5px}
-.login-card p.slogan{color:var(--terracotta-dark);font-size:13px;margin-top:4px;margin-bottom:28px;font-style:italic}
+.login-card h1{font-size:28px;color:var(--ameixa-escura);letter-spacing:.5px}
+.login-card p.slogan{color:var(--rose-escuro);font-size:13px;margin-top:4px;margin-bottom:28px;font-style:italic}
 .login-card label{display:block;text-align:left;font-size:12px;color:var(--muted);margin:14px 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 .login-card input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--white)}
-.login-card input:focus{outline:none;border-color:var(--terracotta)}
+.login-card input:focus{outline:none;border-color:var(--ameixa)}
 .login-error{color:var(--danger);font-size:12px;margin-top:10px;min-height:16px}
 .btn-primary{
   width:100%;margin-top:22px;padding:13px;border:none;border-radius:10px;
-  background:var(--terracotta);color:#fff;font-weight:600;font-size:15px;
+  background:var(--ameixa);color:#fff;font-weight:600;font-size:15px;
   transition:background .15s;
 }
-.btn-primary:hover{background:var(--terracotta-dark)}
+.btn-primary:hover{background:var(--ameixa-escura)}
 .login-hint{margin-top:16px;font-size:11px;color:var(--muted)}
 
 /* ===== App shell ===== */
 #app{display:flex;min-height:100vh}
 .sidebar{
   width:220px;flex-shrink:0;
-  background:var(--graphite);color:var(--sand);
+  background:var(--ameixa-escura);color:var(--sand);
   display:flex;flex-direction:column;
   position:sticky;top:0;height:100vh;
 }
@@ -88,21 +89,22 @@ input,select,textarea{font-family:inherit;font-size:14px}
   border-left:3px solid transparent;
 }
 .nav-list li a:hover{background:rgba(255,255,255,.06)}
-.nav-list li a.active{background:rgba(193,105,79,.18);border-left-color:var(--terracotta);color:#fff;font-weight:600}
+.nav-list li a.active{background:rgba(217,165,160,.20);border-left-color:var(--rose);color:#fff;font-weight:600}
 .nav-list li.nav-sep{
   margin:14px 0 4px;padding:0 20px;
   font-size:10.5px;letter-spacing:1px;text-transform:uppercase;
-  color:var(--muted);border-top:1px solid rgba(255,255,255,.08);padding-top:12px;
+  color:var(--rose);opacity:.75;
+  border-top:1px solid rgba(255,255,255,.10);padding-top:12px;
 }
-.sidebar-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--muted)}
-.sidebar-footer button{color:var(--blush);background:none;border:none;font-size:12px;padding:0}
+.sidebar-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.10);font-size:12px;color:var(--sand);opacity:.85}
+.sidebar-footer button{color:var(--rose);background:none;border:none;font-size:12px;padding:0}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{
   background:var(--white);border-bottom:1px solid var(--border);
   padding:16px 28px;display:flex;align-items:center;justify-content:space-between;
 }
-.topbar h1{font-size:20px;color:var(--graphite)}
+.topbar h1{font-size:20px;color:var(--ameixa-escura)}
 .topbar .user-pill{font-size:12.5px;color:var(--muted);background:var(--sand);padding:6px 12px;border-radius:20px}
 .view{padding:24px 28px;flex:1}
 
@@ -110,16 +112,16 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px}
 .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
 .card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
-.card .value{font-size:24px;font-weight:700;color:var(--graphite);margin-top:6px}
+.card .value{font-size:24px;font-weight:700;color:var(--ameixa-escura);margin-top:6px}
 .card .value.small{font-size:16px}
 .panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:var(--shadow)}
-.panel h3{font-size:15px;margin-bottom:14px;color:var(--graphite)}
+.panel h3{font-size:15px;margin-bottom:14px;color:var(--ameixa-escura)}
 
 /* ===== Buttons ===== */
 .btn{padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:13px;font-weight:500}
 .btn:hover{background:var(--sand)}
-.btn-accent{background:var(--terracotta);color:#fff;border-color:var(--terracotta)}
-.btn-accent:hover{background:var(--terracotta-dark)}
+.btn-accent{background:var(--ameixa);color:#fff;border-color:var(--ameixa)}
+.btn-accent:hover{background:var(--ameixa-escura)}
 .btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
 .btn-danger:hover{opacity:.88}
 .btn-gold{background:var(--gold);color:#fff;border-color:var(--gold)}
@@ -143,15 +145,15 @@ table tr:hover td{background:var(--cream)}
 .badge-gold{background:#F0E6D2;color:var(--gold)}
 
 /* ===== Forms / Modal ===== */
-.modal-overlay{position:fixed;inset:0;background:rgba(33,31,31,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(46,17,64,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
 .modal{background:var(--white);border-radius:16px;padding:26px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
-.modal h2{font-size:19px;margin-bottom:18px;color:var(--graphite)}
+.modal h2{font-size:19px;margin-bottom:18px;color:var(--ameixa-escura)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-grid .full{grid-column:1/-1}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
 .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--cream)}
-.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--terracotta);background:#fff}
-.field input[type=checkbox]{width:auto;accent-color:var(--terracotta)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--ameixa);background:#fff}
+.field input[type=checkbox]{width:auto;accent-color:var(--ameixa)}
 .field label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text);text-transform:none;margin-bottom:0}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 .variation-row{display:grid;grid-template-columns:1fr 1fr 90px 1fr auto;gap:8px;align-items:center;margin-bottom:8px;min-width:0}
@@ -162,20 +164,20 @@ table tr:hover td{background:var(--cream)}
 .pdv-layout{display:grid;grid-template-columns:1fr 380px;gap:20px}
 .pdv-search-results{max-height:420px;overflow-y:auto;margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .pdv-product{border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff;cursor:pointer;transition:transform .1s}
-.pdv-product:hover{transform:translateY(-2px);border-color:var(--terracotta)}
+.pdv-product:hover{transform:translateY(-2px);border-color:var(--ameixa)}
 .pdv-product img{width:100%;height:100px;object-fit:cover;border-radius:6px;background:var(--sand)}
 .pdv-product .pname{font-size:12.5px;font-weight:600;margin-top:6px}
-.pdv-product .pprice{font-size:13px;color:var(--terracotta-dark);font-weight:700}
+.pdv-product .pprice{font-size:13px;color:var(--rose-escuro);font-weight:700}
 .cart-box{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;height:fit-content;position:sticky;top:20px}
 .cart-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .cart-item .ci-name{font-weight:600}
 .cart-item .ci-meta{color:var(--muted);font-size:11.5px}
 .cart-totals{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
 .cart-totals .row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13.5px}
-.cart-totals .total{font-size:20px;font-weight:700;color:var(--graphite)}
+.cart-totals .total{font-size:20px;font-weight:700;color:var(--ameixa-escura)}
 .pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .pay-methods button{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12.5px}
-.pay-methods button.active{background:var(--terracotta);color:#fff;border-color:var(--terracotta)}
+.pay-methods button.active{background:var(--ameixa);color:#fff;border-color:var(--ameixa)}
 
 /* ===== Receipt / labels / print ===== */
 #receipt{display:none}
