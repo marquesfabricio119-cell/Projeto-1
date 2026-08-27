@@ -19,6 +19,8 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
 - `skincare/` — **site da consultoria de skin care**: página de vendas, checkout com código de acesso,
   área da cliente, quiz da anamnese e painel da consultora. Projeto independente do sistema da loja —
   veja `skincare/README.md`.
+- `skincare/social/` — kit de Instagram da consultoria: 15 artes prontas (PNG), legendas, prompt da
+  logo, bio e identidade visual.
 
 ## Funcionalidades
 

@@ -16,6 +16,7 @@ HTML/CSS/JS puro, sem framework — no mesmo padrão do resto do repositório.
 | `admin.html`    | Painel da consultora: pedidos, anamneses, exclusões, configurações e backup.            |
 | `app.js`        | Núcleo: estado, sincronização, sessão, cabeçalho e rodapé.                             |
 | `quiz.js`       | Perguntas da anamnese e a leitura automática do resultado.                             |
+| `social/`       | Kit de Instagram: artes prontas, legendas, prompt da logo e bio.                        |
 
 ## O fluxo
 
