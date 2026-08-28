@@ -1,0 +1,272 @@
+[
+  {
+    "bloque": "Mi mundo",
+    "mapas": [
+      {
+        "archivo": "/ninos/mi-mundo-01.webp",
+        "titulo": "Mi casa"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-02.webp",
+        "titulo": "Mi familia"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-03.webp",
+        "titulo": "Mi cuarto"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-04.webp",
+        "titulo": "Mis juguetes"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-05.webp",
+        "titulo": "Mi escuela"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-06.webp",
+        "titulo": "Mi cuerpo"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-07.webp",
+        "titulo": "Mi ropa"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-08.webp",
+        "titulo": "Mis colores"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-09.webp",
+        "titulo": "Mis números"
+      },
+      {
+        "archivo": "/ninos/mi-mundo-10.webp",
+        "titulo": "Mis emociones"
+      }
+    ]
+  },
+  {
+    "bloque": "Animales",
+    "mapas": [
+      {
+        "archivo": "/ninos/animales-01.webp",
+        "titulo": "Animales de la casa"
+      },
+      {
+        "archivo": "/ninos/animales-02.webp",
+        "titulo": "Animales de la granja"
+      },
+      {
+        "archivo": "/ninos/animales-03.webp",
+        "titulo": "Animales del bosque"
+      },
+      {
+        "archivo": "/ninos/animales-04.webp",
+        "titulo": "Animales del mar"
+      },
+      {
+        "archivo": "/ninos/animales-05.webp",
+        "titulo": "Insectos"
+      },
+      {
+        "archivo": "/ninos/animales-06.webp",
+        "titulo": "Aves"
+      },
+      {
+        "archivo": "/ninos/animales-07.webp",
+        "titulo": "Animales grandes"
+      },
+      {
+        "archivo": "/ninos/animales-08.webp",
+        "titulo": "Animales pequeños"
+      },
+      {
+        "archivo": "/ninos/animales-09.webp",
+        "titulo": "Sonidos de animales"
+      },
+      {
+        "archivo": "/ninos/animales-10.webp",
+        "titulo": "Mi mascota"
+      }
+    ]
+  },
+  {
+    "bloque": "Comida",
+    "mapas": [
+      {
+        "archivo": "/ninos/comida-01.webp",
+        "titulo": "Frutas"
+      },
+      {
+        "archivo": "/ninos/comida-02.webp",
+        "titulo": "Verduras"
+      },
+      {
+        "archivo": "/ninos/comida-03.webp",
+        "titulo": "El desayuno"
+      },
+      {
+        "archivo": "/ninos/comida-04.webp",
+        "titulo": "El almuerzo"
+      },
+      {
+        "archivo": "/ninos/comida-05.webp",
+        "titulo": "La cena"
+      },
+      {
+        "archivo": "/ninos/comida-06.webp",
+        "titulo": "Bebidas"
+      },
+      {
+        "archivo": "/ninos/comida-07.webp",
+        "titulo": "Dulces"
+      },
+      {
+        "archivo": "/ninos/comida-08.webp",
+        "titulo": "En la cocina"
+      },
+      {
+        "archivo": "/ninos/comida-09.webp",
+        "titulo": "En el mercado"
+      },
+      {
+        "archivo": "/ninos/comida-10.webp",
+        "titulo": "Mi comida favorita"
+      }
+    ]
+  },
+  {
+    "bloque": "Mi día",
+    "mapas": [
+      {
+        "archivo": "/ninos/mi-dia-01.webp",
+        "titulo": "Me levanto"
+      },
+      {
+        "archivo": "/ninos/mi-dia-02.webp",
+        "titulo": "Me visto"
+      },
+      {
+        "archivo": "/ninos/mi-dia-03.webp",
+        "titulo": "Voy a la escuela"
+      },
+      {
+        "archivo": "/ninos/mi-dia-04.webp",
+        "titulo": "La hora"
+      },
+      {
+        "archivo": "/ninos/mi-dia-05.webp",
+        "titulo": "Los días de la semana"
+      },
+      {
+        "archivo": "/ninos/mi-dia-06.webp",
+        "titulo": "Juego en la tarde"
+      },
+      {
+        "archivo": "/ninos/mi-dia-07.webp",
+        "titulo": "Hago la tarea"
+      },
+      {
+        "archivo": "/ninos/mi-dia-08.webp",
+        "titulo": "Me baño"
+      },
+      {
+        "archivo": "/ninos/mi-dia-09.webp",
+        "titulo": "Me duermo"
+      },
+      {
+        "archivo": "/ninos/mi-dia-10.webp",
+        "titulo": "Mi fin de semana"
+      }
+    ]
+  },
+  {
+    "bloque": "Afuera",
+    "mapas": [
+      {
+        "archivo": "/ninos/afuera-01.webp",
+        "titulo": "El parque"
+      },
+      {
+        "archivo": "/ninos/afuera-02.webp",
+        "titulo": "La calle"
+      },
+      {
+        "archivo": "/ninos/afuera-03.webp",
+        "titulo": "El clima"
+      },
+      {
+        "archivo": "/ninos/afuera-04.webp",
+        "titulo": "Las estaciones"
+      },
+      {
+        "archivo": "/ninos/afuera-05.webp",
+        "titulo": "Los transportes"
+      },
+      {
+        "archivo": "/ninos/afuera-06.webp",
+        "titulo": "La ciudad"
+      },
+      {
+        "archivo": "/ninos/afuera-07.webp",
+        "titulo": "El campo"
+      },
+      {
+        "archivo": "/ninos/afuera-08.webp",
+        "titulo": "La playa"
+      },
+      {
+        "archivo": "/ninos/afuera-09.webp",
+        "titulo": "Los deportes"
+      },
+      {
+        "archivo": "/ninos/afuera-10.webp",
+        "titulo": "De paseo"
+      }
+    ]
+  },
+  {
+    "bloque": "Palabras que unen",
+    "mapas": [
+      {
+        "archivo": "/ninos/palabras-que-unen-01.webp",
+        "titulo": "Saludos"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-02.webp",
+        "titulo": "Por favor y gracias"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-03.webp",
+        "titulo": "Preguntas básicas"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-04.webp",
+        "titulo": "Sí y no"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-05.webp",
+        "titulo": "Aquí y allá"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-06.webp",
+        "titulo": "Grande y pequeño"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-07.webp",
+        "titulo": "Adentro y afuera"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-08.webp",
+        "titulo": "Antes y después"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-09.webp",
+        "titulo": "Yo, tú, él"
+      },
+      {
+        "archivo": "/ninos/palabras-que-unen-10.webp",
+        "titulo": "Palabras mágicas"
+      }
+    ]
+  }
+]

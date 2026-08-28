@@ -2,3 +2,6 @@
 # Estilo & Cia — não fazem parte deste deploy.
 Relacionamento
 landing-page-fotografia.zip
+
+# App aparte, con su propio despliegue (Root Directory: profesor-ingles).
+profesor-ingles

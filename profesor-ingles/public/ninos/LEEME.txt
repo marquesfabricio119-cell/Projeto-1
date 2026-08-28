@@ -1,0 +1,6 @@
+Aquí van las 60 imágenes de los mapas para niños.
+
+Los nombres de archivo que espera la app están en public/data/ninos.json
+(por ejemplo: mi-mundo-01.webp, animales-03.webp…).
+
+Mientras una imagen no exista, la tarjeta muestra un marcador gris.
