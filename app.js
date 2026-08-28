@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "17";
+const APP_VERSION = "18";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -267,13 +267,76 @@ function generateUniqueBarcode(){
   return code;
 }
 
+/* Antes isto gravava sem rede de proteção. Quando o armazenamento do
+   navegador enchia (bastavam ~56 peças com foto), o setItem estourava no
+   meio de uma venda: o recibo não saía, o estoque não baixava e a venda
+   sumia — o caixa só via um erro em inglês. Agora a gravação avisa se deu
+   certo, tenta liberar espaço sozinha e nunca deixa o sistema dizer que
+   salvou quando não salvou. */
 function saveDB(skipCloud){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
-  localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
+  const gravou = gravarLocal();
   if(!skipCloud){
     clearTimeout(pushTimer);
     pushTimer = setTimeout(cloudPush, 800);
   }
+  return gravou;
+}
+
+function gravarLocal(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+    localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
+    return true;
+  }catch(err){
+    if(!ehErroDeEspaco(err)){ console.error('Erro ao gravar:', err); return false; }
+    /* Sem espaço. O que ocupa lugar são as fotos antigas guardadas dentro
+       do próprio banco; elas já estão (ou vão) na nuvem, então podem sair
+       daqui para a venda caber. */
+    const liberou = liberarEspacoDeFotos();
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+      localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
+      if(liberou) toast('Espaço do aparelho estava cheio: as fotos foram movidas para a nuvem.','warn');
+      return true;
+    }catch(err2){
+      console.error('Sem espaço mesmo depois de liberar:', err2);
+      return false;
+    }
+  }
+}
+
+function ehErroDeEspaco(err){
+  return err && (err.name==='QuotaExceededError'
+    || err.name==='NS_ERROR_DOM_QUOTA_REACHED'
+    || err.code===22 || err.code===1014);
+}
+
+/* Tira do armazenamento local as fotos que estão embutidas em texto
+   (as antigas, em base64). A foto não some da peça: fica marcada como
+   pendente e sobe para a nuvem na primeira oportunidade. */
+function liberarEspacoDeFotos(){
+  let mexeu = false;
+  DB.products.forEach(p=>{
+    if(p.photo && p.photo.startsWith('data:')){
+      fotosPendentes.set(p.id, p.photo);
+      p.photo = '';
+      p.photoPendente = true;
+      mexeu = true;
+    }
+  });
+  if(mexeu) enviarFotosPendentes();
+  return mexeu;
+}
+
+/* Chame quando o sistema for dizer "pronto, salvo". Se a gravação falhou,
+   o usuário precisa saber na hora, e não descobrir ao recarregar a página. */
+function exigirGravacao(oQue){
+  if(saveDB()) return true;
+  alert('ATENÇÃO: não foi possível salvar ' + oQue + '.\n\n'
+      + 'O armazenamento deste aparelho está cheio. Anote esta operação, '
+      + 'libere espaço (apague fotos de peças antigas em Produtos) e refaça.\n\n'
+      + 'Nada foi perdido do que já estava salvo.');
+  return false;
 }
 
 /* ---------- Supabase sync ---------- */
@@ -308,6 +371,77 @@ async function cloudPush(){
       body: JSON.stringify({ id:'main', data: DB, updated_at: todayISO() })
     });
   }catch(e){ /* offline: tenta na próxima alteração */ }
+}
+
+/* =========================================================
+   FOTOS NA NUVEM (Supabase Storage)
+   A foto não fica mais dentro do banco. O banco guarda só o endereço
+   dela, que ocupa ~80 bytes no lugar de ~90 KB. Assim o armazenamento do
+   aparelho não enche, e cada venda deixa de reenviar todas as fotos.
+   ========================================================= */
+const SUPABASE_BUCKET = "fotos";
+
+/* Fotos que ainda não subiram (sem internet, ou vindas do formato antigo).
+   Ficam aqui na memória e são reenviadas sozinhas. */
+const fotosPendentes = new Map();
+let enviandoFotos = false;
+
+function urlDaFoto(caminho){
+  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${caminho}`;
+}
+
+/* Sobe uma foto e devolve o endereço público. Lança erro se não conseguir,
+   para quem chamou poder avisar ou tentar de novo. */
+async function subirFoto(dataUrl, nomeBase){
+  const bin = await (await fetch(dataUrl)).blob();
+  const caminho = `${nomeBase}-${Date.now()}.jpg`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${caminho}`, {
+    method:'POST',
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
+              'Content-Type':'image/jpeg', 'x-upsert':'true' },
+    body: bin
+  });
+  if(!res.ok){
+    /* 404 aqui quase sempre quer dizer que a pasta de fotos ainda não foi
+       criada no Supabase — dizer "sem internet" nesse caso seria mentira e
+       faria o lojista procurar o problema no lugar errado. */
+    const err = new Error('Storage respondeu ' + res.status);
+    err.motivo = (res.status===404 || res.status===400) ? 'bucket'
+               : (res.status===401 || res.status===403) ? 'permissao' : 'rede';
+    throw err;
+  }
+  return urlDaFoto(caminho);
+}
+
+/* Reenvia em segundo plano o que ficou pendente. Uma de cada vez, para não
+   travar o caixa, e sem apagar nada enquanto não confirmar o envio. */
+async function enviarFotosPendentes(){
+  if(enviandoFotos || !fotosPendentes.size) return;
+  enviandoFotos = true;
+  try{
+    for(const [pid, dataUrl] of [...fotosPendentes]){
+      const prod = DB.products.find(x=>x.id===pid);
+      if(!prod){ fotosPendentes.delete(pid); continue; }
+      try{
+        prod.photo = await subirFoto(dataUrl, pid);
+        delete prod.photoPendente;
+        fotosPendentes.delete(pid);
+        saveDB();
+        if(currentRoute==='produtos') renderProdutosTable();
+      }catch(e){
+        break; // sem internet: para aqui e tenta de novo mais tarde
+      }
+    }
+  } finally { enviandoFotos = false; }
+}
+
+/* Fotos do formato antigo (embutidas no banco) sobem para a nuvem sozinhas
+   na primeira vez que o sistema abre com internet, liberando o espaço. */
+function migrarFotosAntigas(){
+  DB.products.forEach(p=>{
+    if(p.photo && p.photo.startsWith('data:')) fotosPendentes.set(p.id, p.photo);
+  });
+  if(fotosPendentes.size) enviarFotosPendentes();
 }
 
 /* =========================================================
@@ -438,6 +572,7 @@ const NAV = [
   { id:'vendas', label:'Vendas', icon:'🧾', group:'dia' },
 
   { id:'painel', label:'Painel', icon:'🏠', group:'gestao' },
+  { id:'balanco', label:'Balanço', icon:'💵', group:'gestao' },
   { id:'caixa', label:'Caixa', icon:'💰', group:'gestao' },
   { id:'etiquetas', label:'Etiquetas', icon:'🏷️', group:'gestao' },
   { id:'clientes', label:'Clientes', icon:'👤', group:'gestao' },
@@ -491,7 +626,7 @@ function navigate(route){
     painel: renderPainel, pdv: renderPDV, produtos: renderProdutos, estoque: renderEstoque,
     etiquetas: renderEtiquetas, clientes: renderClientes, vendas: renderVendas, caixa: renderCaixa,
     financeiro: renderFinanceiro, gastos: renderGastos, abrirloja: renderAbrirLoja,
-    relatorios: renderRelatorios, config: renderConfig
+    relatorios: renderRelatorios, config: renderConfig, balanco: renderBalanco
   };
   view.innerHTML = '';
   try{
@@ -747,12 +882,35 @@ function openProductModal(id){
     const file = e.target.files[0];
     if(!file) return;
     const status = overlay.querySelector('#f_photoStatus');
-    status.textContent = 'Processando...';
-    resizeImageFile(file, 900, 0.75).then(dataUrl=>{
-      overlay.querySelector('#f_photo').value = dataUrl;
+    status.textContent = 'Preparando a foto...';
+    resizeImageFile(file, 900, 0.75).then(async dataUrl=>{
       const preview = overlay.querySelector('#f_photoPreview');
       preview.src = dataUrl; preview.style.display = '';
-      status.textContent = `Pronto (${Math.round(dataUrl.length/1024)} KB)`;
+      status.textContent = 'Enviando para a nuvem...';
+      try{
+        /* A foto vai para a nuvem e o banco guarda só o endereço. Guardar a
+           imagem inteira aqui dentro é o que enchia o aparelho e fazia o
+           sistema perder venda. */
+        const url = await subirFoto(dataUrl, p.id);
+        overlay.querySelector('#f_photo').value = url;
+        status.textContent = 'Foto salva na nuvem ✓';
+      }catch(e){
+        /* Sem internet agora: a foto fica na fila e sobe sozinha depois.
+           A peça pode ser salva normalmente. */
+        fotosPendentes.set(p.id, dataUrl);
+        overlay.querySelector('#f_photo').value = '';
+        overlay.dataset.fotoPendente = '1';
+        if(e.motivo === 'bucket'){
+          status.textContent = 'A pasta de fotos ainda não existe no Supabase';
+          toast('Crie o bucket público "fotos" no Supabase. A peça é salva normalmente e a foto sobe depois.','warn');
+        } else if(e.motivo === 'permissao'){
+          status.textContent = 'Sem permissão para enviar fotos';
+          toast('O bucket "fotos" precisa estar público no Supabase. A foto ficou na fila.','warn');
+        } else {
+          status.textContent = 'Sem internet: a foto sobe sozinha quando voltar';
+          toast('A foto ficou na fila e será enviada quando a internet voltar.','warn');
+        }
+      }
     }).catch(()=>{ status.textContent=''; toast('Não foi possível ler essa imagem','error'); });
   });
   let variations = p.variations.map(v=>({...v}));
@@ -831,6 +989,7 @@ function openProductModal(id){
         cost: Number(overlay.querySelector('#f_cost').value)||0,
         price: Number(precoInput.value)||0,
         photo: overlay.querySelector('#f_photo').value.trim(),
+        photoPendente: overlay.dataset.fotoPendente === '1' ? true : undefined,
         description: overlay.querySelector('#f_desc').value.trim(),
         showInStore: overlay.querySelector('#f_show').checked,
         isNew: overlay.querySelector('#f_new').checked,
@@ -838,7 +997,10 @@ function openProductModal(id){
       };
       if(editing){ Object.assign(editing, data); }
       else DB.products.push(data);
-      saveDB();
+      if(!exigirGravacao('esta peça')){
+        if(!editing) DB.products.pop();   // não deixa a peça só na tela
+        return;
+      }
       // vincula com Etiquetas: a etiqueta da variação já fica pronta pra imprimir
       data.variations.forEach(v=>{ etiquetaQty[varKey(data.id, v.size, v.color)] = v.stock>0 ? v.stock : 1; });
       overlay.remove();
@@ -849,6 +1011,7 @@ function openProductModal(id){
         if(searchInput) searchInput.value = '';
       }
       renderProdutosTable();
+      if(fotosPendentes.size) enviarFotosPendentes();
       const codigo = novosCodigos.length === 1 ? ' · código '+novosCodigos[0]
                    : novosCodigos.length > 1 ? ' · '+novosCodigos.length+' códigos gerados' : '';
       if(editing){ toast('Peça salva'+codigo); }
@@ -858,6 +1021,218 @@ function openProductModal(id){
       toast('Não foi possível salvar o produto: '+err.message, 'error');
     }
   });
+}
+
+
+/* =========================================================
+   BALANÇO — as três perguntas que o lojista faz toda semana:
+   quanto tenho parado em estoque, quanto gastei e quanto vendi.
+   ========================================================= */
+let balancoPeriodo = 'mes';
+
+function periodoBalanco(){
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  if(balancoPeriodo === 'mes'){
+    const mk = monthKey();
+    return { rotulo: monthLabel(mk), casa: d => (d||'').startsWith(mk), mesUnico: mk };
+  }
+  if(balancoPeriodo === 'mesPassado'){
+    const d = new Date(ano, hoje.getMonth()-1, 1);
+    const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    return { rotulo: monthLabel(mk), casa: x => (x||'').startsWith(mk), mesUnico: mk };
+  }
+  if(balancoPeriodo === 'ano'){
+    return { rotulo: 'ano de '+ano, casa: x => (x||'').startsWith(String(ano)), mesUnico: null };
+  }
+  return { rotulo: 'desde o começo', casa: () => true, mesUnico: null };
+}
+
+/* Quanto está parado nas araras. Custo é o dinheiro investido; venda é o que
+   ele vira se tudo for vendido pelo preço de etiqueta. */
+function valorDoEstoque(){
+  let pecas = 0, custo = 0, venda = 0, semCusto = 0;
+  DB.products.forEach(p => {
+    const qtd = p.variations.reduce((a,v) => a + (Number(v.stock)||0), 0);
+    if(!qtd) return;
+    pecas += qtd;
+    custo += qtd * (Number(p.cost)||0);
+    venda += qtd * (Number(p.price)||0);
+    if(!Number(p.cost)) semCusto += qtd;
+  });
+  return { pecas, custo, venda, lucroPrevisto: venda - custo, semCusto };
+}
+
+/* Quanto entrou. O custo das peças vendidas sai do que foi congelado na
+   venda; nas vendas antigas, que não guardavam isso, caímos no custo atual
+   da peça — e a tela avisa quando isso acontece. */
+function resumoVendas(per){
+  const vendas = DB.sales.filter(s => !s.canceled && per.casa(s.date));
+  let total = 0, custoVendido = 0, pecas = 0, estimadas = 0;
+  vendas.forEach(s => {
+    total += Number(s.total)||0;
+    s.items.forEach(i => {
+      pecas += i.qty;
+      if(i.cost === undefined){
+        const prod = DB.products.find(x => x.id === i.productId);
+        custoVendido += (prod ? Number(prod.cost)||0 : 0) * i.qty;
+        estimadas++;
+      } else {
+        custoVendido += (Number(i.cost)||0) * i.qty;
+      }
+    });
+  });
+  return { qtd: vendas.length, total, custoVendido, pecas, estimadas,
+           lucroBruto: total - custoVendido,
+           ticket: vendas.length ? total/vendas.length : 0 };
+}
+
+/* Quanto saiu, juntando os três lugares onde o gasto pode estar. */
+function resumoGastos(per){
+  const mensais = DB.monthlyExpenses.records
+    .filter(r => per.casa(r.month))
+    .reduce((a,r) => a + (Number(r.amount)||0), 0);
+
+  const despesas = DB.finance.entries
+    .filter(e => e.type === 'despesa' && per.casa(e.date))
+    .reduce((a,e) => a + (Number(e.amount)||0), 0);
+
+  /* Abrir a loja foi um gasto de uma vez só, sem data de mês. Entra apenas
+     quando se olha "desde o começo", senão ele apareceria repetido todo mês. */
+  const abertura = balancoPeriodo === 'tudo'
+    ? DB.storeSetup.items.reduce((a,i) => a + (Number(i.paid) || Number(i.planned) || 0), 0)
+    : 0;
+
+  return { mensais, despesas, abertura, total: mensais + despesas + abertura };
+}
+
+function gastosPorCategoria(per){
+  const mapa = {};
+  DB.monthlyExpenses.records.filter(r => per.casa(r.month))
+    .forEach(r => { mapa[r.category] = (mapa[r.category]||0) + (Number(r.amount)||0); });
+  DB.finance.entries.filter(e => e.type === 'despesa' && per.casa(e.date))
+    .forEach(e => { const c = e.category || 'Outros';
+                    mapa[c] = (mapa[c]||0) + (Number(e.amount)||0); });
+  return Object.entries(mapa).sort((a,b) => b[1] - a[1]);
+}
+
+function setBalancoPeriodo(v){ balancoPeriodo = v; navigate('balanco'); }
+
+function renderBalanco(el){
+  const per = periodoBalanco();
+  const est = valorDoEstoque();
+  const ven = resumoVendas(per);
+  const gas = resumoGastos(per);
+  const resultado = ven.total - ven.custoVendido - gas.total;
+
+  const avisos = [];
+  if(est.semCusto) avisos.push(`${est.semCusto} peça(s) em estoque estão sem o custo preenchido. Enquanto isso, o lucro aparece maior do que é — preencha o campo <strong>Custo</strong> em Produtos.`);
+  if(ven.estimadas) avisos.push(`${ven.estimadas} item(ns) de vendas antigas não guardaram o custo da época; para eles usamos o custo atual da peça.`);
+
+  el.innerHTML = `
+    <div class="panel" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <strong>Período:</strong>
+      <select id="balPeriodo" style="max-width:220px">
+        <option value="mes"        ${balancoPeriodo==='mes'?'selected':''}>Este mês</option>
+        <option value="mesPassado" ${balancoPeriodo==='mesPassado'?'selected':''}>Mês passado</option>
+        <option value="ano"        ${balancoPeriodo==='ano'?'selected':''}>Este ano</option>
+        <option value="tudo"       ${balancoPeriodo==='tudo'?'selected':''}>Desde o começo</option>
+      </select>
+      <span class="text-muted" style="font-size:12.5px">Vendas e gastos abaixo referem-se a <strong>${per.rotulo}</strong>. O estoque é sempre o de agora.</span>
+    </div>
+
+    <div class="panel">
+      <h3>📦 O que está parado no estoque (hoje)</h3>
+      <div class="cards-row">
+        <div class="card"><div class="label">Peças em estoque</div><div class="value">${est.pecas}</div></div>
+        <div class="card"><div class="label">Dinheiro investido (custo)</div><div class="value">${money(est.custo)}</div></div>
+        <div class="card"><div class="label">Se vender tudo (preço)</div><div class="value">${money(est.venda)}</div></div>
+        <div class="card"><div class="label">Lucro previsto</div><div class="value text-success">${money(est.lucroPrevisto)}</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>💰 Quanto vendi — ${escapeHtml(per.rotulo)}</h3>
+        <table><tbody>
+          <tr><td>Vendas realizadas</td><td style="text-align:right">${ven.qtd}</td></tr>
+          <tr><td>Peças vendidas</td><td style="text-align:right">${ven.pecas}</td></tr>
+          <tr><td>Ticket médio</td><td style="text-align:right">${money(ven.ticket)}</td></tr>
+          <tr><td><strong>Total vendido</strong></td><td style="text-align:right"><strong>${money(ven.total)}</strong></td></tr>
+          <tr><td>Custo das peças vendidas</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
+          <tr><td><strong>Lucro nas peças</strong></td><td style="text-align:right"><strong class="text-success">${money(ven.lucroBruto)}</strong></td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="panel">
+        <h3>🧾 Quanto gastei — ${escapeHtml(per.rotulo)}</h3>
+        <table><tbody>
+          <tr><td>Gastos mensais (aluguel, luz, água…)</td><td style="text-align:right">${money(gas.mensais)}</td></tr>
+          <tr><td>Outras despesas (Financeiro)</td><td style="text-align:right">${money(gas.despesas)}</td></tr>
+          ${gas.abertura ? `<tr><td>Custos para abrir a loja</td><td style="text-align:right">${money(gas.abertura)}</td></tr>` : ''}
+          <tr><td><strong>Total gasto</strong></td><td style="text-align:right"><strong>${money(gas.total)}</strong></td></tr>
+        </tbody></table>
+        ${balancoPeriodo !== 'tudo' ? `<p class="text-muted" style="font-size:12px;margin-top:10px">Os custos de abertura da loja só entram na conta em "Desde o começo" — foram um gasto único.</p>` : ''}
+      </div>
+    </div>
+
+    <div class="panel" style="border-left:4px solid ${resultado>=0?'var(--success,#4C8B5C)':'var(--danger,#B33A3A)'}">
+      <h3>${resultado>=0?'✅':'⚠️'} Resultado de ${escapeHtml(per.rotulo)}</h3>
+      <table><tbody>
+        <tr><td>Vendi</td><td style="text-align:right">${money(ven.total)}</td></tr>
+        <tr><td>Paguei pelas peças que vendi</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
+        <tr><td>Gastei com a loja</td><td style="text-align:right">− ${money(gas.total)}</td></tr>
+        <tr><td style="font-size:16px"><strong>${resultado>=0?'Sobrou' : 'Faltou'}</strong></td>
+            <td style="text-align:right;font-size:16px"><strong class="${resultado>=0?'text-success':'text-danger'}">${money(Math.abs(resultado))}</strong></td></tr>
+      </tbody></table>
+    </div>
+
+    ${avisos.length ? `<div class="panel" style="border-left:4px solid var(--warning,#C1874F)">
+      <h3>Para a conta ficar certa</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.7">${avisos.map(a=>`<li>${a}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    <div class="grid-2">
+      <div class="panel"><h3>Gastos por categoria — ${escapeHtml(per.rotulo)}</h3>${tabelaGastosCategoria(per)}</div>
+      <div class="panel"><h3>Estoque parado por peça</h3>${tabelaEstoqueValor()}</div>
+    </div>`;
+
+  el.querySelector('#balPeriodo').addEventListener('change', e => setBalancoPeriodo(e.target.value));
+}
+
+function tabelaGastosCategoria(per){
+  const lista = gastosPorCategoria(per);
+  if(!lista.length) return `<div class="empty-state">Nenhum gasto lançado neste período</div>`;
+  const total = lista.reduce((a,[,v]) => a+v, 0);
+  return `<div class="table-wrap"><table><thead><tr><th>Categoria</th><th style="text-align:right">Valor</th><th style="text-align:right">%</th></tr></thead><tbody>
+    ${lista.map(([c,v]) => `<tr><td>${escapeHtml(c)}</td><td style="text-align:right">${money(v)}</td>
+      <td style="text-align:right">${total ? Math.round(v/total*100) : 0}%</td></tr>`).join('')}
+    <tr><td><strong>Total</strong></td><td style="text-align:right"><strong>${money(total)}</strong></td><td></td></tr>
+  </tbody></table></div>`;
+}
+
+function tabelaEstoqueValor(){
+  const linhas = DB.products.map(p => {
+    const qtd = p.variations.reduce((a,v) => a + (Number(v.stock)||0), 0);
+    return { nome: p.name, qtd,
+             custo: qtd * (Number(p.cost)||0),
+             venda: qtd * (Number(p.price)||0),
+             semCusto: !Number(p.cost) && qtd > 0 };
+  }).filter(l => l.qtd > 0).sort((a,b) => b.custo - a.custo || b.venda - a.venda);
+
+  if(!linhas.length) return `<div class="empty-state">Nenhuma peça em estoque</div>`;
+  const mostrar = linhas.slice(0, 15);
+  return `<div class="table-wrap"><table><thead><tr>
+      <th>Peça</th><th style="text-align:right">Qtd</th>
+      <th style="text-align:right">Custo</th><th style="text-align:right">Venda</th>
+    </tr></thead><tbody>
+    ${mostrar.map(l => `<tr>
+      <td>${escapeHtml(l.nome)}${l.semCusto ? ' <span class="text-muted" style="font-size:11px">(sem custo)</span>' : ''}</td>
+      <td style="text-align:right">${l.qtd}</td>
+      <td style="text-align:right">${money(l.custo)}</td>
+      <td style="text-align:right">${money(l.venda)}</td></tr>`).join('')}
+  </tbody></table></div>
+  ${linhas.length > 15 ? `<p class="text-muted" style="font-size:12px;margin-top:8px">Mostrando as 15 peças com mais dinheiro parado, de ${linhas.length}.</p>` : ''}`;
 }
 
 /* =========================================================
@@ -1277,7 +1652,13 @@ function finalizeSale(){
   const total = Math.max(0, cartSubtotal()-pdvDiscount);
   const sale = {
     id: uid(), date: todayISO(),
-    items: cart.map(i=>({productId:i.productId, name:i.name, size:i.size, color:i.color, price:i.price, qty:i.qty})),
+    items: cart.map(i=>{
+      const prod = DB.products.find(x=>x.id===i.productId);
+      /* guardamos o custo daqui, congelado: se amanhã o custo da peça mudar,
+         o lucro desta venda não pode mudar junto. */
+      return { productId:i.productId, name:i.name, size:i.size, color:i.color,
+               price:i.price, qty:i.qty, cost: prod ? Number(prod.cost)||0 : 0 };
+    }),
     discount: pdvDiscount, payment: pdvPayment, customerId: pdvCustomer || null,
     seller: SESSION.name, total, status:'concluida', origin:'pdv', canceled:false
   };
@@ -1289,7 +1670,21 @@ function finalizeSale(){
   });
   DB.sales.push(sale);
   DB.finance.entries.push({ id:uid(), type:'receita', category:'Venda PDV', amount: total, date: todayISO(), status:'pago', description:`Venda #${sale.id.slice(-6)}` });
-  saveDB();
+
+  /* Só damos a venda por feita depois que ela está realmente gravada. Antes
+     o recibo saía mesmo quando o armazenamento recusava a gravação, e a
+     venda sumia no recarregamento seguinte. */
+  if(!exigirGravacao('esta venda')){
+    DB.sales.pop();
+    DB.finance.entries.pop();
+    cart.forEach(i=>{
+      const p = DB.products.find(x=>x.id===i.productId);
+      const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+      if(v) v.stock += i.qty;   // devolve o estoque: a venda não aconteceu
+    });
+    toast('A venda NÃO foi salva. O carrinho continua aqui para você refazer.','error');
+    return;
+  }
   printReceipt(sale);
   cart=[]; pdvDiscount=0; pdvCustomer='';
   renderPDV(document.getElementById('view'));
@@ -1314,10 +1709,16 @@ function renderVendas(el){
   el.innerHTML = `<div id="vendasWrap"></div>`;
   renderVendasTable();
 }
+/* A tela desenhava TODAS as vendas de uma vez. Com 800 vendas já eram 8.814
+   elementos na tela; em um ano de loja isso trava o celular. Mostramos as
+   mais recentes e o resto sob demanda. */
+let vendasMostradas = 100;
 function renderVendasTable(){
   const wrap = document.getElementById('vendasWrap');
-  const list = [...DB.sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!list.length){ wrap.innerHTML=`<div class="empty-state">Nenhuma venda registrada</div>`; return; }
+  const todas = [...DB.sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!todas.length){ wrap.innerHTML=`<div class="empty-state">Nenhuma venda registrada</div>`; return; }
+  const list = todas.slice(0, vendasMostradas);
+  const faltam = todas.length - list.length;
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
     <th>Data</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagto</th><th>Origem</th><th>Status</th><th></th>
   </tr></thead><tbody>
@@ -1331,8 +1732,12 @@ function renderVendasTable(){
       <td>${saleStatusBadge(s)}</td>
       <td>${saleActions(s)}</td>
     </tr>`).join('')}
-  </tbody></table></div>`;
+  </tbody></table></div>
+  ${faltam ? `<div style="text-align:center;margin-top:12px">
+    <button class="btn" onclick="verMaisVendas()">Ver mais ${Math.min(faltam,100)} de ${faltam} vendas antigas</button>
+  </div>` : ''}`;
 }
+function verMaisVendas(){ vendasMostradas += 100; renderVendasTable(); }
 function saleStatusBadge(s){
   if(s.canceled) return '<span class="badge badge-danger">Cancelada</span>';
   if(s.status==='pendente') return '<span class="badge badge-warning">Pendente</span>';
@@ -1921,6 +2326,10 @@ document.addEventListener('keydown', e=>{
    ========================================================= */
 /* Rede de segurança: qualquer erro não tratado vira um aviso visível,
    em vez de deixar a tela em branco sem explicação. */
+/* Internet de loja cai o tempo todo. Quando ela volta, o que ficou na fila
+   sobe sozinho, sem ninguém precisar lembrar. */
+window.addEventListener('online', ()=>enviarFotosPendentes());
+
 window.addEventListener('error', e=>{
   if(e && e.message) toast('Erro: '+e.message, 'error');
 });
@@ -1953,6 +2362,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
+  migrarFotosAntigas();
   atualizaDicaLogin();
   const lv = document.getElementById('loginVersion');
   if(lv) lv.textContent = 'versão ' + APP_VERSION;
