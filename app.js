@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "15";
+const APP_VERSION = "17";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -31,15 +31,26 @@ function dateBR(iso){ if(!iso) return '-'; const d=new Date(iso); return d.toLoc
 function monthKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(mk){ const [y,m]=mk.split('-'); const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return names[Number(m)-1]+'/'+y; }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* A aparência do aviso vive no style.css (#toast). Antes ele era desenhado
+   aqui com estilo embutido e só ficava transparente ao sumir: continuava
+   por cima da tela roubando o toque. No celular ele cobria justamente as
+   formas de pagamento e o Finalizar venda. Agora só recebe toque enquanto
+   for clicável, e some de vez. */
+function escondeToast(t){
+  t.classList.add('sumindo');
+  t.classList.remove('clicavel');
+  t.onclick = null;
+}
 function toast(msg, type='ok', onClick){
   let t = document.getElementById('toast');
-  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t);
-    t.style.cssText='position:fixed;bottom:20px;right:20px;z-index:999;padding:12px 18px;border-radius:10px;color:#fff;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.2);transition:opacity .3s'; }
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
   t.style.background = type==='error' ? '#B33A3A' : (type==='warn' ? '#C1874F' : '#4C8B5C');
-  t.style.cursor = onClick ? 'pointer' : 'default';
-  t.textContent = msg; t.style.opacity='1';
-  t.onclick = onClick || null;
-  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; },onClick?4000:2200);
+  t.textContent = msg;
+  t.classList.remove('sumindo');
+  t.classList.toggle('clicavel', !!onClick);
+  t.onclick = onClick ? ()=>{ escondeToast(t); onClick(); } : null;
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>escondeToast(t), onClick?4000:2200);
 }
 
 /* ---------- DB default schema ---------- */
@@ -191,8 +202,17 @@ function normalizeDB(){
   DB.cashRegister.movements = arr(DB.cashRegister.movements);
   DB.cashRegister.closedHistory = arr(DB.cashRegister.closedHistory);
 
-  DB.users = arr(DB.users).filter(Boolean);
-  if(!DB.users.length) DB.users = defaultDB().users;
+  DB.users = arr(DB.users).filter(Boolean).map(u=>({
+    ...u, id: u.id || novoId(), user: (u.user||'').trim(), pass: u.pass==null ? '' : String(u.pass)
+  })).filter(u=>u.user);
+  /* A loja não pode ficar sem administrador. Se o único admin foi apagado,
+     renomeado ou só sobrou vendedora, ninguém mais entra no sistema e não
+     há tela para consertar isso. Nesses casos o admin padrão volta, sem
+     mexer em quem já existe. */
+  if(!DB.users.some(u=>u.role==='admin')){
+    DB.users.push(defaultDB().users[0]);
+    reparou = true;
+  }
 
   return reparou;
 }
@@ -357,6 +377,45 @@ function tryLogin(user, pass){
   }
   return false;
 }
+/* A dica embaixo do botão era o texto fixo "admin / 1234". Quando o lojista
+   troca a senha ou renomeia o usuário, ela passa a mentir — foi o que
+   aconteceu na loja. Agora ela lê o banco: só mostra a senha enquanto ela
+   ainda for a de fábrica. */
+function atualizaDicaLogin(){
+  const el = document.getElementById('loginHint');
+  if(!el) return;
+  const admins = DB.users.filter(u=>u.role==='admin');
+  const padrao = admins.find(u=>u.user==='admin' && u.pass==='1234');
+  el.textContent = padrao ? 'admin / 1234'
+    : 'Entre como: ' + (admins.map(u=>u.user).join(' ou ') || 'admin');
+}
+
+/* Caminho de volta para quem perdeu a senha. Sem isso a loja fica trancada
+   para fora do próprio sistema e não existe tela nenhuma para consertar.
+   Não é um cofre: as senhas ficam salvas em texto puro neste aparelho, então
+   quem já está com o celular na mão consegue lê-las de qualquer jeito. */
+function recuperarAcesso(){
+  const admins = DB.users.filter(u=>u.role==='admin').map(u=>u.user).join(', ');
+  const ok = confirm(
+    'Recuperar o acesso de administrador?\n\n' +
+    'Administradores neste sistema: ' + (admins||'nenhum') + '\n\n' +
+    'Vamos restaurar o login admin com a senha 1234. Nenhum produto, venda ou ' +
+    'gasto é apagado, e os outros usuários continuam como estão.\n\n' +
+    'Troque a senha depois em Configurações.'
+  );
+  if(!ok) return;
+  const admin = DB.users.find(u=>u.user==='admin');
+  if(admin){ admin.pass='1234'; admin.role='admin'; }
+  else DB.users.push({ id:uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' });
+  saveDB();
+  atualizaDicaLogin();
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginUser').value = 'admin';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginPass').focus();
+  toast('Acesso restaurado. Entre com admin / 1234 e troque a senha em Configurações.','warn');
+}
+
 function logout(){
   SESSION = null;
   localStorage.removeItem(SESSION_KEY);
@@ -1139,7 +1198,12 @@ function renderPDV(el){
     input.focus();
   }));
   input.focus();
-  el.querySelectorAll('[data-pay]').forEach(b=>b.addEventListener('click', e=>{ pdvPayment=e.target.dataset.pay; renderPDV(el); }));
+  /* só marca o botão escolhido. Redesenhar o PDV inteiro aqui fazia o
+     teclado do celular reabrir a cada toque na forma de pagamento. */
+  el.querySelectorAll('[data-pay]').forEach(b=>b.addEventListener('click', e=>{
+    pdvPayment = e.currentTarget.dataset.pay;
+    el.querySelectorAll('[data-pay]').forEach(o=>o.classList.toggle('active', o.dataset.pay===pdvPayment));
+  }));
   el.querySelector('#pdvCustomerSel').addEventListener('change', e=>pdvCustomer=e.target.value);
   el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Number(e.target.value)||0; renderCartItems(); });
 
@@ -1871,8 +1935,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value;
     if(tryLogin(user, pass)){ showApp(); }
-    else document.getElementById('loginError').textContent = 'Usuário ou senha inválidos';
+    else {
+      /* Dizer só "inválidos" não ajuda quem trocou a senha e esqueceu:
+         mostramos quais usuários existem de verdade neste sistema. */
+      const nomes = DB.users.map(u=>u.user).join(', ');
+      document.getElementById('loginError').textContent =
+        'Usuário ou senha inválidos. Cadastrados aqui: ' + nomes;
+      document.getElementById('loginHelpBtn').style.display = 'block';
+    }
   });
+  document.getElementById('loginHelpBtn').addEventListener('click', recuperarAcesso);
   document.getElementById('logoutBtn').addEventListener('click', logout);
   document.getElementById('navList').addEventListener('click', e=>{
     const a = e.target.closest('a[data-route]');
@@ -1881,5 +1953,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
+  atualizaDicaLogin();
+  const lv = document.getElementById('loginVersion');
+  if(lv) lv.textContent = 'versão ' + APP_VERSION;
   if(SESSION){ showApp(); } else { showLogin(); }
 });
