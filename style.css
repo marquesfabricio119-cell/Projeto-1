@@ -92,6 +92,13 @@ button,.btn,.nav-item,.pdv-product,label,a{touch-action:manipulation}
 }
 .btn-primary:hover{background:var(--rose-gold-esc)}
 .login-hint{margin-top:16px;font-size:11px;color:var(--muted)}
+.login-help{
+  display:none;margin:10px auto 0;background:none;border:none;
+  color:var(--rose-gold-esc);font:inherit;font-size:12.5px;
+  text-decoration:underline;cursor:pointer;padding:6px 8px;
+}
+.login-help:hover{color:var(--marrom)}
+
 
 /* ===== App shell ===== */
 #app{display:flex;min-height:100vh}

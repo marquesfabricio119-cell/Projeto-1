@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "16";
+const APP_VERSION = "17";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -202,8 +202,17 @@ function normalizeDB(){
   DB.cashRegister.movements = arr(DB.cashRegister.movements);
   DB.cashRegister.closedHistory = arr(DB.cashRegister.closedHistory);
 
-  DB.users = arr(DB.users).filter(Boolean);
-  if(!DB.users.length) DB.users = defaultDB().users;
+  DB.users = arr(DB.users).filter(Boolean).map(u=>({
+    ...u, id: u.id || novoId(), user: (u.user||'').trim(), pass: u.pass==null ? '' : String(u.pass)
+  })).filter(u=>u.user);
+  /* A loja não pode ficar sem administrador. Se o único admin foi apagado,
+     renomeado ou só sobrou vendedora, ninguém mais entra no sistema e não
+     há tela para consertar isso. Nesses casos o admin padrão volta, sem
+     mexer em quem já existe. */
+  if(!DB.users.some(u=>u.role==='admin')){
+    DB.users.push(defaultDB().users[0]);
+    reparou = true;
+  }
 
   return reparou;
 }
@@ -368,6 +377,45 @@ function tryLogin(user, pass){
   }
   return false;
 }
+/* A dica embaixo do botão era o texto fixo "admin / 1234". Quando o lojista
+   troca a senha ou renomeia o usuário, ela passa a mentir — foi o que
+   aconteceu na loja. Agora ela lê o banco: só mostra a senha enquanto ela
+   ainda for a de fábrica. */
+function atualizaDicaLogin(){
+  const el = document.getElementById('loginHint');
+  if(!el) return;
+  const admins = DB.users.filter(u=>u.role==='admin');
+  const padrao = admins.find(u=>u.user==='admin' && u.pass==='1234');
+  el.textContent = padrao ? 'admin / 1234'
+    : 'Entre como: ' + (admins.map(u=>u.user).join(' ou ') || 'admin');
+}
+
+/* Caminho de volta para quem perdeu a senha. Sem isso a loja fica trancada
+   para fora do próprio sistema e não existe tela nenhuma para consertar.
+   Não é um cofre: as senhas ficam salvas em texto puro neste aparelho, então
+   quem já está com o celular na mão consegue lê-las de qualquer jeito. */
+function recuperarAcesso(){
+  const admins = DB.users.filter(u=>u.role==='admin').map(u=>u.user).join(', ');
+  const ok = confirm(
+    'Recuperar o acesso de administrador?\n\n' +
+    'Administradores neste sistema: ' + (admins||'nenhum') + '\n\n' +
+    'Vamos restaurar o login admin com a senha 1234. Nenhum produto, venda ou ' +
+    'gasto é apagado, e os outros usuários continuam como estão.\n\n' +
+    'Troque a senha depois em Configurações.'
+  );
+  if(!ok) return;
+  const admin = DB.users.find(u=>u.user==='admin');
+  if(admin){ admin.pass='1234'; admin.role='admin'; }
+  else DB.users.push({ id:uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' });
+  saveDB();
+  atualizaDicaLogin();
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginUser').value = 'admin';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginPass').focus();
+  toast('Acesso restaurado. Entre com admin / 1234 e troque a senha em Configurações.','warn');
+}
+
 function logout(){
   SESSION = null;
   localStorage.removeItem(SESSION_KEY);
@@ -1887,8 +1935,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value;
     if(tryLogin(user, pass)){ showApp(); }
-    else document.getElementById('loginError').textContent = 'Usuário ou senha inválidos';
+    else {
+      /* Dizer só "inválidos" não ajuda quem trocou a senha e esqueceu:
+         mostramos quais usuários existem de verdade neste sistema. */
+      const nomes = DB.users.map(u=>u.user).join(', ');
+      document.getElementById('loginError').textContent =
+        'Usuário ou senha inválidos. Cadastrados aqui: ' + nomes;
+      document.getElementById('loginHelpBtn').style.display = 'block';
+    }
   });
+  document.getElementById('loginHelpBtn').addEventListener('click', recuperarAcesso);
   document.getElementById('logoutBtn').addEventListener('click', logout);
   document.getElementById('navList').addEventListener('click', e=>{
     const a = e.target.closest('a[data-route]');
@@ -1897,5 +1953,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
+  atualizaDicaLogin();
   if(SESSION){ showApp(); } else { showLogin(); }
 });
