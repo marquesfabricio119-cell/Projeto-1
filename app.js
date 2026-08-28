@@ -572,6 +572,7 @@ const NAV = [
   { id:'vendas', label:'Vendas', icon:'🧾', group:'dia' },
 
   { id:'painel', label:'Painel', icon:'🏠', group:'gestao' },
+  { id:'balanco', label:'Balanço', icon:'💵', group:'gestao' },
   { id:'caixa', label:'Caixa', icon:'💰', group:'gestao' },
   { id:'etiquetas', label:'Etiquetas', icon:'🏷️', group:'gestao' },
   { id:'clientes', label:'Clientes', icon:'👤', group:'gestao' },
@@ -625,7 +626,7 @@ function navigate(route){
     painel: renderPainel, pdv: renderPDV, produtos: renderProdutos, estoque: renderEstoque,
     etiquetas: renderEtiquetas, clientes: renderClientes, vendas: renderVendas, caixa: renderCaixa,
     financeiro: renderFinanceiro, gastos: renderGastos, abrirloja: renderAbrirLoja,
-    relatorios: renderRelatorios, config: renderConfig
+    relatorios: renderRelatorios, config: renderConfig, balanco: renderBalanco
   };
   view.innerHTML = '';
   try{
@@ -1020,6 +1021,218 @@ function openProductModal(id){
       toast('Não foi possível salvar o produto: '+err.message, 'error');
     }
   });
+}
+
+
+/* =========================================================
+   BALANÇO — as três perguntas que o lojista faz toda semana:
+   quanto tenho parado em estoque, quanto gastei e quanto vendi.
+   ========================================================= */
+let balancoPeriodo = 'mes';
+
+function periodoBalanco(){
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  if(balancoPeriodo === 'mes'){
+    const mk = monthKey();
+    return { rotulo: monthLabel(mk), casa: d => (d||'').startsWith(mk), mesUnico: mk };
+  }
+  if(balancoPeriodo === 'mesPassado'){
+    const d = new Date(ano, hoje.getMonth()-1, 1);
+    const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    return { rotulo: monthLabel(mk), casa: x => (x||'').startsWith(mk), mesUnico: mk };
+  }
+  if(balancoPeriodo === 'ano'){
+    return { rotulo: 'ano de '+ano, casa: x => (x||'').startsWith(String(ano)), mesUnico: null };
+  }
+  return { rotulo: 'desde o começo', casa: () => true, mesUnico: null };
+}
+
+/* Quanto está parado nas araras. Custo é o dinheiro investido; venda é o que
+   ele vira se tudo for vendido pelo preço de etiqueta. */
+function valorDoEstoque(){
+  let pecas = 0, custo = 0, venda = 0, semCusto = 0;
+  DB.products.forEach(p => {
+    const qtd = p.variations.reduce((a,v) => a + (Number(v.stock)||0), 0);
+    if(!qtd) return;
+    pecas += qtd;
+    custo += qtd * (Number(p.cost)||0);
+    venda += qtd * (Number(p.price)||0);
+    if(!Number(p.cost)) semCusto += qtd;
+  });
+  return { pecas, custo, venda, lucroPrevisto: venda - custo, semCusto };
+}
+
+/* Quanto entrou. O custo das peças vendidas sai do que foi congelado na
+   venda; nas vendas antigas, que não guardavam isso, caímos no custo atual
+   da peça — e a tela avisa quando isso acontece. */
+function resumoVendas(per){
+  const vendas = DB.sales.filter(s => !s.canceled && per.casa(s.date));
+  let total = 0, custoVendido = 0, pecas = 0, estimadas = 0;
+  vendas.forEach(s => {
+    total += Number(s.total)||0;
+    s.items.forEach(i => {
+      pecas += i.qty;
+      if(i.cost === undefined){
+        const prod = DB.products.find(x => x.id === i.productId);
+        custoVendido += (prod ? Number(prod.cost)||0 : 0) * i.qty;
+        estimadas++;
+      } else {
+        custoVendido += (Number(i.cost)||0) * i.qty;
+      }
+    });
+  });
+  return { qtd: vendas.length, total, custoVendido, pecas, estimadas,
+           lucroBruto: total - custoVendido,
+           ticket: vendas.length ? total/vendas.length : 0 };
+}
+
+/* Quanto saiu, juntando os três lugares onde o gasto pode estar. */
+function resumoGastos(per){
+  const mensais = DB.monthlyExpenses.records
+    .filter(r => per.casa(r.month))
+    .reduce((a,r) => a + (Number(r.amount)||0), 0);
+
+  const despesas = DB.finance.entries
+    .filter(e => e.type === 'despesa' && per.casa(e.date))
+    .reduce((a,e) => a + (Number(e.amount)||0), 0);
+
+  /* Abrir a loja foi um gasto de uma vez só, sem data de mês. Entra apenas
+     quando se olha "desde o começo", senão ele apareceria repetido todo mês. */
+  const abertura = balancoPeriodo === 'tudo'
+    ? DB.storeSetup.items.reduce((a,i) => a + (Number(i.paid) || Number(i.planned) || 0), 0)
+    : 0;
+
+  return { mensais, despesas, abertura, total: mensais + despesas + abertura };
+}
+
+function gastosPorCategoria(per){
+  const mapa = {};
+  DB.monthlyExpenses.records.filter(r => per.casa(r.month))
+    .forEach(r => { mapa[r.category] = (mapa[r.category]||0) + (Number(r.amount)||0); });
+  DB.finance.entries.filter(e => e.type === 'despesa' && per.casa(e.date))
+    .forEach(e => { const c = e.category || 'Outros';
+                    mapa[c] = (mapa[c]||0) + (Number(e.amount)||0); });
+  return Object.entries(mapa).sort((a,b) => b[1] - a[1]);
+}
+
+function setBalancoPeriodo(v){ balancoPeriodo = v; navigate('balanco'); }
+
+function renderBalanco(el){
+  const per = periodoBalanco();
+  const est = valorDoEstoque();
+  const ven = resumoVendas(per);
+  const gas = resumoGastos(per);
+  const resultado = ven.total - ven.custoVendido - gas.total;
+
+  const avisos = [];
+  if(est.semCusto) avisos.push(`${est.semCusto} peça(s) em estoque estão sem o custo preenchido. Enquanto isso, o lucro aparece maior do que é — preencha o campo <strong>Custo</strong> em Produtos.`);
+  if(ven.estimadas) avisos.push(`${ven.estimadas} item(ns) de vendas antigas não guardaram o custo da época; para eles usamos o custo atual da peça.`);
+
+  el.innerHTML = `
+    <div class="panel" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <strong>Período:</strong>
+      <select id="balPeriodo" style="max-width:220px">
+        <option value="mes"        ${balancoPeriodo==='mes'?'selected':''}>Este mês</option>
+        <option value="mesPassado" ${balancoPeriodo==='mesPassado'?'selected':''}>Mês passado</option>
+        <option value="ano"        ${balancoPeriodo==='ano'?'selected':''}>Este ano</option>
+        <option value="tudo"       ${balancoPeriodo==='tudo'?'selected':''}>Desde o começo</option>
+      </select>
+      <span class="text-muted" style="font-size:12.5px">Vendas e gastos abaixo referem-se a <strong>${per.rotulo}</strong>. O estoque é sempre o de agora.</span>
+    </div>
+
+    <div class="panel">
+      <h3>📦 O que está parado no estoque (hoje)</h3>
+      <div class="cards-row">
+        <div class="card"><div class="label">Peças em estoque</div><div class="value">${est.pecas}</div></div>
+        <div class="card"><div class="label">Dinheiro investido (custo)</div><div class="value">${money(est.custo)}</div></div>
+        <div class="card"><div class="label">Se vender tudo (preço)</div><div class="value">${money(est.venda)}</div></div>
+        <div class="card"><div class="label">Lucro previsto</div><div class="value text-success">${money(est.lucroPrevisto)}</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>💰 Quanto vendi — ${escapeHtml(per.rotulo)}</h3>
+        <table><tbody>
+          <tr><td>Vendas realizadas</td><td style="text-align:right">${ven.qtd}</td></tr>
+          <tr><td>Peças vendidas</td><td style="text-align:right">${ven.pecas}</td></tr>
+          <tr><td>Ticket médio</td><td style="text-align:right">${money(ven.ticket)}</td></tr>
+          <tr><td><strong>Total vendido</strong></td><td style="text-align:right"><strong>${money(ven.total)}</strong></td></tr>
+          <tr><td>Custo das peças vendidas</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
+          <tr><td><strong>Lucro nas peças</strong></td><td style="text-align:right"><strong class="text-success">${money(ven.lucroBruto)}</strong></td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="panel">
+        <h3>🧾 Quanto gastei — ${escapeHtml(per.rotulo)}</h3>
+        <table><tbody>
+          <tr><td>Gastos mensais (aluguel, luz, água…)</td><td style="text-align:right">${money(gas.mensais)}</td></tr>
+          <tr><td>Outras despesas (Financeiro)</td><td style="text-align:right">${money(gas.despesas)}</td></tr>
+          ${gas.abertura ? `<tr><td>Custos para abrir a loja</td><td style="text-align:right">${money(gas.abertura)}</td></tr>` : ''}
+          <tr><td><strong>Total gasto</strong></td><td style="text-align:right"><strong>${money(gas.total)}</strong></td></tr>
+        </tbody></table>
+        ${balancoPeriodo !== 'tudo' ? `<p class="text-muted" style="font-size:12px;margin-top:10px">Os custos de abertura da loja só entram na conta em "Desde o começo" — foram um gasto único.</p>` : ''}
+      </div>
+    </div>
+
+    <div class="panel" style="border-left:4px solid ${resultado>=0?'var(--success,#4C8B5C)':'var(--danger,#B33A3A)'}">
+      <h3>${resultado>=0?'✅':'⚠️'} Resultado de ${escapeHtml(per.rotulo)}</h3>
+      <table><tbody>
+        <tr><td>Vendi</td><td style="text-align:right">${money(ven.total)}</td></tr>
+        <tr><td>Paguei pelas peças que vendi</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
+        <tr><td>Gastei com a loja</td><td style="text-align:right">− ${money(gas.total)}</td></tr>
+        <tr><td style="font-size:16px"><strong>${resultado>=0?'Sobrou' : 'Faltou'}</strong></td>
+            <td style="text-align:right;font-size:16px"><strong class="${resultado>=0?'text-success':'text-danger'}">${money(Math.abs(resultado))}</strong></td></tr>
+      </tbody></table>
+    </div>
+
+    ${avisos.length ? `<div class="panel" style="border-left:4px solid var(--warning,#C1874F)">
+      <h3>Para a conta ficar certa</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.7">${avisos.map(a=>`<li>${a}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    <div class="grid-2">
+      <div class="panel"><h3>Gastos por categoria — ${escapeHtml(per.rotulo)}</h3>${tabelaGastosCategoria(per)}</div>
+      <div class="panel"><h3>Estoque parado por peça</h3>${tabelaEstoqueValor()}</div>
+    </div>`;
+
+  el.querySelector('#balPeriodo').addEventListener('change', e => setBalancoPeriodo(e.target.value));
+}
+
+function tabelaGastosCategoria(per){
+  const lista = gastosPorCategoria(per);
+  if(!lista.length) return `<div class="empty-state">Nenhum gasto lançado neste período</div>`;
+  const total = lista.reduce((a,[,v]) => a+v, 0);
+  return `<div class="table-wrap"><table><thead><tr><th>Categoria</th><th style="text-align:right">Valor</th><th style="text-align:right">%</th></tr></thead><tbody>
+    ${lista.map(([c,v]) => `<tr><td>${escapeHtml(c)}</td><td style="text-align:right">${money(v)}</td>
+      <td style="text-align:right">${total ? Math.round(v/total*100) : 0}%</td></tr>`).join('')}
+    <tr><td><strong>Total</strong></td><td style="text-align:right"><strong>${money(total)}</strong></td><td></td></tr>
+  </tbody></table></div>`;
+}
+
+function tabelaEstoqueValor(){
+  const linhas = DB.products.map(p => {
+    const qtd = p.variations.reduce((a,v) => a + (Number(v.stock)||0), 0);
+    return { nome: p.name, qtd,
+             custo: qtd * (Number(p.cost)||0),
+             venda: qtd * (Number(p.price)||0),
+             semCusto: !Number(p.cost) && qtd > 0 };
+  }).filter(l => l.qtd > 0).sort((a,b) => b.custo - a.custo || b.venda - a.venda);
+
+  if(!linhas.length) return `<div class="empty-state">Nenhuma peça em estoque</div>`;
+  const mostrar = linhas.slice(0, 15);
+  return `<div class="table-wrap"><table><thead><tr>
+      <th>Peça</th><th style="text-align:right">Qtd</th>
+      <th style="text-align:right">Custo</th><th style="text-align:right">Venda</th>
+    </tr></thead><tbody>
+    ${mostrar.map(l => `<tr>
+      <td>${escapeHtml(l.nome)}${l.semCusto ? ' <span class="text-muted" style="font-size:11px">(sem custo)</span>' : ''}</td>
+      <td style="text-align:right">${l.qtd}</td>
+      <td style="text-align:right">${money(l.custo)}</td>
+      <td style="text-align:right">${money(l.venda)}</td></tr>`).join('')}
+  </tbody></table></div>
+  ${linhas.length > 15 ? `<p class="text-muted" style="font-size:12px;margin-top:8px">Mostrando as 15 peças com mais dinheiro parado, de ${linhas.length}.</p>` : ''}`;
 }
 
 /* =========================================================
@@ -1439,7 +1652,13 @@ function finalizeSale(){
   const total = Math.max(0, cartSubtotal()-pdvDiscount);
   const sale = {
     id: uid(), date: todayISO(),
-    items: cart.map(i=>({productId:i.productId, name:i.name, size:i.size, color:i.color, price:i.price, qty:i.qty})),
+    items: cart.map(i=>{
+      const prod = DB.products.find(x=>x.id===i.productId);
+      /* guardamos o custo daqui, congelado: se amanhã o custo da peça mudar,
+         o lucro desta venda não pode mudar junto. */
+      return { productId:i.productId, name:i.name, size:i.size, color:i.color,
+               price:i.price, qty:i.qty, cost: prod ? Number(prod.cost)||0 : 0 };
+    }),
     discount: pdvDiscount, payment: pdvPayment, customerId: pdvCustomer || null,
     seller: SESSION.name, total, status:'concluida', origin:'pdv', canceled:false
   };
