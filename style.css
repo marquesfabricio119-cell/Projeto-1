@@ -103,6 +103,17 @@ button,.btn,.nav-item,.pdv-product,label,a{touch-action:manipulation}
 .login-version{margin-top:6px;font-size:10px;color:var(--muted);opacity:.7}
 
 
+/* Lucro da peça, calculado enquanto o lojista digita custo e preço.
+   Antes o custo ficava escondido em "Mais opções" e quase nunca era
+   preenchido — e sem ele o Balanço mostrava lucro maior do que o real. */
+.lucro-box{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5}
+.lucro-box:empty{display:none}
+.lucro-box strong{display:block;font-size:14.5px}
+.lucro-box span{color:var(--muted);font-size:12px}
+.lucro-box.bom{background:#E9F3EB;border:1px solid #CBE3D1;color:var(--success)}
+.lucro-box.ruim{background:#F8E5E5;border:1px solid #EFCDCD;color:var(--danger)}
+.lucro-box.aviso{background:#F8EFE2;border:1px solid #EBDBC3;color:var(--warning)}
+
 /* ===== App shell ===== */
 #app{display:flex;min-height:100vh}
 .sidebar{
