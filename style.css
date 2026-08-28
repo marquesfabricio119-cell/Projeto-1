@@ -98,6 +98,9 @@ button,.btn,.nav-item,.pdv-product,label,a{touch-action:manipulation}
   text-decoration:underline;cursor:pointer;padding:6px 8px;
 }
 .login-help:hover{color:var(--marrom)}
+/* a versão fica visível já no login: sem ela não dá para saber se o
+   navegador pegou a atualização ou está preso numa cópia antiga */
+.login-version{margin-top:6px;font-size:10px;color:var(--muted);opacity:.7}
 
 
 /* ===== App shell ===== */

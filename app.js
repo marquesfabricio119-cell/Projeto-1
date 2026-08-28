@@ -1954,5 +1954,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
   atualizaDicaLogin();
+  const lv = document.getElementById('loginVersion');
+  if(lv) lv.textContent = 'versão ' + APP_VERSION;
   if(SESSION){ showApp(); } else { showLogin(); }
 });
