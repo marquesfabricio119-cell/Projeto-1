@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "18";
+const APP_VERSION = "19";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -75,7 +75,11 @@ function defaultDB(){
     storeSetup: { items:[] },
     monthlyExpenses: {
       categories: ["Aluguel","Água","Luz","Internet","Telefone","Manutenção","Salários e encargos","Contador","Segurança/Alarme","Embalagens","Marketing","IPTU","Taxas de maquininha","Limpeza","Outros"],
-      records: []
+      records: [],
+      /* Despesas que se repetem todo mês (aluguel, luz, internet…).
+         Cadastradas uma vez e lançadas no mês com um clique, em vez de
+         digitar as mesmas linhas de novo a cada 30 dias. */
+      fixed: []
     },
     barcodeSeq: 0
   };
@@ -201,6 +205,13 @@ function normalizeDB(){
   if(!DB.cashRegister || typeof DB.cashRegister !== 'object') DB.cashRegister = defaultDB().cashRegister;
   DB.cashRegister.movements = arr(DB.cashRegister.movements);
   DB.cashRegister.closedHistory = arr(DB.cashRegister.closedHistory);
+
+  if(!DB.monthlyExpenses || typeof DB.monthlyExpenses !== 'object') DB.monthlyExpenses = defaultDB().monthlyExpenses;
+  if(!Array.isArray(DB.monthlyExpenses.fixed)) DB.monthlyExpenses.fixed = [];
+  DB.monthlyExpenses.fixed = DB.monthlyExpenses.fixed.filter(Boolean).map(f=>({
+    ...f, id: f.id || novoId(), category: f.category || 'Outros',
+    note: f.note || '', amount: num(f.amount), dueDay: num(f.dueDay) || 0
+  }));
 
   DB.users = arr(DB.users).filter(Boolean).map(u=>({
     ...u, id: u.id || novoId(), user: (u.user||'').trim(), pass: u.pass==null ? '' : String(u.pass)
@@ -820,25 +831,32 @@ function openProductModal(id){
           <input id="f_size" value="${escapeHtml(v0.size==='Único'?'':v0.size)}" placeholder="Ex.: M"></div>
         <div class="field"><label>Quantidade</label>
           <input id="f_qty" type="number" inputmode="numeric" value="${v0.stock||0}"></div>
-        <div class="field"><label>Preço de venda (R$)</label>
+        <div class="field"><label>Quanto você pagou (custo R$)</label>
+          <input id="f_cost" type="number" step="0.01" inputmode="decimal" value="${p.cost||''}" placeholder="0,00"></div>
+        <div class="field"><label>Por quanto vai vender (R$)</label>
           <input id="f_price" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
       </div>
+      <div id="lucroPeca" class="lucro-box"></div>
       <p class="text-muted" style="font-size:12px;margin-top:8px">O código de barras é gerado automaticamente ao salvar.</p>
     </div>
 
     <div id="precoGrade" ${temGrade?'':'style="display:none"'} style="margin-top:12px">
-      <div class="field"><label>Preço de venda (R$)</label>
-        <input id="f_price_grade" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
+      <div class="form-grid">
+        <div class="field"><label>Quanto você pagou (custo R$)</label>
+          <input id="f_cost_grade" type="number" step="0.01" inputmode="decimal" value="${p.cost||''}" placeholder="0,00"></div>
+        <div class="field"><label>Por quanto vai vender (R$)</label>
+          <input id="f_price_grade" type="number" step="0.01" inputmode="decimal" value="${p.price||''}" placeholder="0,00"></div>
+      </div>
+      <div id="lucroPecaGrade" class="lucro-box"></div>
     </div>
 
     <button class="btn btn-sm" id="toggleMore" type="button" style="margin-top:16px">
-      ${temGrade?'▾':'▸'} Mais opções (foto, custo, categoria, mais tamanhos)
+      ${temGrade?'▾':'▸'} Mais opções (foto, categoria, mais tamanhos)
     </button>
 
     <div id="moreOptions" style="${temGrade?'':'display:none'};margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <div class="form-grid">
         <div class="field"><label>Categoria</label><input id="f_category" value="${escapeHtml(p.category)}" placeholder="Vestidos, Blusas..."></div>
-        <div class="field"><label>Custo (R$)</label><input id="f_cost" type="number" step="0.01" value="${p.cost||''}" placeholder="0,00"></div>
         <div class="field"><label>SKU</label><input id="f_sku" value="${escapeHtml(p.sku)}"></div>
         <div class="field"><label>Marca</label><input id="f_brand" value="${escapeHtml(p.brand)}"></div>
         <div class="field full">
@@ -872,7 +890,7 @@ function openProductModal(id){
     const box = overlay.querySelector('#moreOptions');
     const aberto = box.style.display !== 'none';
     box.style.display = aberto ? 'none' : '';
-    e.target.textContent = (aberto?'▸':'▾') + ' Mais opções (tamanhos, foto, custo, categoria)';
+    e.target.textContent = (aberto?'▸':'▾') + ' Mais opções (tamanhos, foto, categoria)';
   });
   overlay.querySelector('#f_photo').addEventListener('input', e=>{
     const preview = overlay.querySelector('#f_photoPreview');
@@ -913,6 +931,42 @@ function openProductModal(id){
       }
     }).catch(()=>{ status.textContent=''; toast('Não foi possível ler essa imagem','error'); });
   });
+  /* O lojista digita custo e preço e vê na hora quanto sobra na peça.
+     Sem isso o custo virava um campo esquecido, e o Balanço mostrava
+     lucro maior do que o real. */
+  function mostrarLucro(){
+    const grade = overlay.querySelector('#precoGrade').style.display !== 'none';
+    const custo = Number(overlay.querySelector(grade ? '#f_cost_grade' : '#f_cost').value) || 0;
+    const preco = Number(overlay.querySelector(grade ? '#f_price_grade' : '#f_price').value) || 0;
+    const caixa = overlay.querySelector(grade ? '#lucroPecaGrade' : '#lucroPeca');
+    const outra = overlay.querySelector(grade ? '#lucroPeca' : '#lucroPecaGrade');
+    if(outra) outra.innerHTML = '';
+    if(!caixa) return;
+    if(!preco && !custo){ caixa.innerHTML = ''; return; }
+    if(!custo){
+      caixa.className = 'lucro-box aviso';
+      caixa.innerHTML = 'Preencha o custo para o sistema calcular seu lucro.';
+      return;
+    }
+    if(!preco){ caixa.innerHTML = ''; return; }
+    const lucro = preco - custo;
+    const margem = Math.round(lucro / preco * 100);
+    const markup = Math.round(lucro / custo * 100);
+    caixa.className = 'lucro-box ' + (lucro > 0 ? 'bom' : 'ruim');
+    caixa.innerHTML = lucro > 0
+      ? `<strong>Lucro por peça: ${money(lucro)}</strong>
+         <span>margem de ${margem}% sobre a venda · ${markup}% em cima do custo</span>`
+      : (lucro === 0
+        ? `<strong>Sem lucro nenhum</strong><span>você vende pelo mesmo que pagou</span>`
+        : `<strong>Prejuízo de ${money(Math.abs(lucro))} por peça</strong>
+           <span>o preço de venda está abaixo do que você pagou</span>`);
+  }
+  ['#f_cost','#f_price','#f_cost_grade','#f_price_grade'].forEach(sel=>{
+    const el = overlay.querySelector(sel);
+    if(el) el.addEventListener('input', mostrarLucro);
+  });
+  mostrarLucro();
+
   let variations = p.variations.map(v=>({...v}));
   function renderVars(){
     overlay.querySelector('#varRows').innerHTML = variations.map((v,i)=>`
@@ -986,7 +1040,7 @@ function openProductModal(id){
         sku: overlay.querySelector('#f_sku').value.trim(),
         category: overlay.querySelector('#f_category').value.trim(),
         brand: overlay.querySelector('#f_brand').value.trim(),
-        cost: Number(overlay.querySelector('#f_cost').value)||0,
+        cost: Number((usandoGrade ? overlay.querySelector('#f_cost_grade') : overlay.querySelector('#f_cost')).value)||0,
         price: Number(precoInput.value)||0,
         photo: overlay.querySelector('#f_photo').value.trim(),
         photoPendente: overlay.dataset.fotoPendente === '1' ? true : undefined,
@@ -1954,9 +2008,139 @@ function renderGastos(el){
       <div class="card"><div class="label">Já pago</div><div class="value text-success">${money(pago)}</div></div>
       <div class="card"><div class="label">Falta pagar</div><div class="value text-danger">${money(total-pago)}</div></div>
     </div>
+    <div id="fixasWrap"></div>
+    <h3 style="margin:22px 0 10px;font-size:15px">Gastos de ${monthLabel(gastosMonth)}</h3>
     <div id="gastosTableWrap"></div>`;
   el.querySelector('#gastosMonthInput').addEventListener('change', e=>{ gastosMonth=e.target.value; renderGastos(el); });
+  renderFixas();
   renderGastosTable();
+}
+
+/* ---------- Despesas fixas ----------
+   Aluguel, luz, internet: o valor é quase o mesmo todo mês. Cadastrar uma
+   vez e lançar o mês inteiro num clique evita redigitar as mesmas linhas
+   a cada 30 dias — que era o motivo de os gastos ficarem sem lançar. */
+function fixasJaLancadas(mes){
+  const doMes = DB.monthlyExpenses.records.filter(r=>r.month===mes);
+  return DB.monthlyExpenses.fixed.filter(f=>
+    doMes.some(r=>r.fixedId===f.id
+      || (!r.fixedId && r.category===f.category && Number(r.amount)===Number(f.amount)))
+  ).map(f=>f.id);
+}
+
+function renderFixas(){
+  const wrap = document.getElementById('fixasWrap');
+  if(!wrap) return;
+  const fixas = DB.monthlyExpenses.fixed;
+  const jaLancadas = fixasJaLancadas(gastosMonth);
+  const faltam = fixas.filter(f=>!jaLancadas.includes(f.id));
+  const totalFixo = fixas.reduce((a,f)=>a+Number(f.amount||0),0);
+
+  wrap.innerHTML = `<div class="panel">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0;flex:1;min-width:200px">🔁 Despesas fixas — todo mês ${totalFixo?'· '+money(totalFixo):''}</h3>
+      <button class="btn btn-sm" onclick="openFixaModal()">+ Nova despesa fixa</button>
+      ${faltam.length ? `<button class="btn btn-sm btn-accent" onclick="lancarFixas()">
+        Lançar as ${faltam.length} fixas em ${monthLabel(gastosMonth)}</button>` : ''}
+    </div>
+    ${!fixas.length
+      ? `<div class="empty-state">Cadastre aqui o que você paga todo mês — aluguel, água, luz, internet.
+           Depois é só um clique para lançar tudo no mês, sem digitar de novo.</div>`
+      : `<div class="table-wrap"><table><thead><tr>
+          <th>Categoria</th><th>Descrição</th><th style="text-align:right">Valor por mês</th>
+          <th>Vence dia</th><th>${monthLabel(gastosMonth)}</th><th></th>
+        </tr></thead><tbody>
+        ${fixas.map(f=>`<tr>
+          <td>${escapeHtml(f.category)}</td>
+          <td>${escapeHtml(f.note||'-')}</td>
+          <td style="text-align:right">${money(f.amount)}</td>
+          <td>${f.dueDay ? 'dia '+f.dueDay : '-'}</td>
+          <td>${jaLancadas.includes(f.id)
+                ? '<span class="badge badge-success">Lançada</span>'
+                : '<span class="badge badge-warning">Falta lançar</span>'}</td>
+          <td><button class="btn btn-sm" onclick="openFixaModal('${f.id}')">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteFixa('${f.id}')">Excluir</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+      ${faltam.length ? '' : `<p class="text-muted" style="font-size:12px;margin-top:10px">Todas as despesas fixas já estão lançadas em ${monthLabel(gastosMonth)}.</p>`}`}
+  </div>`;
+}
+
+function lancarFixas(){
+  const jaLancadas = fixasJaLancadas(gastosMonth);
+  const faltam = DB.monthlyExpenses.fixed.filter(f=>!jaLancadas.includes(f.id));
+  if(!faltam.length){ toast('As fixas deste mês já estão lançadas'); return; }
+  faltam.forEach(f=>{
+    DB.monthlyExpenses.records.push({
+      id: uid(), month: gastosMonth, fixedId: f.id,
+      category: f.category, note: f.note, amount: f.amount,
+      status: 'pendente', paidDate: null
+    });
+  });
+  if(!exigirGravacao('as despesas fixas')){
+    DB.monthlyExpenses.records.splice(-faltam.length);  // desfaz: não foram salvas
+    return;
+  }
+  toast(faltam.length+' despesa(s) fixa(s) lançada(s) em '+monthLabel(gastosMonth));
+  navigate('gastos');
+}
+
+function deleteFixa(id){
+  const f = DB.monthlyExpenses.fixed.find(x=>x.id===id);
+  if(!f) return;
+  if(!confirm('Excluir a despesa fixa "'+f.category+'"?\n\nOs lançamentos já feitos nos meses continuam onde estão.')) return;
+  DB.monthlyExpenses.fixed = DB.monthlyExpenses.fixed.filter(x=>x.id!==id);
+  if(exigirGravacao('a exclusão')) { toast('Despesa fixa excluída'); navigate('gastos'); }
+}
+
+function openFixaModal(id){
+  const editing = id ? DB.monthlyExpenses.fixed.find(x=>x.id===id) : null;
+  const cats = DB.monthlyExpenses.categories;
+  const f = editing || { id: uid(), category: cats[0], note:'', amount:0, dueDay:0 };
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:440px">
+    <h2>${editing?'Editar despesa fixa':'Nova despesa fixa'}</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:14px">
+      O que você paga todo mês. Depois de cadastrada, é lançada no mês inteiro com um clique.</p>
+    <div class="field"><label>Categoria</label>
+      <select id="x_cat">${cats.map(c=>`<option value="${escapeHtml(c)}" ${f.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Descrição (opcional)</label>
+      <input id="x_note" value="${escapeHtml(f.note||'')}" placeholder="Ex.: aluguel da loja"></div>
+    <div class="form-grid" style="margin-top:10px">
+      <div class="field"><label>Valor por mês (R$)</label>
+        <input type="number" id="x_amount" step="0.01" inputmode="decimal" value="${f.amount||''}" placeholder="0,00"></div>
+      <div class="field"><label>Vence no dia (opcional)</label>
+        <input type="number" id="x_due" min="1" max="31" inputmode="numeric" value="${f.dueDay||''}" placeholder="Ex.: 10"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-accent" id="saveBtn">Salvar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
+    const amount = Number(overlay.querySelector('#x_amount').value) || 0;
+    if(amount <= 0){ toast('Informe o valor que você paga por mês','error'); return; }
+    const dia = Number(overlay.querySelector('#x_due').value) || 0;
+    const dados = {
+      category: overlay.querySelector('#x_cat').value,
+      note: overlay.querySelector('#x_note').value.trim(),
+      amount,
+      dueDay: (dia >= 1 && dia <= 31) ? dia : 0
+    };
+    if(editing) Object.assign(editing, dados);
+    else DB.monthlyExpenses.fixed.push({ ...f, ...dados });
+    if(!exigirGravacao('a despesa fixa')){
+      if(!editing) DB.monthlyExpenses.fixed.pop();
+      return;
+    }
+    overlay.remove();
+    toast(editing ? 'Despesa fixa salva' : 'Despesa fixa cadastrada');
+    navigate('gastos');
+  });
 }
 function renderGastosTable(){
   const wrap = document.getElementById('gastosTableWrap');
