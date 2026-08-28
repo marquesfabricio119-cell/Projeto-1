@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -31,15 +31,26 @@ function dateBR(iso){ if(!iso) return '-'; const d=new Date(iso); return d.toLoc
 function monthKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(mk){ const [y,m]=mk.split('-'); const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return names[Number(m)-1]+'/'+y; }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* A aparência do aviso vive no style.css (#toast). Antes ele era desenhado
+   aqui com estilo embutido e só ficava transparente ao sumir: continuava
+   por cima da tela roubando o toque. No celular ele cobria justamente as
+   formas de pagamento e o Finalizar venda. Agora só recebe toque enquanto
+   for clicável, e some de vez. */
+function escondeToast(t){
+  t.classList.add('sumindo');
+  t.classList.remove('clicavel');
+  t.onclick = null;
+}
 function toast(msg, type='ok', onClick){
   let t = document.getElementById('toast');
-  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t);
-    t.style.cssText='position:fixed;bottom:20px;right:20px;z-index:999;padding:12px 18px;border-radius:10px;color:#fff;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.2);transition:opacity .3s'; }
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
   t.style.background = type==='error' ? '#B33A3A' : (type==='warn' ? '#C1874F' : '#4C8B5C');
-  t.style.cursor = onClick ? 'pointer' : 'default';
-  t.textContent = msg; t.style.opacity='1';
-  t.onclick = onClick || null;
-  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; },onClick?4000:2200);
+  t.textContent = msg;
+  t.classList.remove('sumindo');
+  t.classList.toggle('clicavel', !!onClick);
+  t.onclick = onClick ? ()=>{ escondeToast(t); onClick(); } : null;
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>escondeToast(t), onClick?4000:2200);
 }
 
 /* ---------- DB default schema ---------- */
@@ -1139,7 +1150,12 @@ function renderPDV(el){
     input.focus();
   }));
   input.focus();
-  el.querySelectorAll('[data-pay]').forEach(b=>b.addEventListener('click', e=>{ pdvPayment=e.target.dataset.pay; renderPDV(el); }));
+  /* só marca o botão escolhido. Redesenhar o PDV inteiro aqui fazia o
+     teclado do celular reabrir a cada toque na forma de pagamento. */
+  el.querySelectorAll('[data-pay]').forEach(b=>b.addEventListener('click', e=>{
+    pdvPayment = e.currentTarget.dataset.pay;
+    el.querySelectorAll('[data-pay]').forEach(o=>o.classList.toggle('active', o.dataset.pay===pdvPayment));
+  }));
   el.querySelector('#pdvCustomerSel').addEventListener('change', e=>pdvCustomer=e.target.value);
   el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Number(e.target.value)||0; renderCartItems(); });
 
