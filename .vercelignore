@@ -2,3 +2,7 @@
 # Estilo & Cia — não fazem parte deste deploy.
 Relacionamento
 landing-page-fotografia.zip
+
+# App "Seu Professor de Inglês com IA" — tem deploy próprio na Vercel
+# (Root Directory apontando para esta pasta), não entra no site da loja.
+professor-ingles

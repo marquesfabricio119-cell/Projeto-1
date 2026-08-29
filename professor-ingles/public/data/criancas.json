@@ -1,0 +1,274 @@
+{
+  "blocos": [
+    {
+      "nome": "Meu mundo",
+      "mapas": [
+        {
+          "arquivo": "/mapas/meu-mundo-01.svg",
+          "titulo": "A família · Family"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-02.svg",
+          "titulo": "A casa · House"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-03.svg",
+          "titulo": "O corpo · Body"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-04.svg",
+          "titulo": "As roupas · Clothes"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-05.svg",
+          "titulo": "As cores · Colors"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-06.svg",
+          "titulo": "Os números · Numbers"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-07.svg",
+          "titulo": "A escola · School"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-08.svg",
+          "titulo": "Os brinquedos · Toys"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-09.svg",
+          "titulo": "Os sentimentos · Feelings"
+        },
+        {
+          "arquivo": "/mapas/meu-mundo-10.svg",
+          "titulo": "Os cumprimentos · Greetings"
+        }
+      ]
+    },
+    {
+      "nome": "Animais",
+      "mapas": [
+        {
+          "arquivo": "/mapas/animais-01.svg",
+          "titulo": "O cachorro · Dog"
+        },
+        {
+          "arquivo": "/mapas/animais-02.svg",
+          "titulo": "O gato · Cat"
+        },
+        {
+          "arquivo": "/mapas/animais-03.svg",
+          "titulo": "O passarinho · Bird"
+        },
+        {
+          "arquivo": "/mapas/animais-04.svg",
+          "titulo": "O peixe · Fish"
+        },
+        {
+          "arquivo": "/mapas/animais-05.svg",
+          "titulo": "A vaca · Cow"
+        },
+        {
+          "arquivo": "/mapas/animais-06.svg",
+          "titulo": "O cavalo · Horse"
+        },
+        {
+          "arquivo": "/mapas/animais-07.svg",
+          "titulo": "O leão · Lion"
+        },
+        {
+          "arquivo": "/mapas/animais-08.svg",
+          "titulo": "O elefante · Elephant"
+        },
+        {
+          "arquivo": "/mapas/animais-09.svg",
+          "titulo": "O macaco · Monkey"
+        },
+        {
+          "arquivo": "/mapas/animais-10.svg",
+          "titulo": "A borboleta · Butterfly"
+        }
+      ]
+    },
+    {
+      "nome": "Comida",
+      "mapas": [
+        {
+          "arquivo": "/mapas/comida-01.svg",
+          "titulo": "O pão · Bread"
+        },
+        {
+          "arquivo": "/mapas/comida-02.svg",
+          "titulo": "O leite · Milk"
+        },
+        {
+          "arquivo": "/mapas/comida-03.svg",
+          "titulo": "A água · Water"
+        },
+        {
+          "arquivo": "/mapas/comida-04.svg",
+          "titulo": "A maçã · Apple"
+        },
+        {
+          "arquivo": "/mapas/comida-05.svg",
+          "titulo": "A banana · Banana"
+        },
+        {
+          "arquivo": "/mapas/comida-06.svg",
+          "titulo": "O arroz · Rice"
+        },
+        {
+          "arquivo": "/mapas/comida-07.svg",
+          "titulo": "O ovo · Egg"
+        },
+        {
+          "arquivo": "/mapas/comida-08.svg",
+          "titulo": "O bolo · Cake"
+        },
+        {
+          "arquivo": "/mapas/comida-09.svg",
+          "titulo": "O suco · Juice"
+        },
+        {
+          "arquivo": "/mapas/comida-10.svg",
+          "titulo": "O queijo · Cheese"
+        }
+      ]
+    },
+    {
+      "nome": "Meu dia",
+      "mapas": [
+        {
+          "arquivo": "/mapas/meu-dia-01.svg",
+          "titulo": "Acordar · Wake up"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-02.svg",
+          "titulo": "Escovar os dentes · Brush teeth"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-03.svg",
+          "titulo": "O café da manhã · Breakfast"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-04.svg",
+          "titulo": "Ir para a escola · Go to school"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-05.svg",
+          "titulo": "Brincar · Play"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-06.svg",
+          "titulo": "O almoço · Lunch"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-07.svg",
+          "titulo": "A lição de casa · Homework"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-08.svg",
+          "titulo": "O banho · Bath"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-09.svg",
+          "titulo": "O jantar · Dinner"
+        },
+        {
+          "arquivo": "/mapas/meu-dia-10.svg",
+          "titulo": "Dormir · Sleep"
+        }
+      ]
+    },
+    {
+      "nome": "Lá fora",
+      "mapas": [
+        {
+          "arquivo": "/mapas/la-fora-01.svg",
+          "titulo": "O sol · Sun"
+        },
+        {
+          "arquivo": "/mapas/la-fora-02.svg",
+          "titulo": "A chuva · Rain"
+        },
+        {
+          "arquivo": "/mapas/la-fora-03.svg",
+          "titulo": "A árvore · Tree"
+        },
+        {
+          "arquivo": "/mapas/la-fora-04.svg",
+          "titulo": "A flor · Flower"
+        },
+        {
+          "arquivo": "/mapas/la-fora-05.svg",
+          "titulo": "A praia · Beach"
+        },
+        {
+          "arquivo": "/mapas/la-fora-06.svg",
+          "titulo": "O parque · Park"
+        },
+        {
+          "arquivo": "/mapas/la-fora-07.svg",
+          "titulo": "A rua · Street"
+        },
+        {
+          "arquivo": "/mapas/la-fora-08.svg",
+          "titulo": "O carro · Car"
+        },
+        {
+          "arquivo": "/mapas/la-fora-09.svg",
+          "titulo": "O céu · Sky"
+        },
+        {
+          "arquivo": "/mapas/la-fora-10.svg",
+          "titulo": "A lua · Moon"
+        }
+      ]
+    },
+    {
+      "nome": "Palavras que ligam",
+      "mapas": [
+        {
+          "arquivo": "/mapas/palavras-que-ligam-01.svg",
+          "titulo": "E · And"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-02.svg",
+          "titulo": "Mas · But"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-03.svg",
+          "titulo": "Porque · Because"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-04.svg",
+          "titulo": "Com · With"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-05.svg",
+          "titulo": "Dentro / em · In"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-06.svg",
+          "titulo": "Sobre / em cima · On"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-07.svg",
+          "titulo": "Embaixo · Under"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-08.svg",
+          "titulo": "Antes · Before"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-09.svg",
+          "titulo": "Depois · After"
+        },
+        {
+          "arquivo": "/mapas/palavras-que-ligam-10.svg",
+          "titulo": "Agora · Now"
+        }
+      ]
+    }
+  ]
+}
