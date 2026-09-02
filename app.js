@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "20";
+const APP_VERSION = "21";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1388,8 +1388,9 @@ function adjustStock(pid,size,color,val){
    com etiqueta de 5 cm. Resultado: não saía nada, ou saía cortado.
    Medidas em milímetros, do tamanho real da etiqueta comprada. */
 const LABEL_LAYOUTS = {
-  /* Etiqueta "deitada", cerca de duas vezes mais larga que alta: é a que o
-     rolo da loja usa. Faltava justamente essa família. */
+  t32x22:   { name:'Térmica 32 × 22 mm', rolo:true, w:32, h:22 },
+  t30x22:   { name:'Térmica 30 × 22 mm', rolo:true, w:30, h:22 },
+  t22x30:   { name:'Térmica 22 × 30 mm (em pé)', rolo:true, w:22, h:30 },
   t50x25:   { name:'Térmica 50 × 25 mm (deitada)', rolo:true, w:50, h:25 },
   t60x30:   { name:'Térmica 60 × 30 mm (deitada)', rolo:true, w:60, h:30 },
   t40x20:   { name:'Térmica 40 × 20 mm (deitada)', rolo:true, w:40, h:20 },
@@ -1403,18 +1404,58 @@ const LABEL_LAYOUTS = {
   pimaco:   { name:'Folha A4 — 3 colunas (Pimaco 6180)', rolo:false, cols:3, w:63.5, h:26.6, gap:3, margem:8 },
   a4_2col:  { name:'Folha A4 — 2 colunas', rolo:false, cols:2, w:96, h:34, gap:4, margem:8 },
 };
-let etiquetaLayout = 't50x25';
+let etiquetaLayout = 't32x22';
 let etiquetaCustom = { w:50, h:25 };
 
 /* O tamanho que vale na hora de imprimir, já com o "outro tamanho". */
 function layoutAtual(){
-  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t50x25;
+  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t32x22;
   if(!l.custom) return l;
   return { ...l, w: Number(etiquetaCustom.w)||50, h: Number(etiquetaCustom.h)||25 };
 }
 let etiquetaQty = {}; // key -> quantidade selecionada
 
 function varKey(pid,size,color){ return `${pid}|${size}|${color}`; }
+
+/* A escolha do tamanho ficava só na memória: bastava recarregar a página
+   para voltar ao padrão, e o lojista reimprimia errado sem entender. Agora
+   fica guardada junto com o resto dos dados da loja. */
+function guardarEscolhaDaEtiqueta(){
+  DB.config.etiqueta = { layout: etiquetaLayout, w: etiquetaCustom.w, h: etiquetaCustom.h };
+  saveDB();
+}
+function restaurarEscolhaDaEtiqueta(){
+  const e = DB.config && DB.config.etiqueta;
+  if(!e) return;
+  if(LABEL_LAYOUTS[e.layout]) etiquetaLayout = e.layout;
+  if(Number(e.w) > 0) etiquetaCustom.w = Number(e.w);
+  if(Number(e.h) > 0) etiquetaCustom.h = Number(e.h);
+}
+
+/* Barra fina demais o leitor não enxerga. O limite prático dos leitores de
+   balcão é 0,19 mm por módulo; abaixo disso a etiqueta sai bonita e não
+   passa no caixa, que é pior do que não sair. */
+const BARRA_MINIMA_MM = 0.19;
+function espessuraDaBarra(layout, codigo){
+  const utilMM = Math.max(6, layout.w - (layout.rolo ? 2 : 3));
+  const modulos = 11 * ((codigo||'EC000001').length + 2) + 13;
+  return utilMM / modulos;
+}
+function atualizaAvisoDoCodigo(){
+  const box = document.getElementById('avisoCodigo');
+  if(!box) return;
+  const layout = layoutAtual();
+  let maior = 'EC000001';
+  DB.products.forEach(p=>p.variations.forEach(v=>{
+    if(v.barcode && v.barcode.length > maior.length) maior = v.barcode;
+  }));
+  const mm = espessuraDaBarra(layout, maior);
+  if(mm >= BARRA_MINIMA_MM){ box.innerHTML = ''; box.className = ''; return; }
+  box.className = 'aviso-codigo';
+  box.innerHTML = `<strong>Atenção:</strong> em ${layout.w} mm de largura o código fica com
+    ${mm.toFixed(2)} mm por barra — fino demais, o leitor do balcão pode não conseguir ler.
+    Use uma etiqueta com pelo menos ${Math.ceil(BARRA_MINIMA_MM * (11*(maior.length+2)+13) + 2)} mm de largura.`;
+}
 
 function renderEtiquetas(el){
   const missing = countMissingBarcodes();
@@ -1427,10 +1468,11 @@ function renderEtiquetas(el){
         <select id="layoutSel">
           ${Object.entries(LABEL_LAYOUTS).map(([k,v])=>`<option value="${k}" ${etiquetaLayout===k?'selected':''}>${v.name}</option>`).join('')}
         </select>
-        <span id="customSize" style="${LABEL_LAYOUTS[etiquetaLayout]?.custom?'':'display:none'};display:inline-flex;align-items:center;gap:6px">
-          <input type="number" id="custW" step="1" min="10" max="200" value="${etiquetaCustom.w}" style="width:70px" title="Largura em mm">
+        <span id="customSize" style="display:inline-flex;align-items:center;gap:6px"
+              title="A medida que vai ser impressa. Se não bater com a sua etiqueta, corrija aqui.">
+          <input type="number" id="custW" step="1" min="10" max="200" value="${layoutAtual().w}" style="width:66px">
           <span class="text-muted" style="font-size:12px">×</span>
-          <input type="number" id="custH" step="1" min="10" max="200" value="${etiquetaCustom.h}" style="width:70px" title="Altura em mm">
+          <input type="number" id="custH" step="1" min="10" max="200" value="${layoutAtual().h}" style="width:66px">
           <span class="text-muted" style="font-size:12px">mm</span>
         </span>
         <div class="spacer"></div>
@@ -1439,6 +1481,7 @@ function renderEtiquetas(el){
         <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
         <button class="btn btn-accent" id="printLabelsBtn">🖨️ Imprimir etiquetas</button>
       </div>
+      <div id="avisoCodigo"></div>
       <div class="aviso-impressao">
         <strong>Se a etiqueta sair pequena no topo e as outras em branco</strong>, o problema está na janela
         de impressão do navegador, não no sistema. Confira estes quatro itens, nesta ordem:
@@ -1458,12 +1501,33 @@ function renderEtiquetas(el){
     <div id="labelSheet"></div>`;
   el.querySelector('#layoutSel').addEventListener('change', e=>{
     etiquetaLayout = e.target.value;
-    el.querySelector('#customSize').style.display = LABEL_LAYOUTS[etiquetaLayout]?.custom ? 'inline-flex' : 'none';
+    const l = layoutAtual();
+    /* Os campos passam a mostrar a medida do tamanho escolhido: o lojista
+       enxerga em milímetros exatamente o que vai sair na impressora. */
+    etiquetaCustom = { w: l.w, h: l.h };
+    el.querySelector('#custW').value = l.w;
+    el.querySelector('#custH').value = l.h;
+    guardarEscolhaDaEtiqueta();
+    atualizaAvisoDoCodigo();
   });
-  el.querySelector('#custW').addEventListener('input', e=>{ etiquetaCustom.w = Number(e.target.value)||50; });
-  el.querySelector('#custH').addEventListener('input', e=>{ etiquetaCustom.h = Number(e.target.value)||25; });
+  /* Mexeu na medida à mão? Então é "Outro tamanho". Antes o lojista digitava
+     nesses campos com um tamanho pronto selecionado e a medida era ignorada
+     em silêncio — parecia que o sistema não obedecia. */
+  const medidaMudou = ()=>{
+    etiquetaCustom.w = Number(el.querySelector('#custW').value) || 32;
+    etiquetaCustom.h = Number(el.querySelector('#custH').value) || 22;
+    if(etiquetaLayout !== 'custom'){
+      etiquetaLayout = 'custom';
+      el.querySelector('#layoutSel').value = 'custom';
+    }
+    guardarEscolhaDaEtiqueta();
+    atualizaAvisoDoCodigo();
+  };
+  el.querySelector('#custW').addEventListener('input', medidaMudou);
+  el.querySelector('#custH').addEventListener('input', medidaMudou);
   /* Testar uma só evita queimar meio rolo até acertar o tamanho. */
   el.querySelector('#testLabelBtn').addEventListener('click', imprimirEtiquetaTeste);
+  atualizaAvisoDoCodigo();
   el.querySelector('#genMissingBtn')?.addEventListener('click', ()=>{
     generateMissingBarcodes(); saveDB(); renderEtiquetas(el); toast('Códigos gerados');
   });
@@ -1559,8 +1623,9 @@ function printLabels(){
   /* Em etiqueta baixa não cabe tudo: o nome da loja sai para o código de
      barras e o preço, que são o que a loja precisa, ficarem legíveis. */
   const baixa = layout.h <= 20;
+  const dim = `width:${layout.w}mm;height:${layout.h}mm`;
   sheet.innerHTML = items.map((item,idx)=>`
-    <div class="label${baixa?' label-compacta':''}">
+    <div class="label${baixa?' label-compacta':''}" style="${dim}">
       ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
       <div class="label-name">${escapeHtml(item.p.name)} ${escapeHtml(item.v.size)}/${escapeHtml(item.v.color)}</div>
       <svg id="lbl-bc-${idx}"></svg>
@@ -1576,8 +1641,8 @@ function printLabels(){
     ? `@media print {
          @page { size: ${layout.w}mm ${layout.h}mm; margin: 0; }
          #labelSheet { display:block; }
-         .label { width:${layout.w}mm; height:${layout.h}mm; margin:0; border:none;
-                  padding:1mm; break-after:page; page-break-after:always; }
+         .label { margin:0; border:none; padding:1mm;
+                  break-after:page; page-break-after:always; }
          .label:last-child { break-after:auto; page-break-after:auto; }
        }`
     /* Folha A4: várias etiquetas por página, em colunas. */
@@ -1585,7 +1650,7 @@ function printLabels(){
          @page { size: A4; margin: ${layout.margem}mm; }
          #labelSheet { display:grid; grid-template-columns: repeat(${layout.cols}, ${layout.w}mm);
                        gap:${layout.gap}mm; }
-         .label { width:${layout.w}mm; height:${layout.h}mm; border:none; }
+         .label { border:none; }
        }`;
 
   /* O código precisa CABER na etiqueta. Largura fixa fazia o desenho passar
@@ -1595,21 +1660,55 @@ function printLabels(){
   const PX_POR_MM = 96 / 25.4;          // 1 mm em pixels de CSS
   const padMM = layout.rolo ? 1 : 1.5;  // a folha de dentro da etiqueta
   const utilMM = Math.max(10, layout.w - padMM*2);
-  items.forEach((item,idx)=>{
-    const codigo = item.v.barcode;
-    /* Code128: 11 módulos por caractere, mais início, verificador e o
-       padrão de parada (13). */
-    const modulos = 11 * (codigo.length + 2) + 13;
-    const larguraBarra = Math.max(0.6, Math.min(2, (utilMM * PX_POR_MM) / modulos));
-    const alturaMM = Math.max(6, layout.h * 0.42);
-    JsBarcode(`#lbl-bc-${idx}`, codigo, {
-      format:'CODE128',
-      width: Number(larguraBarra.toFixed(2)),
-      height: Math.round(alturaMM * PX_POR_MM),
-      fontSize: layout.w <= 40 ? 8 : 10,
-      margin: 0, displayValue: true
+  const fonteCodigo = layout.w <= 40 ? 8 : 10;
+
+  function desenhar(alturaBarrasMM){
+    items.forEach((item,idx)=>{
+      const codigo = item.v.barcode;
+      /* Code128: 11 módulos por caractere, mais início, verificador e o
+         padrão de parada (13). */
+      const modulos = 11 * (codigo.length + 2) + 13;
+      const larguraBarra = Math.max(0.6, Math.min(2, (utilMM * PX_POR_MM) / modulos));
+      JsBarcode(`#lbl-bc-${idx}`, codigo, {
+        format:'CODE128',
+        width: Number(larguraBarra.toFixed(2)),
+        height: Math.max(14, Math.round(alturaBarrasMM * PX_POR_MM)),
+        fontSize: fonteCodigo,
+        margin: 0, displayValue: true
+      });
     });
-  });
+  }
+
+  /* Calcular a altura das barras por regra de três dava errado: com 32 × 22
+     o número do código saía cortado pelo preço. E não dá para confiar no
+     scrollHeight: com o conteúdo centralizado o corte acontece dos dois
+     lados e ele não acusa nada. Então medimos os textos, que são fixos, e
+     damos ao código de barras exatamente o espaço que sobrar. */
+  desenhar(Math.max(5, layout.h * 0.42));   // primeiro desenho, só para medir
+
+  /* A folha fica escondida na tela (só existe para a impressora), e o que
+     está escondido não tem altura para medir. Trazemos para fora da vista
+     por um instante, medimos, e devolvemos. */
+  const primeira = sheet.querySelector('.label');
+  if(primeira){
+    const estiloAntes = sheet.getAttribute('style') || '';
+    sheet.setAttribute('style',
+      'display:block;position:absolute;left:-10000px;top:0;visibility:hidden');
+    const dentro = primeira.clientHeight - 2 * padMM * PX_POR_MM;
+    let usadoPorTexto = 0;
+    primeira.querySelectorAll(':scope > *').forEach(el=>{
+      if(el.tagName.toLowerCase() !== 'svg') usadoPorTexto += el.getBoundingClientRect().height;
+    });
+    /* O número do código é desenhado dentro do próprio svg, então ele
+       também come altura. */
+    const alturaDoNumero = fonteCodigo + 2;
+    const sobra = dentro - usadoPorTexto - alturaDoNumero - 2;   // 2px de folga
+    const barrasMM = sobra / PX_POR_MM;
+    if(barrasMM > 0 && Math.abs(barrasMM - layout.h * 0.42) > 0.2){
+      desenhar(Math.max(4, barrasMM));
+    }
+    sheet.setAttribute('style', estiloAntes);
+  }
 
   setTimeout(()=>window.print(), 250);
 }
@@ -2651,6 +2750,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
+  restaurarEscolhaDaEtiqueta();
   migrarFotosAntigas();
   atualizaDicaLogin();
   const lv = document.getElementById('loginVersion');
