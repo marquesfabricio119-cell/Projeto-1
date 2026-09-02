@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "19";
+const APP_VERSION = "20";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1381,12 +1381,37 @@ function adjustStock(pid,size,color,val){
 /* =========================================================
    ETIQUETAS — geração e impressão de códigos de barras
    ========================================================= */
+/* IMPRESSORA TÉRMICA: cada etiqueta é uma página do tamanho exato da
+   etiqueta. O sistema usava `size: 50mm auto`, que não existe no CSS —
+   `auto` não pode vir junto com uma medida. O navegador jogava a regra
+   inteira fora e mandava uma folha A4/carta para uma impressora carregada
+   com etiqueta de 5 cm. Resultado: não saía nada, ou saía cortado.
+   Medidas em milímetros, do tamanho real da etiqueta comprada. */
 const LABEL_LAYOUTS = {
-  pimaco: { name:'Folha A4 — 3 colunas (padrão Pimaco 6180)', cols:3, labelW:'63.5mm', labelH:'26.6mm', gap:'3mm', page:'A4', pageMargin:'8mm' },
-  termica50: { name:'Rolo térmico 50mm — 1 coluna', cols:1, labelW:'46mm', labelH:'30mm', gap:'2mm', page:'50mm auto', pageMargin:'2mm' },
-  termica40: { name:'Rolo térmico 40mm — 1 coluna', cols:1, labelW:'36mm', labelH:'24mm', gap:'2mm', page:'40mm auto', pageMargin:'2mm' },
+  /* Etiqueta "deitada", cerca de duas vezes mais larga que alta: é a que o
+     rolo da loja usa. Faltava justamente essa família. */
+  t50x25:   { name:'Térmica 50 × 25 mm (deitada)', rolo:true, w:50, h:25 },
+  t60x30:   { name:'Térmica 60 × 30 mm (deitada)', rolo:true, w:60, h:30 },
+  t40x20:   { name:'Térmica 40 × 20 mm (deitada)', rolo:true, w:40, h:20 },
+  t33x17:   { name:'Térmica 33 × 17 mm (deitada)', rolo:true, w:33, h:17 },
+  t33x22:   { name:'Térmica 33 × 22 mm', rolo:true, w:33, h:22 },
+  t40x25:   { name:'Térmica 40 × 25 mm', rolo:true, w:40, h:25 },
+  t50x30:   { name:'Térmica 50 × 30 mm', rolo:true, w:50, h:30 },
+  t60x40:   { name:'Térmica 60 × 40 mm', rolo:true, w:60, h:40 },
+  t80x40:   { name:'Térmica 80 × 40 mm', rolo:true, w:80, h:40 },
+  custom:   { name:'Outro tamanho (eu meço e informo)', rolo:true, w:50, h:25, custom:true },
+  pimaco:   { name:'Folha A4 — 3 colunas (Pimaco 6180)', rolo:false, cols:3, w:63.5, h:26.6, gap:3, margem:8 },
+  a4_2col:  { name:'Folha A4 — 2 colunas', rolo:false, cols:2, w:96, h:34, gap:4, margem:8 },
 };
-let etiquetaLayout = 'pimaco';
+let etiquetaLayout = 't50x25';
+let etiquetaCustom = { w:50, h:25 };
+
+/* O tamanho que vale na hora de imprimir, já com o "outro tamanho". */
+function layoutAtual(){
+  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t50x25;
+  if(!l.custom) return l;
+  return { ...l, w: Number(etiquetaCustom.w)||50, h: Number(etiquetaCustom.h)||25 };
+}
 let etiquetaQty = {}; // key -> quantidade selecionada
 
 function varKey(pid,size,color){ return `${pid}|${size}|${color}`; }
@@ -1402,15 +1427,43 @@ function renderEtiquetas(el){
         <select id="layoutSel">
           ${Object.entries(LABEL_LAYOUTS).map(([k,v])=>`<option value="${k}" ${etiquetaLayout===k?'selected':''}>${v.name}</option>`).join('')}
         </select>
+        <span id="customSize" style="${LABEL_LAYOUTS[etiquetaLayout]?.custom?'':'display:none'};display:inline-flex;align-items:center;gap:6px">
+          <input type="number" id="custW" step="1" min="10" max="200" value="${etiquetaCustom.w}" style="width:70px" title="Largura em mm">
+          <span class="text-muted" style="font-size:12px">×</span>
+          <input type="number" id="custH" step="1" min="10" max="200" value="${etiquetaCustom.h}" style="width:70px" title="Altura em mm">
+          <span class="text-muted" style="font-size:12px">mm</span>
+        </span>
         <div class="spacer"></div>
         ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
         <button class="btn" id="selAllBtn">Selecionar todas (estoque atual)</button>
+        <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
         <button class="btn btn-accent" id="printLabelsBtn">🖨️ Imprimir etiquetas</button>
+      </div>
+      <div class="aviso-impressao">
+        <strong>Se a etiqueta sair pequena no topo e as outras em branco</strong>, o problema está na janela
+        de impressão do navegador, não no sistema. Confira estes quatro itens, nesta ordem:
+        <ol style="margin:8px 0 0;padding-left:20px">
+          <li><strong>Impressora:</strong> escolha a de etiquetas, não a impressora comum.</li>
+          <li><strong>Tamanho do papel:</strong> em "Mais definições", escolha o tamanho da sua etiqueta.
+              Se só aparecer A4/Carta, abra as propriedades da impressora e cadastre o tamanho lá.</li>
+          <li><strong>Escala: 100%</strong> — nunca "Ajustar à página". É isso que espreme tudo lá em cima.</li>
+          <li><strong>Margens: Nenhuma</strong> e <strong>desmarque "Cabeçalhos e rodapés"</strong>.</li>
+        </ol>
+        <p style="margin:8px 0 0">Meça a sua etiqueta com uma régua e escolha o tamanho igual aqui em cima.
+        Não achou na lista? Use <strong>"Outro tamanho"</strong> e digite a medida.
+        Depois clique em <strong>Testar 1 etiqueta</strong> antes de mandar o lote.</p>
       </div>
     </div>
     <div id="etiquetasTableWrap"></div>
     <div id="labelSheet"></div>`;
-  el.querySelector('#layoutSel').addEventListener('change', e=>{ etiquetaLayout = e.target.value; });
+  el.querySelector('#layoutSel').addEventListener('change', e=>{
+    etiquetaLayout = e.target.value;
+    el.querySelector('#customSize').style.display = LABEL_LAYOUTS[etiquetaLayout]?.custom ? 'inline-flex' : 'none';
+  });
+  el.querySelector('#custW').addEventListener('input', e=>{ etiquetaCustom.w = Number(e.target.value)||50; });
+  el.querySelector('#custH').addEventListener('input', e=>{ etiquetaCustom.h = Number(e.target.value)||25; });
+  /* Testar uma só evita queimar meio rolo até acertar o tamanho. */
+  el.querySelector('#testLabelBtn').addEventListener('click', imprimirEtiquetaTeste);
   el.querySelector('#genMissingBtn')?.addEventListener('click', ()=>{
     generateMissingBarcodes(); saveDB(); renderEtiquetas(el); toast('Códigos gerados');
   });
@@ -1465,6 +1518,24 @@ function renderEtiquetasTable(){
     if(etiquetaQty[key] !== undefined) etiquetaQty[key] = Number(e.target.value)||1;
   }));
 }
+/* Imprime UMA etiqueta, com a primeira peça que tiver código. Serve para
+   conferir o tamanho sem gastar o rolo inteiro descobrindo que está errado. */
+function imprimirEtiquetaTeste(){
+  let alvo = null;
+  DB.products.some(p=>p.variations.some(v=>{ if(v.barcode){ alvo={p,v}; return true; } }));
+  if(!alvo){
+    const p = DB.products[0];
+    if(!p){ toast('Cadastre uma peça primeiro','error'); return; }
+    generateMissingBarcodes(); saveDB();
+    alvo = { p, v: p.variations[0] };
+  }
+  const guardado = { ...etiquetaQty };
+  etiquetaQty = { [varKey(alvo.p.id, alvo.v.size, alvo.v.color)]: 1 };
+  printLabels();
+  etiquetaQty = guardado;
+  renderEtiquetasTable();
+}
+
 function printLabels(){
   const selected = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
   if(!selected.length){ toast('Selecione ao menos uma variação','error'); return; }
@@ -1483,11 +1554,14 @@ function printLabels(){
     for(let i=0;i<qty;i++) items.push({ p, v });
   });
 
-  const layout = LABEL_LAYOUTS[etiquetaLayout];
+  const layout = layoutAtual();
   const sheet = document.getElementById('labelSheet');
+  /* Em etiqueta baixa não cabe tudo: o nome da loja sai para o código de
+     barras e o preço, que são o que a loja precisa, ficarem legíveis. */
+  const baixa = layout.h <= 20;
   sheet.innerHTML = items.map((item,idx)=>`
-    <div class="label">
-      <div class="label-store">${escapeHtml(DB.storeName)}</div>
+    <div class="label${baixa?' label-compacta':''}">
+      ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
       <div class="label-name">${escapeHtml(item.p.name)} ${escapeHtml(item.v.size)}/${escapeHtml(item.v.color)}</div>
       <svg id="lbl-bc-${idx}"></svg>
       <div class="label-price">${money(item.p.price)}</div>
@@ -1495,18 +1569,49 @@ function printLabels(){
 
   let styleTag = document.getElementById('labelPrintStyle');
   if(!styleTag){ styleTag = document.createElement('style'); styleTag.id='labelPrintStyle'; document.head.appendChild(styleTag); }
-  styleTag.textContent = `
-    @media print {
-      @page { size:${layout.page}; margin:${layout.pageMargin}; }
-      #labelSheet { display:grid; grid-template-columns: repeat(${layout.cols}, ${layout.labelW}); gap:${layout.gap}; }
-      .label { width:${layout.labelW}; height:${layout.labelH}; }
-    }`;
 
+  styleTag.textContent = layout.rolo
+    /* Rolo: a página É a etiqueta. Uma por página, sem margem, para o rolo
+       avançar certinho e o desenho ocupar a etiqueta inteira. */
+    ? `@media print {
+         @page { size: ${layout.w}mm ${layout.h}mm; margin: 0; }
+         #labelSheet { display:block; }
+         .label { width:${layout.w}mm; height:${layout.h}mm; margin:0; border:none;
+                  padding:1mm; break-after:page; page-break-after:always; }
+         .label:last-child { break-after:auto; page-break-after:auto; }
+       }`
+    /* Folha A4: várias etiquetas por página, em colunas. */
+    : `@media print {
+         @page { size: A4; margin: ${layout.margem}mm; }
+         #labelSheet { display:grid; grid-template-columns: repeat(${layout.cols}, ${layout.w}mm);
+                       gap:${layout.gap}mm; }
+         .label { width:${layout.w}mm; height:${layout.h}mm; border:none; }
+       }`;
+
+  /* O código precisa CABER na etiqueta. Largura fixa fazia o desenho passar
+     da borda em etiqueta pequena e sair cortado — e código cortado o leitor
+     não lê. Calculamos a espessura da barra a partir da largura real da
+     etiqueta, em vez de chutar. */
+  const PX_POR_MM = 96 / 25.4;          // 1 mm em pixels de CSS
+  const padMM = layout.rolo ? 1 : 1.5;  // a folha de dentro da etiqueta
+  const utilMM = Math.max(10, layout.w - padMM*2);
   items.forEach((item,idx)=>{
-    JsBarcode(`#lbl-bc-${idx}`, item.v.barcode, { format:'CODE128', width:1.3, height:32, fontSize:10, margin:0, displayValue:true });
+    const codigo = item.v.barcode;
+    /* Code128: 11 módulos por caractere, mais início, verificador e o
+       padrão de parada (13). */
+    const modulos = 11 * (codigo.length + 2) + 13;
+    const larguraBarra = Math.max(0.6, Math.min(2, (utilMM * PX_POR_MM) / modulos));
+    const alturaMM = Math.max(6, layout.h * 0.42);
+    JsBarcode(`#lbl-bc-${idx}`, codigo, {
+      format:'CODE128',
+      width: Number(larguraBarra.toFixed(2)),
+      height: Math.round(alturaMM * PX_POR_MM),
+      fontSize: layout.w <= 40 ? 8 : 10,
+      margin: 0, displayValue: true
+    });
   });
 
-  setTimeout(()=>window.print(), 200);
+  setTimeout(()=>window.print(), 250);
 }
 
 /* =========================================================
