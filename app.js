@@ -1388,23 +1388,29 @@ function adjustStock(pid,size,color,val){
    com etiqueta de 5 cm. Resultado: não saía nada, ou saía cortado.
    Medidas em milímetros, do tamanho real da etiqueta comprada. */
 const LABEL_LAYOUTS = {
-  pimaco:   { name:'Folha A4 — 3 colunas (Pimaco 6180)', rolo:false, cols:3, w:63.5, h:26.6, gap:3, margem:8 },
-  a4_2col:  { name:'Folha A4 — 2 colunas', rolo:false, cols:2, w:96, h:34, gap:4, margem:8 },
-  t33x22:   { name:'Térmica 33 × 22 mm (roupa, a mais comum)', rolo:true, w:33, h:22 },
+  /* Etiqueta "deitada", cerca de duas vezes mais larga que alta: é a que o
+     rolo da loja usa. Faltava justamente essa família. */
+  t50x25:   { name:'Térmica 50 × 25 mm (deitada)', rolo:true, w:50, h:25 },
+  t60x30:   { name:'Térmica 60 × 30 mm (deitada)', rolo:true, w:60, h:30 },
+  t40x20:   { name:'Térmica 40 × 20 mm (deitada)', rolo:true, w:40, h:20 },
+  t33x17:   { name:'Térmica 33 × 17 mm (deitada)', rolo:true, w:33, h:17 },
+  t33x22:   { name:'Térmica 33 × 22 mm', rolo:true, w:33, h:22 },
   t40x25:   { name:'Térmica 40 × 25 mm', rolo:true, w:40, h:25 },
   t50x30:   { name:'Térmica 50 × 30 mm', rolo:true, w:50, h:30 },
   t60x40:   { name:'Térmica 60 × 40 mm', rolo:true, w:60, h:40 },
   t80x40:   { name:'Térmica 80 × 40 mm', rolo:true, w:80, h:40 },
-  custom:   { name:'Outro tamanho (eu informo)', rolo:true, w:40, h:25, custom:true },
+  custom:   { name:'Outro tamanho (eu meço e informo)', rolo:true, w:50, h:25, custom:true },
+  pimaco:   { name:'Folha A4 — 3 colunas (Pimaco 6180)', rolo:false, cols:3, w:63.5, h:26.6, gap:3, margem:8 },
+  a4_2col:  { name:'Folha A4 — 2 colunas', rolo:false, cols:2, w:96, h:34, gap:4, margem:8 },
 };
-let etiquetaLayout = 't33x22';
-let etiquetaCustom = { w:40, h:25 };
+let etiquetaLayout = 't50x25';
+let etiquetaCustom = { w:50, h:25 };
 
 /* O tamanho que vale na hora de imprimir, já com o "outro tamanho". */
 function layoutAtual(){
-  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t33x22;
+  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t50x25;
   if(!l.custom) return l;
-  return { ...l, w: Number(etiquetaCustom.w)||40, h: Number(etiquetaCustom.h)||25 };
+  return { ...l, w: Number(etiquetaCustom.w)||50, h: Number(etiquetaCustom.h)||25 };
 }
 let etiquetaQty = {}; // key -> quantidade selecionada
 
@@ -1434,9 +1440,18 @@ function renderEtiquetas(el){
         <button class="btn btn-accent" id="printLabelsBtn">🖨️ Imprimir etiquetas</button>
       </div>
       <div class="aviso-impressao">
-        <strong>Antes de imprimir na térmica:</strong> na janela de impressão, escolha a impressora de etiquetas,
-        deixe as <strong>Margens em "Nenhuma"</strong> e <strong>desmarque "Cabeçalhos e rodapés"</strong>.
-        Se sair em branco ou cortado, confira se o tamanho escolhido aqui é o mesmo da etiqueta que está no rolo.
+        <strong>Se a etiqueta sair pequena no topo e as outras em branco</strong>, o problema está na janela
+        de impressão do navegador, não no sistema. Confira estes quatro itens, nesta ordem:
+        <ol style="margin:8px 0 0;padding-left:20px">
+          <li><strong>Impressora:</strong> escolha a de etiquetas, não a impressora comum.</li>
+          <li><strong>Tamanho do papel:</strong> em "Mais definições", escolha o tamanho da sua etiqueta.
+              Se só aparecer A4/Carta, abra as propriedades da impressora e cadastre o tamanho lá.</li>
+          <li><strong>Escala: 100%</strong> — nunca "Ajustar à página". É isso que espreme tudo lá em cima.</li>
+          <li><strong>Margens: Nenhuma</strong> e <strong>desmarque "Cabeçalhos e rodapés"</strong>.</li>
+        </ol>
+        <p style="margin:8px 0 0">Meça a sua etiqueta com uma régua e escolha o tamanho igual aqui em cima.
+        Não achou na lista? Use <strong>"Outro tamanho"</strong> e digite a medida.
+        Depois clique em <strong>Testar 1 etiqueta</strong> antes de mandar o lote.</p>
       </div>
     </div>
     <div id="etiquetasTableWrap"></div>
@@ -1445,7 +1460,7 @@ function renderEtiquetas(el){
     etiquetaLayout = e.target.value;
     el.querySelector('#customSize').style.display = LABEL_LAYOUTS[etiquetaLayout]?.custom ? 'inline-flex' : 'none';
   });
-  el.querySelector('#custW').addEventListener('input', e=>{ etiquetaCustom.w = Number(e.target.value)||40; });
+  el.querySelector('#custW').addEventListener('input', e=>{ etiquetaCustom.w = Number(e.target.value)||50; });
   el.querySelector('#custH').addEventListener('input', e=>{ etiquetaCustom.h = Number(e.target.value)||25; });
   /* Testar uma só evita queimar meio rolo até acertar o tamanho. */
   el.querySelector('#testLabelBtn').addEventListener('click', imprimirEtiquetaTeste);
@@ -1541,9 +1556,12 @@ function printLabels(){
 
   const layout = layoutAtual();
   const sheet = document.getElementById('labelSheet');
+  /* Em etiqueta baixa não cabe tudo: o nome da loja sai para o código de
+     barras e o preço, que são o que a loja precisa, ficarem legíveis. */
+  const baixa = layout.h <= 20;
   sheet.innerHTML = items.map((item,idx)=>`
-    <div class="label">
-      <div class="label-store">${escapeHtml(DB.storeName)}</div>
+    <div class="label${baixa?' label-compacta':''}">
+      ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
       <div class="label-name">${escapeHtml(item.p.name)} ${escapeHtml(item.v.size)}/${escapeHtml(item.v.color)}</div>
       <svg id="lbl-bc-${idx}"></svg>
       <div class="label-price">${money(item.p.price)}</div>
