@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "27";
+const APP_VERSION = "28";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1091,6 +1091,39 @@ function openProductModal(id){
 
 
 /* =========================================================
+   ATUALIZAÇÃO AUTOMÁTICA
+   O celular da loja ficou preso numa versão antiga por dias, e cada
+   correção que eu publicava parecia não funcionar — quando na verdade nem
+   chegava lá. Agora o sistema pergunta ao servidor qual é a versão atual
+   e, se estiver atrasado, recarrega sozinho buscando os arquivos novos.
+   ========================================================= */
+const CHAVE_RECARGA = 'estiloFashion_recarregou';
+
+async function conferirVersao(){
+  try{
+    const res = await fetch('versao.json?t=' + Date.now(), { cache:'no-store' });
+    if(!res.ok) return;
+    const info = await res.json();
+    if(!info || !info.versao) return;
+    if(String(info.versao) === String(APP_VERSION)){
+      sessionStorage.removeItem(CHAVE_RECARGA);
+      return;
+    }
+    /* Recarrega uma vez só. Se mesmo assim continuar atrasado, é cache do
+       navegador que não solta, e aí quem avisa é a tela — melhor do que
+       ficar recarregando em círculo. */
+    if(sessionStorage.getItem(CHAVE_RECARGA) === String(info.versao)){
+      toast('Há uma versão nova (' + info.versao + '). Feche e abra o navegador para atualizar.', 'warn');
+      return;
+    }
+    sessionStorage.setItem(CHAVE_RECARGA, String(info.versao));
+    location.reload();
+  }catch(err){
+    /* Sem internet: segue com o que está instalado. */
+  }
+}
+
+/* =========================================================
    BALANÇO — as três perguntas que o lojista faz toda semana:
    quanto tenho parado em estoque, quanto gastei e quanto vendi.
    ========================================================= */
@@ -1604,7 +1637,9 @@ function renderEtiquetasTable(){
     ${rows.map(({p,v,pi,vi})=>{
       const key = varKey(p.id,v.size,v.color);
       const checked = etiquetaQty[key] > 0;
-      return `<tr data-pi="${pi}" data-vi="${vi}">
+      return `<tr data-pi="${pi}" data-vi="${vi}" data-pid="${escapeHtml(p.id)}"
+        data-size="${escapeHtml(v.size)}" data-color="${escapeHtml(v.color)}"
+        data-nome="${escapeHtml(p.name)}">
         <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
@@ -1665,6 +1700,45 @@ function imprimirOuGerarPdf(items){
    caixa continuava marcada na tela e o sistema jurava que nada estava
    selecionado. Agora lemos as próprias caixas e chegamos ao produto pela
    posição na lista, que não depende de id nenhum. */
+/* Achar a peça de uma linha marcada. São três tentativas em ordem, e não
+   por capricho: a loja já ficou sem imprimir porque a peça foi procurada
+   de um jeito só e o dado tinha mudado por baixo. Pela posição, pelo id, e
+   por fim pelo nome com tamanho e cor. Se qualquer uma acertar, imprime. */
+function acharPecaDaLinha(linha){
+  if(!linha) return null;
+  const pid = linha.dataset.pid;
+  const size = linha.dataset.size || '';
+  const color = linha.dataset.color || '';
+  const nome = linha.dataset.nome || '';
+
+  const casaVariacao = p => p && p.variations &&
+    (p.variations[Number(linha.dataset.vi)] &&
+     p.variations[Number(linha.dataset.vi)].size === size &&
+     p.variations[Number(linha.dataset.vi)].color === color
+       ? p.variations[Number(linha.dataset.vi)]
+       : p.variations.find(v=>v.size === size && v.color === color));
+
+  // 1) pela posição, confirmando que ainda é a mesma peça
+  const porIndice = DB.products[Number(linha.dataset.pi)];
+  if(porIndice && porIndice.id === pid){
+    const v = casaVariacao(porIndice);
+    if(v) return { p: porIndice, v };
+  }
+  // 2) pelo id, caso a lista tenha sido remexida
+  const porId = DB.products.find(x=>x.id === pid);
+  if(porId){
+    const v = casaVariacao(porId);
+    if(v) return { p: porId, v };
+  }
+  // 3) pelo nome, caso o id tenha mudado
+  const porNome = DB.products.find(x=>x.name === nome);
+  if(porNome){
+    const v = casaVariacao(porNome);
+    if(v) return { p: porNome, v };
+  }
+  return null;
+}
+
 function itensSelecionados(){
   const items = [];
   const wrap = document.getElementById('etiquetasTableWrap');
@@ -1674,12 +1748,11 @@ function itensSelecionados(){
     caixas.forEach(chk=>{
       if(!chk.checked) return;
       const linha = chk.closest('tr');
-      const p = DB.products[Number(linha.dataset.pi)];
-      const v = p && p.variations[Number(linha.dataset.vi)];
-      if(!p || !v) return;
+      const achado = acharPecaDaLinha(linha);
+      if(!achado) return;
       const campo = linha.querySelector('[data-qty]');
       const qty = Math.max(1, Number(campo && campo.value) || 1);
-      for(let i=0;i<qty;i++) items.push({ p, v });
+      for(let i=0;i<qty;i++) items.push(achado);
     });
     return items;
   }
@@ -2967,6 +3040,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
+  conferirVersao();
   restaurarEscolhaDaEtiqueta();
   migrarFotosAntigas();
   atualizaDicaLogin();
