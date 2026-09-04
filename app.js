@@ -9,11 +9,36 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "32";
+const APP_VERSION = "33";
 
-const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
-const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
-const SUPABASE_TABLE = "loja_roupas_db";
+/* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
+   acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
+   dependia de mim mexer no código e publicar. Agora o endereço, a chave e
+   a tabela são configuráveis pela tela, e ficam guardados só neste
+   aparelho: não sobem para a nuvem, para uma configuração ruim não se
+   espalhar para os outros aparelhos da loja. */
+const NUVEM_PADRAO = {
+  url: "https://sjuvryprgbkrbzkvnnhw.supabase.co",
+  key: "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau",
+  tabela: "loja_roupas_db",
+  bucket: "fotos"
+};
+const CHAVE_NUVEM = 'estiloFashion_nuvem';
+
+function configNuvem(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CHAVE_NUVEM) || 'null');
+    if(c && c.url && c.key) return { ...NUVEM_PADRAO, ...c };
+  }catch(e){}
+  return { ...NUVEM_PADRAO };
+}
+function salvarConfigNuvem(c){
+  localStorage.setItem(CHAVE_NUVEM, JSON.stringify(c));
+}
+function cabecalhosNuvem(extra){
+  const c = configNuvem();
+  return { apikey: c.key, Authorization: 'Bearer ' + c.key, ...(extra||{}) };
+}
 const STORAGE_KEY = "estiloCiaDB";
 const LOCAL_TS_KEY = "estiloCiaDB_ts";
 const SESSION_KEY = "estiloCiaSession";
@@ -470,7 +495,7 @@ function explicarErroDaNuvem(erro){
   if(erro.status === 401 || erro.status === 403)
     return 'A nuvem recusou a chave de acesso (' + erro.status + '). A chave pode ter sido trocada ou as permissões da tabela mudaram, no painel do Supabase.';
   if(erro.status === 404)
-    return 'A nuvem respondeu, mas não encontrou a tabela "' + SUPABASE_TABLE + '" (404). O nome da tabela pode ter mudado.';
+    return 'A nuvem respondeu, mas não encontrou a tabela "' + configNuvem().tabela + '" (404). O nome da tabela pode ter mudado.';
   if(erro.status >= 500)
     return 'O servidor da nuvem respondeu com erro ' + erro.status + '. Projetos gratuitos do Supabase são pausados após alguns dias sem uso — confira no painel se o projeto precisa ser reativado.';
   if(erro.status === 0)
@@ -480,8 +505,9 @@ function explicarErroDaNuvem(erro){
 
 async function cloudPull(){
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&select=data,updated_at`, {
-      headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+    const c = configNuvem();
+    const res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`, {
+      headers: cabecalhosNuvem()
     });
     if(!res.ok){
       let detalhe = '';
@@ -531,11 +557,11 @@ async function cloudPush(){
     }
   }
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+    const c = configNuvem();
+    await fetch(`${c.url}/rest/v1/${c.tabela}`, {
       method:'POST',
       headers:{
-        apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
-        'Content-Type':'application/json',
+        ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
         'Prefer':'resolution=merge-duplicates,return=minimal'
       },
       body: JSON.stringify({ id:'main', data: DB, updated_at: todayISO() })
@@ -549,7 +575,6 @@ async function cloudPush(){
    dela, que ocupa ~80 bytes no lugar de ~90 KB. Assim o armazenamento do
    aparelho não enche, e cada venda deixa de reenviar todas as fotos.
    ========================================================= */
-const SUPABASE_BUCKET = "fotos";
 
 /* Fotos que ainda não subiram (sem internet, ou vindas do formato antigo).
    Ficam aqui na memória e são reenviadas sozinhas. */
@@ -557,7 +582,8 @@ const fotosPendentes = new Map();
 let enviandoFotos = false;
 
 function urlDaFoto(caminho){
-  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${caminho}`;
+  const c = configNuvem();
+  return `${c.url}/storage/v1/object/public/${c.bucket}/${caminho}`;
 }
 
 /* Sobe uma foto e devolve o endereço público. Lança erro se não conseguir,
@@ -565,10 +591,10 @@ function urlDaFoto(caminho){
 async function subirFoto(dataUrl, nomeBase){
   const bin = await (await fetch(dataUrl)).blob();
   const caminho = `${nomeBase}-${Date.now()}.jpg`;
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${caminho}`, {
+  const c = configNuvem();
+  const res = await fetch(`${c.url}/storage/v1/object/${c.bucket}/${caminho}`, {
     method:'POST',
-    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
-              'Content-Type':'image/jpeg', 'x-upsert':'true' },
+    headers: cabecalhosNuvem({ 'Content-Type':'image/jpeg', 'x-upsert':'true' }),
     body: bin
   });
   if(!res.ok){
@@ -1245,6 +1271,99 @@ function openProductModal(id){
    varre tudo o que a chave alcança e mostra o que parecer um banco da
    loja, com quantos produtos e vendas tem cada um.
    ========================================================= */
+/* O SQL que cria a tabela no projeto novo. Fica na tela para o lojista
+   copiar e colar no Supabase — sem isso ele dependeria de mim para uma
+   coisa que leva um minuto. */
+const SQL_CRIAR_TABELA = `-- Cole no SQL Editor do Supabase e clique em Run
+create table if not exists public.TABELA (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.TABELA enable row level security;
+
+-- A loja usa a chave publicável, que entra como "anon".
+create policy "loja le" on public.TABELA
+  for select to anon using (true);
+create policy "loja grava" on public.TABELA
+  for insert to anon with check (true);
+create policy "loja atualiza" on public.TABELA
+  for update to anon using (true) with check (true);`;
+
+function sqlDaTabela(){
+  return SQL_CRIAR_TABELA.replaceAll('TABELA', configNuvem().tabela);
+}
+
+function copiarSqlDaTabela(){
+  const texto = sqlDaTabela();
+  const pronto = ()=>toast('SQL copiado. Cole no SQL Editor do Supabase.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(texto).then(pronto).catch(()=>selecionarSql());
+  } else selecionarSql();
+  function selecionarSql(){
+    const campo = document.getElementById('sqlTabela');
+    if(campo){ campo.select(); toast('Toque e segure para copiar o SQL.','warn'); }
+  }
+}
+
+/* Testa a ligação ANTES de gravar. Salvar uma configuração que não
+   funciona deixaria a loja sem nuvem sem ninguém perceber. */
+async function conectarNuvem(){
+  const url = (document.getElementById('nv_url').value || '').trim().replace(/\/+$/, '');
+  const key = (document.getElementById('nv_key').value || '').trim();
+  const tabela = (document.getElementById('nv_tabela').value || '').trim() || 'loja_roupas_db';
+  const box = document.getElementById('resultadoConexao');
+  if(!/^https:\/\/.+\.supabase\.co$/.test(url)){
+    box.innerHTML = '<div class="aviso-codigo">O endereço deve ser parecido com <code>https://abcdefgh.supabase.co</code>.</div>';
+    return;
+  }
+  if(!key){ box.innerHTML = '<div class="aviso-codigo">Falta a chave publicável.</div>'; return; }
+
+  box.innerHTML = '<p class="text-muted">Testando a ligação...</p>';
+  let res;
+  try{
+    res = await fetch(`${url}/rest/v1/${tabela}?select=id&limit=1`, {
+      headers:{ apikey:key, Authorization:'Bearer '+key }
+    });
+  }catch(err){
+    box.innerHTML = `<div class="aviso-codigo">Não houve resposta desse endereço.
+      Confira se o projeto existe e está ativo.</div>`;
+    return;
+  }
+  if(!res.ok){
+    const corpo = await res.text().catch(()=>'');
+    box.innerHTML = `<div class="aviso-codigo">
+      <strong>A nuvem respondeu ${res.status}.</strong><br>
+      ${escapeHtml(explicarErroDaNuvem({status:res.status}))}
+      ${/relation|does not exist|404/i.test(corpo + res.status)
+        ? '<br><br>Se a tabela ainda não existe, rode o SQL abaixo no Supabase e teste de novo.' : ''}
+    </div>`;
+    return;
+  }
+
+  salvarConfigNuvem({ url, key, tabela, bucket: configNuvem().bucket });
+  nuvemLida = false; nuvemVaziaConfirmada = false; ultimoErroNuvem = null;
+  box.innerHTML = `<div class="pdf-pronto"><strong>Ligado.</strong>
+    O sistema já está falando com este projeto.</div>`;
+  await cloudPull();
+  atualizaAvisoDeNuvem();
+  toast('Nuvem conectada.');
+  navigate('config');
+}
+
+/* Manda para a nuvem o que está neste aparelho. Serve para semear o
+   projeto novo com o que a loja tem agora. */
+async function enviarTudoParaNuvem(){
+  const quantos = (DB.products||[]).length;
+  if(!confirm('Enviar o que está neste aparelho para a nuvem?\n\n' +
+              quantos + ' produto(s) e ' + (DB.sales||[]).length + ' venda(s).\n\n' +
+              'Se já houver dados na nuvem, eles serão substituídos por estes.')) return;
+  nuvemVaziaConfirmada = true;      // decisão do lojista, tomada na tela
+  await cloudPush();
+  toast('Enviado. Confira em "Testar conexão".');
+}
+
 /* Diz, em português e sem rodeio, o que a nuvem respondeu. Enquanto a loja
    só via "sem internet", ninguém sabia para onde olhar. */
 async function testarNuvem(){
@@ -1254,7 +1373,7 @@ async function testarNuvem(){
   const linhas = [];
   const testar = async (rotulo, url)=>{
     try{
-      const res = await fetch(url, { headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` } });
+      const res = await fetch(url, { headers: cabecalhosNuvem() });
       let corpo = '';
       try{ corpo = (await res.text()).slice(0,120); }catch(e){}
       linhas.push({ rotulo, status: res.status, ok: res.ok, corpo });
@@ -1262,8 +1381,9 @@ async function testarNuvem(){
       linhas.push({ rotulo, status: 0, ok:false, corpo: String(err && err.message || err) });
     }
   };
-  await testar('Ler a tabela da loja', `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=id&limit=1`);
-  await testar('Listar as tabelas', `${SUPABASE_URL}/rest/v1/`);
+  const cfg = configNuvem();
+  await testar('Ler a tabela da loja', `${cfg.url}/rest/v1/${cfg.tabela}?select=id&limit=1`);
+  await testar('Listar as tabelas', `${cfg.url}/rest/v1/`);
 
   const leitura = linhas[0];
   box.innerHTML = `<div class="${leitura.ok ? 'pdf-pronto' : 'aviso-codigo'}">
@@ -1277,8 +1397,8 @@ async function testarNuvem(){
         <td class="text-muted" style="font-size:11px">${escapeHtml(l.corpo || '-')}</td></tr>`).join('')}
     </tbody></table></div>
     <p class="text-muted" style="font-size:12px;margin-top:8px">
-      Projeto: <code>${escapeHtml(SUPABASE_URL.replace('https://','').split('.')[0])}</code> ·
-      tabela <code>${escapeHtml(SUPABASE_TABLE)}</code></p>`;
+      Projeto: <code>${escapeHtml(cfg.url.replace('https://','').split('.')[0])}</code> ·
+      tabela <code>${escapeHtml(cfg.tabela)}</code></p>`;
 }
 
 function pareceBancoDaLoja(v){
@@ -1312,9 +1432,8 @@ const TABELAS_PROVAVEIS = [
 
 async function listarTabelasDoProjeto(){
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
-                Accept:'application/openapi+json' }
+    const res = await fetch(`${configNuvem().url}/rest/v1/`, {
+      headers: cabecalhosNuvem({ Accept:'application/openapi+json' })
     });
     if(res.ok){
       const spec = await res.json();
@@ -1346,8 +1465,8 @@ async function procurarNaNuvem(tabelaExtra){
     try{
       /* Sem filtro de id: a linha principal foi gravada por cima, mas pode
          haver outras linhas guardadas ao lado dela. */
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&limit=100`, {
-        headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+      const res = await fetch(`${configNuvem().url}/rest/v1/${tabela}?select=*&limit=100`, {
+        headers: cabecalhosNuvem()
       });
       if(res.status === 404 || res.status === 400) continue;   // tabela não existe
       if(!res.ok){ problemas.push(tabela + ' (' + res.status + ')'); continue; }
@@ -3252,6 +3371,37 @@ function renderConfig(el){
         deste aparelho nem da internet.</p>
     </div>
 
+    <div class="panel">
+      <h3>☁️ Ligação com a nuvem (Supabase)</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        É aqui que os dados da loja ficam guardados e são compartilhados entre os aparelhos.
+        Para usar um projeto novo, crie-o em supabase.com, rode o SQL abaixo e cole o endereço
+        e a chave aqui. Fica guardado só neste aparelho.</p>
+      <div class="form-grid">
+        <div class="field full"><label>Endereço do projeto</label>
+          <input id="nv_url" value="${escapeHtml(configNuvem().url)}" placeholder="https://abcdefgh.supabase.co"></div>
+        <div class="field full"><label>Chave publicável (Publishable / anon)</label>
+          <input id="nv_key" value="${escapeHtml(configNuvem().key)}" placeholder="sb_publishable_..."></div>
+        <div class="field"><label>Nome da tabela</label>
+          <input id="nv_tabela" value="${escapeHtml(configNuvem().tabela)}"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-accent" onclick="conectarNuvem()">Testar e ligar</button>
+        <button class="btn" onclick="testarNuvem()">Testar conexão atual</button>
+        <button class="btn" onclick="enviarTudoParaNuvem()">Enviar os dados daqui para a nuvem</button>
+      </div>
+      <div id="resultadoConexao" style="margin-top:12px"></div>
+      <div id="diagnosticoNuvem" style="margin-top:12px"></div>
+
+      <h4 style="margin:18px 0 8px;font-size:13px">SQL para criar a tabela no projeto novo</h4>
+      <p class="text-muted" style="font-size:12px;margin-bottom:8px">
+        No Supabase: SQL Editor → cole → Run. Cria a tabela e libera a leitura e a gravação
+        para a chave publicável, que é a que o sistema usa.</p>
+      <textarea id="sqlTabela" rows="7" readonly
+        style="width:100%;font-family:monospace;font-size:11px">${escapeHtml(sqlDaTabela())}</textarea>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="copiarSqlDaTabela()">Copiar SQL</button>
+    </div>
+
     <div class="panel" style="border-left:4px solid var(--warning)">
       <h3>🔎 Procurar dados perdidos no Supabase</h3>
       <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
@@ -3259,8 +3409,6 @@ function renderConfig(el){
         inclusive de sistemas antigos. Mostra quantos produtos e vendas tem cada um, e você
         escolhe qual trazer de volta. Nada é alterado até você clicar em "Usar este".</p>
       <button class="btn btn-accent" onclick="procurarNaNuvem()">Procurar agora</button>
-      <button class="btn" onclick="testarNuvem()">Testar conexão com a nuvem</button>
-      <div id="diagnosticoNuvem" style="margin-top:12px"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
         <input id="tabelaExtra" placeholder="Nome de outra tabela (se souber)" style="flex:1;min-width:180px">
         <button class="btn btn-sm" onclick="procurarNaNuvem(document.getElementById('tabelaExtra').value)">Procurar nela</button>
