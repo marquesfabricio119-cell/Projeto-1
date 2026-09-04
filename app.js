@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "35";
+const APP_VERSION = "36";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -56,7 +56,7 @@ const SESSION_KEY = "estiloCiaSession";
 
 let DB = null;
 let SESSION = null;
-let currentRoute = "pdv"; // quem abre o sistema na loja quer vender
+let currentRoute = "painel"; // recarregou a página? volta para o resumo do dia
 let pushTimer = null;
 
 /* ---------- Util ---------- */
@@ -488,19 +488,44 @@ function restaurarCopiaDeSeguranca(indice){
   }
 }
 
-/* Enquanto a nuvem não responde, o lojista precisa saber — senão trabalha
-   achando que está tudo salvo. */
-function atualizaAvisoDeNuvem(){
-  const el = document.getElementById('avisoNuvem');
-  if(!el) return;
+/* A loja pediu que nenhum aviso fique fixo na tela, e a faixa que ficava no
+   topo saiu. Mas trabalhar horas achando que está salvo, quando não está,
+   foi exatamente o que fez o estoque desta loja sumir — então o estado da
+   nuvem não vira silêncio: ele aparece UMA vez, como recado que some
+   sozinho, e fica escrito por extenso em Configurações → Ligação com a
+   nuvem, que é onde se vai olhar quando se desconfia de alguma coisa. */
+let jaAvisouDaNuvem = false;
+
+function estadoDaNuvem(){
   const semNuvem = !nuvemLida && !nuvemVaziaConfirmada;
-  el.style.display = semNuvem ? '' : 'none';
-  if(!semNuvem){ el.textContent = ''; return; }
-  const porque = explicarErroDaNuvem(ultimoErroNuvem);
-  el.innerHTML = '⚠️ <strong>O sistema não está conseguindo falar com a nuvem.</strong> ' +
+  return { ok: !semNuvem, porque: semNuvem ? explicarErroDaNuvem(ultimoErroNuvem) : '' };
+}
+
+function atualizaAvisoDeNuvem(){
+  const est = estadoDaNuvem();
+
+  /* Um recado só por sessão. Repetir a cada tentativa viraria barulho, e
+     barulho é o que faz o lojista parar de ler. */
+  if(!est.ok && !jaAvisouDaNuvem && document.getElementById('app')
+     && !document.getElementById('app').classList.contains('hidden')){
+    jaAvisouDaNuvem = true;
+    toast('Sem ligação com a nuvem agora. O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar.','warn');
+  }
+  if(est.ok) jaAvisouDaNuvem = false;   // caiu de novo depois? avisa de novo
+
+  /* Se a tela de Configurações está aberta, ela mostra o estado por extenso. */
+  const painel = document.getElementById('estadoDaNuvem');
+  if(!painel) return;
+  if(est.ok){
+    painel.className = 'estado-nuvem ok';
+    painel.textContent = '✅ Ligado à nuvem. O que é salvo aqui vai para lá e chega nos outros aparelhos.';
+    return;
+  }
+  painel.className = 'estado-nuvem ruim';
+  painel.innerHTML = '⚠️ <strong>Sem ligação com a nuvem.</strong> ' +
     'O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar. ' +
     'Nada é enviado enquanto isso, para não gravar por cima do que está lá.' +
-    (porque ? '<br><span style="font-size:12px">' + escapeHtml(porque) + '</span>' : '');
+    (est.porque ? '<br><span style="font-size:12px">' + escapeHtml(est.porque) + '</span>' : '');
 }
 
 /* ---------- Supabase sync ---------- */
@@ -737,15 +762,6 @@ function tryLogin(user, pass){
    troca a senha ou renomeia o usuário, ela passa a mentir — foi o que
    aconteceu na loja. Agora ela lê o banco: só mostra a senha enquanto ela
    ainda for a de fábrica. */
-function atualizaDicaLogin(){
-  const el = document.getElementById('loginHint');
-  if(!el) return;
-  const admins = DB.users.filter(u=>u.role==='admin');
-  const padrao = admins.find(u=>u.user==='admin' && u.pass==='1234');
-  el.textContent = padrao ? 'admin / 1234'
-    : 'Entre como: ' + (admins.map(u=>u.user).join(' ou ') || 'admin');
-}
-
 /* Caminho de volta para quem perdeu a senha. Sem isso a loja fica trancada
    para fora do próprio sistema e não existe tela nenhuma para consertar.
    Não é um cofre: as senhas ficam salvas em texto puro neste aparelho, então
@@ -764,7 +780,6 @@ function recuperarAcesso(){
   if(admin){ admin.pass='1234'; admin.role='admin'; }
   else DB.users.push({ id:uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' });
   saveDB();
-  atualizaDicaLogin();
   document.getElementById('loginError').textContent = '';
   document.getElementById('loginUser').value = 'admin';
   document.getElementById('loginPass').value = '';
@@ -788,12 +803,14 @@ function restoreSession(){
    o que se mexe de vez em quando. Nada foi removido — só deixou de
    competir por atenção com o balcão. */
 const NAV = [
+  /* O Painel abre o menu e o sistema. Ele é o resumo do dia: quem chega na
+     loja de manhã quer ver como está antes de vender. */
+  { id:'painel', label:'Painel', icon:'🏠', group:'dia' },
   { id:'pdv', label:'Vender (PDV)', icon:'🛒', group:'dia' },
   { id:'produtos', label:'Produtos', icon:'👗', group:'dia' },
   { id:'estoque', label:'Estoque', icon:'📦', group:'dia' },
   { id:'vendas', label:'Vendas', icon:'🧾', group:'dia' },
 
-  { id:'painel', label:'Painel', icon:'🏠', group:'gestao' },
   { id:'balanco', label:'Balanço', icon:'💵', group:'gestao' },
   { id:'caixa', label:'Caixa', icon:'💰', group:'gestao' },
   { id:'etiquetas', label:'Etiquetas', icon:'🏷️', group:'gestao' },
@@ -814,6 +831,12 @@ function showApp(){
   document.getElementById('app').classList.remove('hidden');
   renderShell();
   navigate(currentRoute);
+  /* A nuvem costuma falhar ANTES do login, enquanto a tela de entrada está
+     na frente — e recado dado numa tela que ninguém está vendo é recado
+     perdido. Com a faixa fixa isso não aparecia porque ela ficava lá,
+     parada. Agora que o aviso some sozinho, ele tem de ser dado quando o
+     lojista chega. */
+  atualizaAvisoDeNuvem();
 }
 
 function renderShell(){
@@ -1928,20 +1951,20 @@ function adjustStock(pid,size,color,val){
    As medidas abaixo são as dos rolos DK de verdade, no catálogo Brother.
    Nas fitas contínuas o comprimento é escolhido pela loja. */
 const MIDIAS_QL800 = {
-  dk2210: { name:'DK-2210 — fita contínua 29 mm (o rolo mais usado)', w:29, h:40, continua:true },
-  dk2205: { name:'DK-2205 — fita contínua 62 mm',                     w:62, h:30, continua:true },
-  dk2211: { name:'DK-2211 — fita contínua de filme 29 mm',            w:29, h:40, continua:true },
-  dk2212: { name:'DK-2212 — fita contínua de filme 62 mm',            w:62, h:30, continua:true },
-  dk2113: { name:'DK-2113 — fita contínua transparente 62 mm',        w:62, h:30, continua:true },
-  dk2251: { name:'DK-2251 — fita contínua 62 mm preto e vermelho',    w:62, h:30, continua:true },
-  dk1201: { name:'DK-1201 — etiqueta recortada 29 × 90 mm',           w:29, h:90 },
-  dk1209: { name:'DK-1209 — etiqueta recortada 29 × 62 mm',           w:29, h:62 },
-  dk1208: { name:'DK-1208 — etiqueta recortada 38 × 90 mm',           w:38, h:90 },
-  dk1202: { name:'DK-1202 — etiqueta recortada 62 × 100 mm',          w:62, h:100 },
-  dk1203: { name:'DK-1203 — etiqueta recortada 17 × 87 mm',           w:17, h:87 },
-  dk1204: { name:'DK-1204 — etiqueta recortada 17 × 54 mm',           w:17, h:54 },
-  dk1221: { name:'DK-1221 — etiqueta recortada 23 × 23 mm',           w:23, h:23 },
-  outro:  { name:'Outro rolo — eu meço e informo', w:29, h:40, continua:true, medido:true },
+  dk2210: { name:'DK-2210 · fita 29 mm (mais usado)', w:29, h:40, continua:true },
+  dk2205: { name:'DK-2205 · fita 62 mm',                     w:62, h:30, continua:true },
+  dk2211: { name:'DK-2211 · filme 29 mm',            w:29, h:40, continua:true },
+  dk2212: { name:'DK-2212 · filme 62 mm',            w:62, h:30, continua:true },
+  dk2113: { name:'DK-2113 · transparente 62 mm',        w:62, h:30, continua:true },
+  dk2251: { name:'DK-2251 · 62 mm preto e vermelho',    w:62, h:30, continua:true },
+  dk1201: { name:'DK-1201 · 29 × 90 mm',           w:29, h:90 },
+  dk1209: { name:'DK-1209 · 29 × 62 mm',           w:29, h:62 },
+  dk1208: { name:'DK-1208 · 38 × 90 mm',           w:38, h:90 },
+  dk1202: { name:'DK-1202 · 62 × 100 mm',          w:62, h:100 },
+  dk1203: { name:'DK-1203 · 17 × 87 mm',           w:17, h:87 },
+  dk1204: { name:'DK-1204 · 17 × 54 mm',           w:17, h:54 },
+  dk1221: { name:'DK-1221 · 23 × 23 mm',           w:23, h:23 },
+  outro:  { name:'Outro rolo (eu meço)', w:29, h:40, continua:true, medido:true },
 };
 let etiquetaMidia = 'dk2210';
 let etiquetaComprimento = 40;
@@ -2007,12 +2030,10 @@ function atualizaAvisoDoCodigo(){
   if(mm >= BARRA_MINIMA_MM){ box.innerHTML = ''; box.className = ''; return; }
   box.className = 'aviso-codigo';
   const soNumeros = /^[0-9]+$/.test(pior);
-  box.innerHTML = `<strong>Atenção:</strong> na largura de ${midia.w} mm o código
-    <strong>${escapeHtml(pior)}</strong> fica com ${mm.toFixed(2)} mm por barra — fino demais,
-    o leitor do balcão pode não conseguir ler.
-    ${soNumeros
-      ? 'Use um rolo mais largo (a fita de 29 mm da DK-2210, por exemplo).'
-      : 'Esse código é dos antigos, com letras, e ocupa quase o dobro do espaço de um código só de números. Um rolo mais largo resolve, e as peças cadastradas de agora em diante já saem com código curto.'}`;
+  box.innerHTML = `<strong>${escapeHtml(pior)}</strong> não cabe em ${midia.w} mm:
+    ${mm.toFixed(2)} mm por barra, fino demais para o leitor do balcão.
+    ${soNumeros ? 'Use um rolo mais largo.'
+                : 'É um código antigo, com letras, que ocupa o dobro. Use um rolo mais largo — as peças novas já saem com código curto.'}`;
 }
 
 function renderEtiquetas(el){
@@ -2375,8 +2396,13 @@ function desenhoSvgDoCodigo(codigo, larguraMM, alturaMM){
 function renderPreviewEtiqueta(){
   const box = document.getElementById('previewEtiqueta');
   if(!box) return;
+  /* A prévia procura uma peça COM nome e preço. Mostrar "Produto sem nome
+     · R$ 0,00" fazia parecer que a etiqueta estava quebrada, quando o que
+     faltava era o cadastro da peça. */
   let alvo = null;
-  DB.products.some(p=>p.variations.some(v=>{ if(v.barcode){ alvo={p,v}; return true; } }));
+  const serve = (p,v) => v.barcode && p.name && !/sem nome/i.test(p.name) && Number(p.price) > 0;
+  DB.products.some(p=>p.variations.some(v=>{ if(serve(p,v)){ alvo={p,v}; return true; } }));
+  if(!alvo) DB.products.some(p=>p.variations.some(v=>{ if(v.barcode){ alvo={p,v}; return true; } }));
   if(!alvo){
     box.innerHTML = '<p class="text-muted" style="font-size:12.5px">Cadastre uma peça para ver a prévia da etiqueta.</p>';
     return;
@@ -2415,41 +2441,36 @@ function gerarPdfEtiquetas(itensForcados){
 }
 
 let urlDoPdfAnterior = null;
-function mostrarLinkDoPdf(blob, nome, recado){
+function mostrarLinkDoPdf(blob, nome, recado, rotulo, ajuda){
   const box = document.getElementById('linkDoPdf');
   if(!box) return;
   if(urlDoPdfAnterior) URL.revokeObjectURL(urlDoPdfAnterior);
   urlDoPdfAnterior = URL.createObjectURL(blob);
   box.className = 'pdf-pronto';
-  box.innerHTML = `<strong>Etiquetas prontas — ${escapeHtml(recado)}</strong>
-    <a href="${urlDoPdfAnterior}" download="${escapeHtml(nome)}">🏷️ Abrir / salvar o arquivo</a>
-    <span>Abra este arquivo no computador em que a Brother QL-800 está ligada pelo cabo USB
-    e mande imprimir por ele, com o redimensionamento em 100%.</span>`;
+  box.innerHTML = `<strong>${escapeHtml(recado)}</strong>
+    <a href="${urlDoPdfAnterior}" download="${escapeHtml(nome)}">${escapeHtml(rotulo)}</a>
+    <span>${escapeHtml(ajuda)}</span>`;
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
-function entregarPdf(blob, quantas, layout){
-  const nome = `etiquetas-QL800-${layout.w}x${layout.h}mm.pdf`;
-  const recado = `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`;
-
-  /* Deixa um link à vista na tela. Se a janela de compartilhar não abrir, ou
-     o lojista fechá-la sem querer, o arquivo continua ao alcance de um toque
-     em vez de sumir. */
-  mostrarLinkDoPdf(blob, nome, recado);
-
+/* Entrega um PDF ao lojista pelo caminho que funciona no aparelho dele:
+   no celular a folha de compartilhar (de onde ele escolhe Imprimir ou
+   manda pelo WhatsApp), no computador o arquivo baixado. Nos dois casos
+   fica um link à vista na tela — se a folha não abrir, ou ele fechá-la
+   sem querer, o arquivo continua ao alcance de um toque em vez de sumir. */
+function entregarArquivo(blob, nome, recado, rotulo, ajuda, titulo){
+  mostrarLinkDoPdf(blob, nome, recado, rotulo, ajuda);
   try{
     const arquivo = new File([blob], nome, { type:'application/pdf' });
     if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
-      navigator.share({ files:[arquivo], title:'Etiquetas' })
-        .then(()=>toast(recado + ' — envie para o computador da QL-800.'))
+      navigator.share({ files:[arquivo], title: titulo })
+        .then(()=>toast(recado))
         .catch(()=>{ /* fechou a folha de compartilhamento: nada a fazer */ });
       return;
     }
   }catch(err){
     console.warn('Compartilhamento não disponível:', err);
   }
-
-  /* Sem compartilhamento (navegador de computador): baixa o arquivo. O link
-     com "download" funciona onde o window.open falha. */
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url; link.download = nome;
@@ -2457,7 +2478,16 @@ function entregarPdf(blob, quantas, layout){
   document.body.appendChild(link);
   link.click();
   setTimeout(()=>{ document.body.removeChild(link); URL.revokeObjectURL(url); }, 4000);
-  toast(recado + ' — abra o arquivo baixado e mande imprimir na QL-800, em 100%.');
+  toast(recado);
+}
+
+function entregarPdf(blob, quantas, layout){
+  entregarArquivo(blob,
+    `etiquetas-QL800-${layout.w}x${layout.h}mm.pdf`,
+    `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`,
+    '🏷️ Abrir / salvar as etiquetas',
+    'Abra este arquivo no computador em que a Brother QL-800 está ligada pelo cabo USB e mande imprimir por ele, com o redimensionamento em 100%.',
+    'Etiquetas');
 }
 
 /* =========================================================
@@ -2558,7 +2588,8 @@ function renderPDV(el){
         <button class="btn" style="margin-top:8px" onclick="clearCart()">Limpar carrinho</button>
       </div>
     </div>
-    <div id="receipt"></div>`;
+    <div id="reciboDaVenda"></div>
+    <div id="linkDoPdf"></div>`;
 
   const input = el.querySelector('#pdvSearchInput');
   input.addEventListener('input', e=>{ pdvSearch=e.target.value; renderPDVResults(); });
@@ -2690,28 +2721,62 @@ function finalizeSale(){
     toast('A venda NÃO foi salva. O carrinho continua aqui para você refazer.','error');
     return;
   }
-  printReceipt(sale);
   cart=[]; pdvDiscount=0; pdvCustomer='';
   renderPDV(document.getElementById('view'));
+  mostrarOfertaDeRecibo(sale);
   toast('Venda finalizada!');
 }
-function printReceipt(sale){
-  const r = document.getElementById('receipt');
-  if(!r) return;
-  r.innerHTML = `<div class="receipt-sheet">
-    <div style="text-align:center"><strong>${escapeHtml(DB.storeName)}</strong><br>${dateBR(sale.date)}</div><hr>
-    ${sale.items.map(i=>`${escapeHtml(i.name)} (${escapeHtml(i.size)}/${escapeHtml(i.color)})<br>${i.qty} x ${money(i.price)} = ${money(i.qty*i.price)}<br>`).join('')}
-    <hr>Desconto: ${money(sale.discount)}<br><strong>Total: ${money(sale.total)}</strong><br>Pagamento: ${sale.payment}<br>Vendedor(a): ${escapeHtml(sale.seller)}
-    <hr><div style="text-align:center">Obrigado pela preferência! 💛</div>
-  </div>`;
-  setTimeout(()=>window.print(), 200);
+/* O recibo saía pela impressão do navegador e, no celular da loja, isso
+   é folha em branco: o Safari manda o papel da janela (A4) e ignora o
+   desenho da página — o mesmo defeito que segurou as etiquetas por
+   semanas. Agora sai um PDF de 80 mm, o tamanho do cupom, que o celular
+   e o computador imprimem igual e que também dá para mandar pelo
+   WhatsApp para a cliente.
+
+   E não sai mais sozinho a cada venda: abrir a janela de impressão no
+   meio do caixa atrasava a próxima cliente da fila. Fica um botão à
+   vista, para quando alguém pedir o recibo, e outro na tela de Vendas
+   para qualquer venda antiga. */
+function receiptFileName(sale){
+  return 'recibo-' + String(sale.id||'venda').slice(-6) + '.pdf';
+}
+function gerarReciboPdf(sale){
+  let blob;
+  try{
+    blob = criarPdfRecibo(sale, DB.storeName, money, dateBR);
+  }catch(err){
+    console.error('Erro ao montar o recibo:', err);
+    toast('Não foi possível montar o recibo: ' + err.message, 'error');
+    return;
+  }
+  entregarArquivo(blob, receiptFileName(sale),
+    'Recibo de ' + money(sale.total),
+    '🧾 Abrir / salvar o recibo',
+    'O recibo tem 80 mm de largura, o tamanho do cupom. Abra o arquivo e mande imprimir, ou envie para a cliente.',
+    'Recibo');
+}
+/* Depois de finalizar, o recibo fica à mão sem atrapalhar o caixa: um
+   botão só, que some quando a próxima venda começa. */
+function mostrarOfertaDeRecibo(sale){
+  const box = document.getElementById('reciboDaVenda');
+  if(!box) return;
+  box.className = 'pdf-pronto';
+  box.innerHTML = `<strong>Venda de ${escapeHtml(money(sale.total))} registrada</strong>
+    <a href="#" onclick="event.preventDefault();imprimirReciboDaVenda('${sale.id}')">🧾 Gerar recibo desta venda</a>
+    <span>Só se a cliente pedir — a venda já está salva.</span>`;
+}
+
+function imprimirReciboDaVenda(id){
+  const sale = DB.sales.find(x=>x.id===id);
+  if(!sale){ toast('Venda não encontrada','error'); return; }
+  gerarReciboPdf(sale);
 }
 
 /* =========================================================
    VENDAS
    ========================================================= */
 function renderVendas(el){
-  el.innerHTML = `<div id="vendasWrap"></div>`;
+  el.innerHTML = `<div id="linkDoPdf"></div><div id="vendasWrap"></div>`;
   renderVendasTable();
 }
 /* A tela desenhava TODAS as vendas de uma vez. Com 800 vendas já eram 8.814
@@ -2755,6 +2820,7 @@ function saleActions(s){
   let btns='';
   if(s.origin==='loja' && s.status==='pendente') btns += `<button class="btn btn-sm btn-accent" onclick="markSalePaid('${s.id}')">Marcar Pago</button> `;
   if(s.origin==='loja' && s.status==='pago') btns += `<button class="btn btn-sm btn-gold" onclick="markSaleDelivered('${s.id}')">Marcar Entregue</button> `;
+  btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">🧾 Recibo</button> `;
   btns += `<button class="btn btn-sm btn-danger" onclick="cancelSale('${s.id}')">Cancelar</button>`;
   return btns;
 }
@@ -3381,6 +3447,7 @@ function renderConfig(el){
         <button class="btn" onclick="testarNuvem()">Testar conexão atual</button>
         <button class="btn" onclick="enviarTudoParaNuvem()">Enviar os dados daqui para a nuvem</button>
       </div>
+      <div id="estadoDaNuvem" style="margin-top:12px"></div>
       <div id="resultadoConexao" style="margin-top:12px"></div>
       <div id="diagnosticoNuvem" style="margin-top:12px"></div>
 
@@ -3551,11 +3618,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const pass = document.getElementById('loginPass').value;
     if(tryLogin(user, pass)){ showApp(); }
     else {
-      /* Dizer só "inválidos" não ajuda quem trocou a senha e esqueceu:
-         mostramos quais usuários existem de verdade neste sistema. */
-      const nomes = DB.users.map(u=>u.user).join(', ');
-      document.getElementById('loginError').textContent =
-        'Usuário ou senha inválidos. Cadastrados aqui: ' + nomes;
+      /* A tela não entrega mais nem os usuários cadastrados: quem está do
+         lado de fora não precisa saber quem existe aqui dentro. Para quem
+         é da casa e esqueceu a senha, o caminho de volta aparece logo
+         abaixo, e ele é que resolve. */
+      document.getElementById('loginError').textContent = 'Usuário ou senha inválidos.';
       document.getElementById('loginHelpBtn').style.display = 'block';
     }
   });
@@ -3572,7 +3639,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   atualizaAvisoDeNuvem();
   restaurarEscolhaDaEtiqueta();
   migrarFotosAntigas();
-  atualizaDicaLogin();
   const lv = document.getElementById('loginVersion');
   if(lv) lv.textContent = 'versão ' + APP_VERSION;
   if(SESSION){ showApp(); } else { showLogin(); }

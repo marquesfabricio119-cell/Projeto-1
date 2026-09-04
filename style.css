@@ -42,6 +42,9 @@ input,select,textarea{font-family:inherit;font-size:14px}
    No celular todos os campos vao a 16px e o toque duplo nao amplia mais. */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 button,.btn,.nav-item,.pdv-product,label,a{touch-action:manipulation}
+/* Basta UM elemento mais largo que a tela para o celular encolher a página
+   inteira e tudo ficar pequeno num canto. Isto impede que aconteça. */
+html,body{max-width:100%;overflow-x:hidden}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:var(--rose-claro);border-radius:8px}
 
@@ -91,7 +94,6 @@ button,.btn,.nav-item,.pdv-product,label,a{touch-action:manipulation}
   transition:background .15s;
 }
 .btn-primary:hover{background:var(--rose-gold-esc)}
-.login-hint{margin-top:16px;font-size:11px;color:var(--muted)}
 .login-help{
   display:none;margin:10px auto 0;background:none;border:none;
   color:var(--rose-gold-esc);font:inherit;font-size:12.5px;
@@ -222,29 +224,11 @@ table tr:hover td{background:var(--cream)}
 .pay-methods button{padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12.5px}
 .pay-methods button.active{background:var(--rose-gold);color:#fff;border-color:var(--rose-gold)}
 
-/* ===== Receipt / labels / print ===== */
-#receipt{display:none}
-@media print{
-  /* Antes isto usava visibility:hidden. O elemento some da vista mas a
-     caixa continua ocupando lugar, e a impressora cuspia folhas em branco
-     antes das etiquetas — no rolo térmico, etiqueta em branco desperdiçada.
-     display:none tira do papel de verdade. */
-  #login-screen, .sidebar, .sidebar-backdrop, .topbar, #toast, .modal-overlay{ display:none !important }
-  /* O recibo mora dentro de .view: esconde os irmãos, não o pai, senão
-     some junto o que se quer imprimir. As etiquetas não passam mais por
-     aqui — elas saem em PDF, que é o único jeito de a QL-800 receber o
-     tamanho certo da fita. */
-  .view > *{ display:none !important }
-  #receipt{ display:block !important; margin:0; padding:0 }
-  html, body, #app, .main, .view{
-    margin:0 !important; padding:0 !important; background:#fff !important;
-    height:auto !important; min-height:0 !important; display:block !important;
-    box-shadow:none !important; border:none !important;
-  }
-}
-.receipt-sheet{width:300px;padding:14px;font-family:monospace;font-size:12px}
-.receipt-sheet hr{border:none;border-top:1px dashed #999;margin:8px 0}
-
+/* ===== Etiqueta e recibo =====
+   Nada mais é impresso pelo navegador. Recibo e etiqueta saem em PDF, que
+   carrega o tamanho da página dentro dele — a impressão do navegador
+   mandava o papel da janela (A4) e dava folha em branco no celular da
+   loja. O que sobrou aqui é só o desenho da prévia na tela. */
 .label{
   border:1px dashed #ccc;
   padding:1mm;
@@ -321,10 +305,19 @@ canvas{max-width:100%}
 
 @media (max-width:900px){
   /* Na lista de etiquetas o que o lojista precisa tocar é a caixa e a
-     quantidade. O código e o estoque saem para essas duas caberem na tela
-     do celular, em vez de ficarem fora da borda. */
+     quantidade. O código e o estoque saem para essas duas caberem inteiras
+     na tela do celular: campo cortado na borda é campo que ninguém acerta.
+     O código continua na prévia, do lado, e na etiqueta impressa. */
   #etiquetasTableWrap .col-codigo,
   #etiquetasTableWrap .col-estoque{display:none}
+  #etiquetasTableWrap [data-qty]{width:58px}
+
+  /* Na tela de etiquetas os controles empilham, e cada um ocupa a linha
+     inteira: no celular meio botão cortado na borda é botão que ninguém
+     acerta. */
+  #midiaSel{width:100%;min-width:0}
+  .toolbar .spacer{display:none}
+  #view .toolbar > button{width:100%}
   #toast{bottom:auto;top:12px;left:14px;right:14px;max-width:none;text-align:center}
   input,select,textarea{font-size:16px}
   body{touch-action:manipulation}

@@ -285,3 +285,116 @@ function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco){
 
   return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
 }
+
+/* =========================================================
+   RECIBO DA VENDA EM PDF
+   =========================================================
+   O recibo saía pela impressão do navegador, e no iPhone isso dá a mesma
+   folha em branco que dava nas etiquetas: o Safari manda o papel da janela
+   (A4) e ignora o desenho da página. O caminho que funciona é o mesmo das
+   etiquetas — um PDF, que leva o tamanho da página dentro dele.
+
+   A largura é de 80 mm, o tamanho do cupom que as impressoras de recibo
+   usam. Numa folha A4 ele sai como uma tira estreita, que é exatamente o
+   formato de um recibo.
+   ========================================================= */
+
+const RECIBO_LARGURA_MM = 80;
+
+/* Quebra o texto no que cabe na largura, sem cortar palavra no meio. */
+function quebrarLinhas(texto, tamanho, negrito, larguraMax){
+  const palavras = String(texto).split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let atual = '';
+  palavras.forEach(pal=>{
+    const tentativa = atual ? atual + ' ' + pal : pal;
+    if(larguraAproximada(tentativa, tamanho, negrito) <= larguraMax || !atual){
+      atual = tentativa;
+    } else {
+      linhas.push(atual); atual = pal;
+    }
+  });
+  if(atual) linhas.push(atual);
+  return linhas.length ? linhas : [''];
+}
+
+function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData){
+  const L = RECIBO_LARGURA_MM * MM_EM_PONTOS;
+  const margem = 4 * MM_EM_PONTOS;
+  const util = L - margem * 2;
+
+  /* Monta a lista de linhas primeiro, para saber a altura da página antes
+     de desenhar: cupom curto não desperdiça papel, cupom longo não corta. */
+  const linhas = [];   // { texto, pt, negrito, onde: 'centro'|'esq'|'dir'|'traco' }
+  const add = (texto, pt, negrito, onde)=>linhas.push({ texto, pt, negrito, onde: onde||'esq' });
+  const traco = ()=>linhas.push({ onde:'traco', pt: 6 });
+
+  add(String(nomeLoja).toUpperCase(), 11, true, 'centro');
+  add(formatarData(sale.date), 7.5, false, 'centro');
+  traco();
+
+  (sale.items||[]).forEach(i=>{
+    const nome = `${i.name} (${i.size}/${i.color})`;
+    quebrarLinhas(nome, 8, false, util).forEach(l=>add(l, 8, false, 'esq'));
+    add(`${i.qty} x ${formatarPreco(i.price)} = ${formatarPreco(i.qty * i.price)}`, 8, false, 'dir');
+  });
+
+  traco();
+  if(Number(sale.discount) > 0) add('Desconto: ' + formatarPreco(sale.discount), 8, false, 'dir');
+  add('TOTAL: ' + formatarPreco(sale.total), 12, true, 'dir');
+  add('Pagamento: ' + (sale.payment || '-'), 8, false, 'esq');
+  add('Vendedor(a): ' + (sale.seller || '-'), 8, false, 'esq');
+  traco();
+  add('Obrigado pela preferência!', 8.5, false, 'centro');
+
+  const alturaDaLinha = l => l.onde === 'traco' ? l.pt * 1.6 : l.pt * 1.45;
+  const alturaTotal = linhas.reduce((s,l)=>s + alturaDaLinha(l), 0) + margem * 2;
+  const A = alturaTotal;
+
+  const partes = [];
+  let y = A - margem;
+  linhas.forEach(l=>{
+    y -= alturaDaLinha(l);
+    if(l.onde === 'traco'){
+      const meio = y + l.pt * 0.6;
+      partes.push('0.6 w 0.4 0.4 0.4 RG');
+      partes.push(`${margem.toFixed(2)} ${meio.toFixed(2)} m ${(L - margem).toFixed(2)} ${meio.toFixed(2)} l S`);
+      return;
+    }
+    const larg = larguraAproximada(l.texto, l.pt, l.negrito);
+    let x = margem;
+    if(l.onde === 'centro') x = (L - larg) / 2;
+    if(l.onde === 'dir')    x = L - margem - larg;
+    if(x < margem) x = margem;
+    partes.push(`BT /${l.negrito ? 'F2' : 'F1'} ${l.pt} Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm ` +
+                `(${escaparTextoPdf(l.texto)}) Tj ET`);
+  });
+
+  return montarPdfDeUmaPagina(L, A, partes.join('\n'));
+}
+
+/* O esqueleto do arquivo, para o recibo e para quem mais vier. */
+function montarPdfDeUmaPagina(L, A, fluxo){
+  const objetos = [];
+  objetos.push('<< /Type /Catalog /Pages 2 0 R >>');
+  objetos.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  objetos.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${L.toFixed(2)} ${A.toFixed(2)}] ` +
+    `/Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>`);
+  objetos.push(`<< /Length ${textoParaBytes(fluxo).length} >>\nstream\n${fluxo}\nendstream`);
+  objetos.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  objetos.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+
+  const bytes = [];
+  const escrever = s => textoParaBytes(s).forEach(b=>bytes.push(b));
+  escrever('%PDF-1.4\n');
+  const posicoes = [];
+  objetos.forEach((corpo, i)=>{
+    posicoes.push(bytes.length);
+    escrever(`${i + 1} 0 obj\n${corpo}\nendobj\n`);
+  });
+  const inicioXref = bytes.length;
+  escrever(`xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`);
+  posicoes.forEach(pos=>escrever(String(pos).padStart(10, '0') + ' 00000 n \n'));
+  escrever(`trailer\n<< /Size ${objetos.length + 1} /Root 1 0 R >>\nstartxref\n${inicioXref}\n%%EOF\n`);
+  return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+}
