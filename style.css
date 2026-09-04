@@ -264,6 +264,14 @@ table tr:hover td{background:var(--cream)}
    impressão com margem e cabeçalho ligados, não o sistema. */
 /* Prévia da etiqueta, do tamanho real, na tela. Se ela aparece certa aqui,
    o sistema está desenhando bem e o que falta é a janela de impressão. */
+/* Pisca a lista de peças quando o lojista tenta imprimir sem marcar nada:
+   a mensagem sozinha não resolvia, ele não achava a lista. */
+@keyframes piscaTabela{
+  0%,100%{box-shadow:0 0 0 0 rgba(192,133,116,0)}
+  30%,70%{box-shadow:0 0 0 4px rgba(192,133,116,.55)}
+}
+.piscando{animation:piscaTabela 1.4s ease-in-out 2;border-radius:10px}
+
 .preview-box{margin-top:14px}
 .preview-titulo{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
 .preview-label{border:1px solid var(--border) !important;background:#fff;box-shadow:var(--shadow)}
@@ -296,6 +304,11 @@ canvas{max-width:100%}
   /* No celular o navegador ignora o tamanho da etiqueta: imprimir direto
      dali só gera folha em branco. O caminho é o PDF. */
   .so-no-computador{display:none}
+  /* Na lista de etiquetas o que o lojista precisa tocar é a caixa e a
+     quantidade. O código e o estoque saem para essas duas caberem na tela
+     do celular, em vez de ficarem fora da borda. */
+  #etiquetasTableWrap .col-codigo,
+  #etiquetasTableWrap .col-estoque{display:none}
   #toast{bottom:auto;top:12px;left:14px;right:14px;max-width:none;text-align:center}
   input,select,textarea{font-size:16px}
   body{touch-action:manipulation}
