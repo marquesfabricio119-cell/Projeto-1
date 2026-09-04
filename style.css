@@ -262,6 +262,12 @@ table tr:hover td{background:var(--cream)}
 
 /* Aviso da tela de etiquetas: a maioria dos "não imprime" é a janela de
    impressão com margem e cabeçalho ligados, não o sistema. */
+/* Prévia da etiqueta, do tamanho real, na tela. Se ela aparece certa aqui,
+   o sistema está desenhando bem e o que falta é a janela de impressão. */
+.preview-box{margin-top:14px}
+.preview-titulo{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.preview-label{border:1px solid var(--border) !important;background:#fff;box-shadow:var(--shadow)}
+
 .aviso-codigo{
   margin-top:12px;padding:11px 14px;border-radius:10px;font-size:12.5px;line-height:1.6;
   background:#F8E5E5;border:1px solid #EFCDCD;color:var(--danger);
@@ -287,6 +293,9 @@ canvas{max-width:100%}
 .sidebar-backdrop{display:none}
 
 @media (max-width:900px){
+  /* No celular o navegador ignora o tamanho da etiqueta: imprimir direto
+     dali só gera folha em branco. O caminho é o PDF. */
+  .so-no-computador{display:none}
   #toast{bottom:auto;top:12px;left:14px;right:14px;max-width:none;text-align:center}
   input,select,textarea{font-size:16px}
   body{touch-action:manipulation}
