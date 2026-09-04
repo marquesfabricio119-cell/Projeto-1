@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "22";
+const APP_VERSION = "23";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1462,7 +1462,7 @@ function renderEtiquetas(el){
   el.innerHTML = `
     <div class="panel">
       <h3>Imprimir etiquetas com código de barras</h3>
-      <p class="text-muted" style="margin-bottom:14px">Selecione as variações e a quantidade de etiquetas de cada uma, escolha o layout da folha/rolo e clique em Imprimir. O código de barras é gerado automaticamente para variações que ainda não têm um.</p>
+      <p class="text-muted" style="margin-bottom:14px">Escolha o tamanho da sua etiqueta, marque as peças e a quantidade, e gere o PDF. O código de barras é criado sozinho para quem ainda não tem.</p>
       <div class="toolbar">
         <label style="font-size:12px;color:var(--muted);font-weight:600">Layout:</label>
         <select id="layoutSel">
@@ -1480,8 +1480,9 @@ function renderEtiquetas(el){
         <button class="btn" id="selAllBtn">Selecionar todas (estoque atual)</button>
         <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
         <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o PDF já no tamanho da etiqueta">📄 Gerar PDF das etiquetas</button>
-        <button class="btn" id="printLabelsBtn">🖨️ Imprimir direto</button>
+        <button class="btn so-no-computador" id="printLabelsBtn" title="Só funciona no computador">🖨️ Imprimir direto (computador)</button>
       </div>
+      <div id="previewEtiqueta" class="preview-box"></div>
       <div id="avisoCodigo"></div>
       <div class="aviso-impressao">
         <strong>No celular, use sempre o botão "Gerar PDF das etiquetas".</strong>
@@ -1513,6 +1514,7 @@ function renderEtiquetas(el){
     el.querySelector('#custH').value = l.h;
     guardarEscolhaDaEtiqueta();
     atualizaAvisoDoCodigo();
+    renderPreviewEtiqueta();
   });
   /* Mexeu na medida à mão? Então é "Outro tamanho". Antes o lojista digitava
      nesses campos com um tamanho pronto selecionado e a medida era ignorada
@@ -1526,12 +1528,14 @@ function renderEtiquetas(el){
     }
     guardarEscolhaDaEtiqueta();
     atualizaAvisoDoCodigo();
+    renderPreviewEtiqueta();
   };
   el.querySelector('#custW').addEventListener('input', medidaMudou);
   el.querySelector('#custH').addEventListener('input', medidaMudou);
   /* Testar uma só evita queimar meio rolo até acertar o tamanho. */
   el.querySelector('#testLabelBtn').addEventListener('click', imprimirEtiquetaTeste);
   atualizaAvisoDoCodigo();
+  renderPreviewEtiqueta();
   el.querySelector('#genMissingBtn')?.addEventListener('click', ()=>{
     generateMissingBarcodes(); saveDB(); renderEtiquetas(el); toast('Códigos gerados');
   });
@@ -1635,6 +1639,68 @@ function codigoComoImagem(codigo, larguraBarra){
   return { url: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height };
 }
 
+let carregandoJsPdf = null;
+function carregarJsPdf(){
+  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+  if(carregandoJsPdf) return carregandoJsPdf;
+  const enderecos = [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+  ];
+  carregandoJsPdf = enderecos.reduce((antes, url)=>
+    antes.catch(()=> new Promise((ok, erro)=>{
+      const tag = document.createElement('script');
+      tag.src = url;
+      tag.onload = ()=> (window.jspdf && window.jspdf.jsPDF) ? ok() : erro();
+      tag.onerror = erro;
+      document.head.appendChild(tag);
+    })), Promise.reject());
+  carregandoJsPdf.catch(()=>{ carregandoJsPdf = null; });
+  return carregandoJsPdf;
+}
+
+/* Prévia de uma etiqueta, do tamanho real, na própria tela. Sem ela o
+   lojista só descobre que deu errado depois de gastar o rolo — e, quando
+   dá errado, não dá para saber se o problema é o sistema ou a impressora.
+   Se a prévia aparece certa aqui, o desenho está bom e o que falta ajustar
+   é a janela de impressão. */
+function renderPreviewEtiqueta(){
+  const box = document.getElementById('previewEtiqueta');
+  if(!box) return;
+  let alvo = null;
+  DB.products.some(p=>p.variations.some(v=>{ if(v.barcode){ alvo={p,v}; return true; } }));
+  if(!alvo){
+    box.innerHTML = '<p class="text-muted" style="font-size:12.5px">Cadastre uma peça para ver a prévia da etiqueta.</p>';
+    return;
+  }
+  const layout = layoutAtual();
+  const baixa = layout.h <= 20;
+  box.innerHTML = `
+    <div class="preview-titulo">Como vai sair — ${layout.w} × ${layout.h} mm, tamanho real</div>
+    <div class="label preview-label${baixa?' label-compacta':''}" style="width:${layout.w}mm;height:${layout.h}mm">
+      ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
+      <div class="label-name">${escapeHtml(alvo.p.name)} ${escapeHtml(alvo.v.size)}/${escapeHtml(alvo.v.color)}</div>
+      <svg id="previewBc"></svg>
+      <div class="label-price">${money(alvo.p.price)}</div>
+    </div>`;
+  if(typeof JsBarcode === 'undefined'){
+    box.innerHTML += '<p class="text-muted" style="font-size:12px">O gerador de código de barras não carregou. Verifique a internet.</p>';
+    return;
+  }
+  try{
+    const PX = 96/25.4;
+    const util = Math.max(10, layout.w - 2);
+    const modulos = 11 * (alvo.v.barcode.length + 2) + 13;
+    const larguraBarra = Math.max(0.6, Math.min(2, (util*PX)/modulos));
+    JsBarcode('#previewBc', alvo.v.barcode, {
+      format:'CODE128', width:Number(larguraBarra.toFixed(2)),
+      height: Math.round(Math.max(4, layout.h*0.30) * PX),
+      fontSize: layout.w <= 40 ? 8 : 10, margin:0, displayValue:true
+    });
+  }catch(err){ console.error('Prévia da etiqueta:', err); }
+}
+
 function gerarPdfEtiquetas(){
   const items = itensSelecionados();
   if(!items.length){ toast('Selecione ao menos uma variação','error'); return; }
@@ -1644,7 +1710,13 @@ function gerarPdfEtiquetas(){
   }
   const jsPDFctor = window.jspdf && window.jspdf.jsPDF;
   if(!jsPDFctor){
-    toast('Não foi possível carregar o gerador de PDF. Verifique a internet e recarregue a página.','error');
+    /* A biblioteca não veio no carregamento da página (rede lenta, ou o
+       servidor dela bloqueado). Em vez de só reclamar, tenta buscar de
+       novo agora e refaz o PDF. */
+    toast('Carregando o gerador de PDF...');
+    carregarJsPdf()
+      .then(()=>gerarPdfEtiquetas())
+      .catch(()=>toast('Não foi possível carregar o gerador de PDF. Verifique a internet e recarregue a página.','error'));
     return;
   }
   generateMissingBarcodes(); saveDB();
