@@ -481,6 +481,7 @@ function restaurarCopiaDeSeguranca(indice){
   guardarCopiaDeSeguranca('antes de restaurar');
   DB = JSON.parse(copia.dados);
   migrateDB();
+  restaurarEscolhaDaEtiqueta();
   if(exigirGravacao('a restauração')){
     toast('Cópia restaurada: ' + copia.produtos + ' produto(s).');
     renderShell(); navigate('painel');
@@ -536,6 +537,13 @@ async function cloudPull(){
     ultimoErroNuvem = null;
     const rows = await res.json();
     nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
+    /* O aviso é atualizado AQUI, e não só no fim. Havia um caminho — o mais
+       comum de todos, o aparelho que reabre já com os dados em dia — que
+       saía por um `return` no meio e deixava na tela o aviso de que a nuvem
+       não respondia, com a nuvem respondendo. Nesta loja, que já perdeu
+       dados, alarme falso custa caro: o lojista para de acreditar no aviso
+       justamente quando ele for verdade. */
+    atualizaAvisoDeNuvem();
     if(rows && rows[0] && rows[0].data){
       const cloudTs = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
       const localTs = Number(localStorage.getItem(LOCAL_TS_KEY)) || 0;
@@ -547,6 +555,7 @@ async function cloudPull(){
       DB = rows[0].data;
       bancoVeioVazio = false;
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
+      restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
       saveDB(true);
       if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')){ renderShell(); navigate(currentRoute); }
     } else {
@@ -1557,6 +1566,7 @@ function restaurarDaNuvem(indice){
   guardarCopiaDeSeguranca('antes de trazer da nuvem (recuperação)');
   DB = JSON.parse(JSON.stringify(a.banco));
   migrateDB();
+  restaurarEscolhaDaEtiqueta();
   if(exigirGravacao('os dados recuperados')){
     toast(a.produtos + ' produto(s) recuperados.');
     renderShell(); navigate('painel');
@@ -1961,6 +1971,11 @@ function guardarEscolhaDaEtiqueta(){
                          w: etiquetaCustom.w, h: etiquetaCustom.h };
   saveDB();
 }
+/* Chamada em TODO lugar onde o banco é trocado por inteiro — e não só ao
+   abrir o sistema, como era antes. O erro era silencioso e caro: o aparelho
+   novo (ou o que acabou de receber os dados da nuvem) voltava para o rolo
+   padrão enquanto a loja tinha escolhido outro, e a etiqueta saía no
+   tamanho errado sem ninguém ter mexido em nada. */
 function restaurarEscolhaDaEtiqueta(){
   const e = DB.config && DB.config.etiqueta;
   if(!e) return;
@@ -3429,7 +3444,8 @@ function renderConfig(el){
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      try{ DB = JSON.parse(ev.target.result); loadDB(); saveDB(); toast('Backup importado'); navigate('painel'); }
+      try{ DB = JSON.parse(ev.target.result); loadDB(); restaurarEscolhaDaEtiqueta();
+           saveDB(); toast('Backup importado'); navigate('painel'); }
       catch(err){ toast('Arquivo inválido','error'); }
     };
     reader.readAsText(file);
