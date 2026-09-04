@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "21";
+const APP_VERSION = "22";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1479,22 +1479,26 @@ function renderEtiquetas(el){
         ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
         <button class="btn" id="selAllBtn">Selecionar todas (estoque atual)</button>
         <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
-        <button class="btn btn-accent" id="printLabelsBtn">🖨️ Imprimir etiquetas</button>
+        <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o PDF já no tamanho da etiqueta">📄 Gerar PDF das etiquetas</button>
+        <button class="btn" id="printLabelsBtn">🖨️ Imprimir direto</button>
       </div>
       <div id="avisoCodigo"></div>
       <div class="aviso-impressao">
-        <strong>Se a etiqueta sair pequena no topo e as outras em branco</strong>, o problema está na janela
-        de impressão do navegador, não no sistema. Confira estes quatro itens, nesta ordem:
+        <strong>No celular, use sempre o botão "Gerar PDF das etiquetas".</strong>
+        O navegador do iPhone ignora o tamanho de página que o site pede — ele manda A4, e a etiqueta
+        sai minúscula num canto da folha, com as outras em branco. O PDF já nasce no tamanho da sua
+        etiqueta, e esse tamanho o iPhone respeita: abra o PDF e mande imprimir por ele.
         <ol style="margin:8px 0 0;padding-left:20px">
-          <li><strong>Impressora:</strong> escolha a de etiquetas, não a impressora comum.</li>
-          <li><strong>Tamanho do papel:</strong> em "Mais definições", escolha o tamanho da sua etiqueta.
-              Se só aparecer A4/Carta, abra as propriedades da impressora e cadastre o tamanho lá.</li>
-          <li><strong>Escala: 100%</strong> — nunca "Ajustar à página". É isso que espreme tudo lá em cima.</li>
-          <li><strong>Margens: Nenhuma</strong> e <strong>desmarque "Cabeçalhos e rodapés"</strong>.</li>
+          <li>Meça sua etiqueta com uma régua e escolha o tamanho aqui em cima.
+              Não achou na lista? Digite a medida nos campos ao lado.</li>
+          <li>Clique em <strong>Gerar PDF das etiquetas</strong> e abra o arquivo.</li>
+          <li>Na impressão, escolha a <strong>impressora de etiquetas</strong> e deixe
+              <strong>Redimensionamento em 100%</strong>.</li>
+          <li>Se aparecer <strong>Tamanho do Papel</strong>, escolha o da sua etiqueta —
+              a lista só mostra os tamanhos certos depois que a impressora está selecionada.</li>
         </ol>
-        <p style="margin:8px 0 0">Meça a sua etiqueta com uma régua e escolha o tamanho igual aqui em cima.
-        Não achou na lista? Use <strong>"Outro tamanho"</strong> e digite a medida.
-        Depois clique em <strong>Testar 1 etiqueta</strong> antes de mandar o lote.</p>
+        <p style="margin:8px 0 0">No computador, o botão <strong>Imprimir direto</strong> também funciona.
+        Antes do lote inteiro, use <strong>Testar 1 etiqueta</strong>.</p>
       </div>
     </div>
     <div id="etiquetasTableWrap"></div>
@@ -1538,6 +1542,7 @@ function renderEtiquetas(el){
     renderEtiquetasTable();
   });
   el.querySelector('#printLabelsBtn').addEventListener('click', printLabels);
+  el.querySelector('#pdfLabelsBtn').addEventListener('click', gerarPdfEtiquetas);
   renderEtiquetasTable();
 }
 function countMissingBarcodes(){
@@ -1598,6 +1603,109 @@ function imprimirEtiquetaTeste(){
   printLabels();
   etiquetaQty = guardado;
   renderEtiquetasTable();
+}
+
+/* =========================================================
+   PDF DAS ETIQUETAS
+   O Safari do iPhone ignora o tamanho de página que a página web pede:
+   manda sempre o papel escolhido na janela (A4), e a etiqueta sai
+   minúscula num canto da folha. Não há CSS que resolva isso.
+   Um PDF já nasce com o tamanho da página dentro dele, e esse tamanho o
+   iPhone respeita. Por isso, no celular, este é o caminho certo.
+   ========================================================= */
+function itensSelecionados(){
+  const selecionados = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
+  const items = [];
+  selecionados.forEach(([key, qty])=>{
+    const [pid,size,color] = key.split('|');
+    const p = DB.products.find(x=>x.id===pid);
+    const v = p && p.variations.find(x=>x.size===size && x.color===color);
+    if(!p || !v) return;
+    for(let i=0;i<qty;i++) items.push({ p, v });
+  });
+  return items;
+}
+
+function codigoComoImagem(codigo, larguraBarra){
+  const canvas = document.createElement('canvas');
+  JsBarcode(canvas, codigo, {
+    format:'CODE128', width: larguraBarra, height: 90,
+    fontSize: 22, textMargin: 2, margin: 0, displayValue: true
+  });
+  return { url: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height };
+}
+
+function gerarPdfEtiquetas(){
+  const items = itensSelecionados();
+  if(!items.length){ toast('Selecione ao menos uma variação','error'); return; }
+  if(typeof JsBarcode === 'undefined'){
+    toast('Não foi possível carregar o gerador de código de barras. Verifique a internet.','error');
+    return;
+  }
+  const jsPDFctor = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDFctor){
+    toast('Não foi possível carregar o gerador de PDF. Verifique a internet e recarregue a página.','error');
+    return;
+  }
+  generateMissingBarcodes(); saveDB();
+
+  const layout = layoutAtual();
+  const L = layout.w, A = layout.h, pad = 1;
+  const larguraUtil = L - pad*2;
+
+  /* format sempre [largura, altura] com orientation "portrait": assim o
+     jsPDF não troca os lados por conta própria. */
+  const doc = new jsPDFctor({ unit:'mm', format:[L, A], orientation:'portrait' });
+
+  const PT = 2.8346;                       // 1 mm em pontos
+  const ptLoja  = A <= 20 ? 0 : 4.5;       // etiqueta baixa não leva o nome da loja
+  const ptNome  = A <= 20 ? 4 : 4.5;
+  const ptPreco = A <= 20 ? 6 : 7;
+  const mmLinha = pt => (pt / PT) * 1.25;
+
+  const alturaTextos = (ptLoja ? mmLinha(ptLoja) : 0) + mmLinha(ptNome) + mmLinha(ptPreco);
+  const alturaCodigo = Math.max(4, A - pad*2 - alturaTextos - 0.6);
+
+  items.forEach((item, idx)=>{
+    if(idx > 0) doc.addPage([L, A], 'portrait');
+    let y = pad;
+
+    if(ptLoja){
+      y += mmLinha(ptLoja);
+      doc.setFont('helvetica','bold'); doc.setFontSize(ptLoja);
+      doc.text(String(DB.storeName).toUpperCase(), L/2, y, { align:'center' });
+    }
+
+    y += mmLinha(ptNome);
+    doc.setFont('helvetica','normal'); doc.setFontSize(ptNome);
+    const nome = `${item.p.name} ${item.v.size}/${item.v.color}`;
+    doc.text(doc.splitTextToSize(nome, larguraUtil)[0], L/2, y, { align:'center' });
+
+    /* A imagem entra com a largura útil inteira, mas nunca esticada: se o
+       código for curto, mantemos a proporção para as barras não deformarem
+       — barra deformada o leitor erra. */
+    const img = codigoComoImagem(item.v.barcode, 4);
+    const proporcao = img.w / img.h;
+    let cw = larguraUtil, ch = cw / proporcao;
+    if(ch > alturaCodigo){ ch = alturaCodigo; cw = ch * proporcao; }
+    doc.addImage(img.url, 'PNG', (L - cw)/2, y + 0.3, cw, ch);
+    y += 0.3 + ch;
+
+    y += mmLinha(ptPreco);
+    doc.setFont('helvetica','bold'); doc.setFontSize(ptPreco);
+    doc.text(money(item.p.price), L/2, Math.min(y, A - pad), { align:'center' });
+  });
+
+  /* No iPhone, abrir numa aba deixa o usuário mandar imprimir pelo próprio
+     visualizador de PDF, que é onde o tamanho da página é respeitado. */
+  const url = doc.output('bloburl');
+  const aba = window.open(url, '_blank');
+  if(!aba){
+    doc.save('etiquetas-' + layout.w + 'x' + layout.h + 'mm.pdf');
+    toast('PDF baixado. Abra o arquivo e mande imprimir por ele.','warn');
+  } else {
+    toast(items.length + ' etiqueta(s) de ' + layout.w + ' × ' + layout.h + ' mm no PDF. Mande imprimir por ele.');
+  }
 }
 
 function printLabels(){
@@ -1691,23 +1799,32 @@ function printLabels(){
      por um instante, medimos, e devolvemos. */
   const primeira = sheet.querySelector('.label');
   if(primeira){
-    const estiloAntes = sheet.getAttribute('style') || '';
+    const estiloAntes = sheet.getAttribute('style');
     sheet.setAttribute('style',
       'display:block;position:absolute;left:-10000px;top:0;visibility:hidden');
-    const dentro = primeira.clientHeight - 2 * padMM * PX_POR_MM;
-    let usadoPorTexto = 0;
-    primeira.querySelectorAll(':scope > *').forEach(el=>{
-      if(el.tagName.toLowerCase() !== 'svg') usadoPorTexto += el.getBoundingClientRect().height;
-    });
-    /* O número do código é desenhado dentro do próprio svg, então ele
-       também come altura. */
-    const alturaDoNumero = fonteCodigo + 2;
-    const sobra = dentro - usadoPorTexto - alturaDoNumero - 2;   // 2px de folga
-    const barrasMM = sobra / PX_POR_MM;
-    if(barrasMM > 0 && Math.abs(barrasMM - layout.h * 0.42) > 0.2){
-      desenhar(Math.max(4, barrasMM));
+    /* O finally não é decoração: se o desenho falhar no meio, a folha ficava
+       invisível para sempre e a impressora cuspia tudo em branco. A medida é
+       um luxo; imprimir é obrigação. */
+    try{
+      const dentro = primeira.clientHeight - 2 * padMM * PX_POR_MM;
+      let usadoPorTexto = 0;
+      primeira.querySelectorAll(':scope > *').forEach(el=>{
+        if(el.tagName.toLowerCase() !== 'svg') usadoPorTexto += el.getBoundingClientRect().height;
+      });
+      /* O número do código é desenhado dentro do próprio svg, então ele
+         também come altura. */
+      const alturaDoNumero = fonteCodigo + 2;
+      const sobra = dentro - usadoPorTexto - alturaDoNumero - 2;   // 2px de folga
+      const barrasMM = sobra / PX_POR_MM;
+      if(barrasMM > 0 && Math.abs(barrasMM - layout.h * 0.42) > 0.2){
+        desenhar(Math.max(4, barrasMM));
+      }
+    }catch(err){
+      console.error('Não foi possível ajustar a altura do código:', err);
+    }finally{
+      if(estiloAntes === null) sheet.removeAttribute('style');
+      else sheet.setAttribute('style', estiloAntes);
     }
-    sheet.setAttribute('style', estiloAntes);
   }
 
   setTimeout(()=>window.print(), 250);
