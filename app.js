@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "36";
+const APP_VERSION = "37";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -117,7 +117,11 @@ function defaultDB(){
          digitar as mesmas linhas de novo a cada 30 dias. */
       fixed: []
     },
-    barcodeSeq: 0
+    barcodeSeq: 0,
+    /* O que foi apagado DE PROPÓSITO. Sem esta lista, juntar o banco daqui
+       com o da nuvem trazia de volta a peça que o lojista tinha acabado de
+       excluir — ele apagava, ela reaparecia, e ninguém entendia. */
+    apagados: {}
   };
 }
 
@@ -351,10 +355,7 @@ function generateUniqueBarcode(){
    salvou quando não salvou. */
 function saveDB(skipCloud){
   const gravou = gravarLocal();
-  if(!skipCloud){
-    clearTimeout(pushTimer);
-    pushTimer = setTimeout(cloudPush, 800);
-  }
+  if(!skipCloud) marcarParaEnviar();
   return gravou;
 }
 
@@ -496,9 +497,39 @@ function restaurarCopiaDeSeguranca(indice){
    nuvem, que é onde se vai olhar quando se desconfia de alguma coisa. */
 let jaAvisouDaNuvem = false;
 
+/* Um selo pequeno na barra de cima, do lado do título. Não é um aviso
+   plantado na tela: é o estado, do jeito que o relógio do celular mostra
+   a bateria. Quando está tudo salvo ele fica quieto e discreto; quando
+   há coisa esperando para subir, ele diz. Tocar nele abre o diagnóstico.
+   Sem isso não existe resposta para a única pergunta que importa nesta
+   loja: "isso aqui está salvo?". */
+function atualizaSeloDaNuvem(){
+  const selo = document.getElementById('seloNuvem');
+  if(!selo) return;
+  const est = estadoDaNuvem();
+  if(est.tudoSalvo){
+    selo.className = 'selo-nuvem salvo';
+    selo.textContent = '☁️ salvo';
+    selo.title = 'Tudo o que foi feito aqui já está na nuvem.';
+    return;
+  }
+  if(est.ok){
+    selo.className = 'selo-nuvem enviando';
+    selo.textContent = '⏳ salvando';
+    selo.title = 'Enviando as últimas alterações para a nuvem.';
+    return;
+  }
+  selo.className = 'selo-nuvem parado';
+  selo.textContent = '⚠️ não salvo';
+  selo.title = 'Sem ligação com a nuvem. Toque para ver o motivo.';
+}
+
 function estadoDaNuvem(){
   const semNuvem = !nuvemLida && !nuvemVaziaConfirmada;
-  return { ok: !semNuvem, porque: semNuvem ? explicarErroDaNuvem(ultimoErroNuvem) : '' };
+  const naoEstaSalvando = semNuvem || falhouAoEnviar;
+  return { ok: !naoEstaSalvando, pendente: temPendencia,
+           tudoSalvo: !naoEstaSalvando && !temPendencia,
+           porque: naoEstaSalvando || temPendencia ? explicarErroDaNuvem(ultimoErroNuvem) : '' };
 }
 
 function atualizaAvisoDeNuvem(){
@@ -509,20 +540,28 @@ function atualizaAvisoDeNuvem(){
   if(!est.ok && !jaAvisouDaNuvem && document.getElementById('app')
      && !document.getElementById('app').classList.contains('hidden')){
     jaAvisouDaNuvem = true;
-    toast('Sem ligação com a nuvem agora. O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar.','warn');
+    toast(falhouAoEnviar && (nuvemLida || nuvemVaziaConfirmada)
+      ? 'A nuvem não está aceitando gravar. O trabalho está guardado neste aparelho — toque no selo ☁️ lá em cima para ver o motivo.'
+      : 'Sem ligação com a nuvem agora. O trabalho está sendo salvo neste aparelho e sobe sozinho quando a ligação voltar.','warn');
   }
   if(est.ok) jaAvisouDaNuvem = false;   // caiu de novo depois? avisa de novo
+
+  atualizaSeloDaNuvem();
 
   /* Se a tela de Configurações está aberta, ela mostra o estado por extenso. */
   const painel = document.getElementById('estadoDaNuvem');
   if(!painel) return;
   if(est.ok){
     painel.className = 'estado-nuvem ok';
-    painel.textContent = '✅ Ligado à nuvem. O que é salvo aqui vai para lá e chega nos outros aparelhos.';
+    painel.textContent = est.pendente
+      ? '⏳ Salvando na nuvem…'
+      : '✅ Ligado à nuvem, tudo salvo. O que é feito aqui vai para lá na hora e chega nos outros aparelhos.';
     return;
   }
   painel.className = 'estado-nuvem ruim';
-  painel.innerHTML = '⚠️ <strong>Sem ligação com a nuvem.</strong> ' +
+  painel.innerHTML = (falhouAoEnviar && (nuvemLida || nuvemVaziaConfirmada)
+      ? '⚠️ <strong>A nuvem não está aceitando gravar.</strong> '
+      : '⚠️ <strong>Sem ligação com a nuvem.</strong> ') +
     'O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar. ' +
     'Nada é enviado enquanto isso, para não gravar por cima do que está lá.' +
     (est.porque ? '<br><span style="font-size:12px">' + escapeHtml(est.porque) + '</span>' : '');
@@ -562,6 +601,7 @@ async function cloudPull(){
     ultimoErroNuvem = null;
     const rows = await res.json();
     nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
+    ultimoCarimboDaNuvem = rows && rows[0] ? rows[0].updated_at : null;
     /* O aviso é atualizado AQUI, e não só no fim. Havia um caminho — o mais
        comum de todos, o aparelho que reabre já com os dados em dia — que
        saía por um `return` no meio e deixava na tela o aviso de que a nuvem
@@ -594,7 +634,104 @@ async function cloudPull(){
   }
 }
 
+/* =========================================================
+   ENVIO PARA A NUVEM
+   Antes isto era um tiro no escuro: mandava e não olhava a resposta. Se o
+   Supabase respondesse 401 (chave recusada) ou 404 (tabela não existe), o
+   sistema seguia achando que tinha salvo — e a loja podia trabalhar dias
+   inteiros sem nada estar indo para lá. E se a rede falhasse na hora do
+   envio, aquela alteração não era reenviada nunca: só subia se por acaso
+   alguém salvasse outra coisa depois.
+
+   Agora: toda alteração fica marcada como PENDENTE até a nuvem confirmar
+   que gravou. Enquanto houver pendência o sistema insiste — na hora, e
+   depois de novo a cada tentativa, com espera crescente para não ficar
+   martelando um servidor fora do ar. Volta a internet, o aparelho é
+   desbloqueado ou o sistema volta para a frente da tela: tenta de novo na
+   mesma hora.
+   ========================================================= */
+let temPendencia = false;      // há mudança local que a nuvem ainda não confirmou
+let enviandoAgora = false;
+let tentativasDeEnvio = 0;
+/* Ler da nuvem pode dar certo e ESCREVER dar errado — chave sem permissão
+   de gravação, tabela só de leitura. Sem separar as duas coisas o sistema
+   dizia "salvando…" para sempre, que é a pior mentira possível aqui. */
+let falhouAoEnviar = false;
+let ultimoCarimboDaNuvem = null;   // o updated_at que lemos por último
+let horaDoUltimoEnvioOk = null;
+
+/* Espera antes de tentar de novo: começa curta e cresce até meio minuto. */
+const ESPERAS_DE_REENVIO = [1000, 3000, 8000, 15000, 30000];
+function esperaDoReenvio(){
+  return ESPERAS_DE_REENVIO[Math.min(tentativasDeEnvio, ESPERAS_DE_REENVIO.length - 1)];
+}
+function agendarEnvio(atraso){
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(cloudPush, atraso);
+}
+/* Chamado por saveDB: a alteração acabou de acontecer, vai agora. */
+function marcarParaEnviar(){
+  temPendencia = true;
+  atualizaAvisoDeNuvem();
+  agendarEnvio(400);           // junta as alterações de um mesmo clique
+}
+
+function estadoDoEnvio(){
+  if(!temPendencia) return { rotulo:'salvo', texto:'Tudo salvo na nuvem' };
+  if(!nuvemLida && !nuvemVaziaConfirmada) return { rotulo:'parado', texto:'Sem ligação com a nuvem — o trabalho está guardado neste aparelho' };
+  return { rotulo:'enviando', texto:'Salvando na nuvem…' };
+}
+
+/* Junta o que está na nuvem com o que está aqui, SEM PERDER NADA. Se o
+   computador cadastrou uma peça enquanto o celular registrava uma venda,
+   os dois têm de sobreviver — antes o último a salvar apagava o outro.
+   Onde o mesmo registro existe dos dois lados, vale o daqui, que é o que
+   o lojista acabou de mexer; o que só existe lá é trazido junto. */
+function registrarApagado(colecao, id){
+  if(!id) return;
+  DB.apagados = DB.apagados || {};
+  DB.apagados[colecao] = DB.apagados[colecao] || [];
+  if(!DB.apagados[colecao].includes(id)) DB.apagados[colecao].push(id);
+}
+function juntarPorId(daqui, deLa, apagados){
+  const fora = new Set(apagados || []);
+  const lista = (Array.isArray(daqui) ? daqui : []).filter(x=>!(x && fora.has(x.id)));
+  const tenho = new Set(lista.map(x=>x && x.id).filter(Boolean));
+  (Array.isArray(deLa) ? deLa : []).forEach(x=>{
+    if(x && x.id && !tenho.has(x.id) && !fora.has(x.id)){ lista.push(x); tenho.add(x.id); }
+  });
+  return lista;
+}
+function juntarBancos(daqui, deLa){
+  if(!deLa || typeof deLa !== 'object') return daqui;
+  const junto = { ...daqui };
+  /* As lápides dos dois aparelhos valem juntas: o que um apagou fica
+     apagado no outro. */
+  const lapides = {};
+  ['products','customers','sales','users','fixed'].forEach(k=>{
+    lapides[k] = [ ...(((daqui.apagados||{})[k])||[]), ...(((deLa.apagados||{})[k])||[]) ];
+  });
+  junto.apagados = lapides;
+  junto.products  = juntarPorId(daqui.products,  deLa.products,  lapides.products);
+  junto.customers = juntarPorId(daqui.customers, deLa.customers, lapides.customers);
+  junto.sales     = juntarPorId(daqui.sales,     deLa.sales,     lapides.sales);
+  junto.users     = juntarPorId(daqui.users,     deLa.users,     lapides.users);
+  junto.finance   = { ...(daqui.finance||{}),
+                      entries: juntarPorId((daqui.finance||{}).entries, (deLa.finance||{}).entries) };
+  junto.monthlyExpenses = { ...(daqui.monthlyExpenses||{}),
+    records: juntarPorId((daqui.monthlyExpenses||{}).records, (deLa.monthlyExpenses||{}).records),
+    fixed:   juntarPorId((daqui.monthlyExpenses||{}).fixed,   (deLa.monthlyExpenses||{}).fixed, lapides.fixed) };
+  junto.storeSetup = { ...(daqui.storeSetup||{}),
+    items: juntarPorId((daqui.storeSetup||{}).items, (deLa.storeSetup||{}).items) };
+  /* O número do próximo código de barras nunca anda para trás: dois
+     aparelhos gerando código não podem chegar ao mesmo número. */
+  junto.barcodeSeq = Math.max(Number(daqui.barcodeSeq)||0, Number(deLa.barcodeSeq)||0);
+  return junto;
+}
+
 async function cloudPush(){
+  if(enviandoAgora) return;
+
   /* A nuvem só recebe depois que foi lida. Escrever sem ter lido é como
      apagar o caderno da loja para anotar de novo o que a gente lembra:
      foi exatamente assim que o estoque sumiu. */
@@ -602,22 +739,90 @@ async function cloudPush(){
     await cloudPull();
     if(!nuvemLida && !nuvemVaziaConfirmada){
       atualizaAvisoDeNuvem();
-      clearTimeout(pushTimer);
-      pushTimer = setTimeout(cloudPush, 15000);   // tenta de novo mais tarde
+      tentativasDeEnvio++;
+      agendarEnvio(esperaDoReenvio());
       return;
     }
   }
+
+  enviandoAgora = true;
   try{
     const c = configNuvem();
-    await fetch(`${c.url}/rest/v1/${c.tabela}`, {
+
+    /* Alguém mexeu na nuvem depois da última vez que lemos? Então tem
+       trabalho de outro aparelho lá, e ele entra junto em vez de ser
+       apagado por este envio. */
+    try{
+      const olhada = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`,
+                                 { headers: cabecalhosNuvem() });
+      if(olhada.ok){
+        const linhas = await olhada.json();
+        const carimbo = linhas && linhas[0] ? linhas[0].updated_at : null;
+        if(carimbo && ultimoCarimboDaNuvem && carimbo !== ultimoCarimboDaNuvem && linhas[0].data){
+          DB = juntarBancos(DB, linhas[0].data);
+          gravarLocal();
+        }
+      }
+    }catch(e){ /* não deu para olhar: segue o envio, que é o que importa */ }
+
+    const carimboNovo = todayISO();
+    const res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
       method:'POST',
       headers:{
         ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
         'Prefer':'resolution=merge-duplicates,return=minimal'
       },
-      body: JSON.stringify({ id:'main', data: DB, updated_at: todayISO() })
+      body: JSON.stringify({ id:'main', data: DB, updated_at: carimboNovo })
     });
-  }catch(e){ /* offline: tenta na próxima alteração */ }
+
+    /* A resposta AGORA é conferida. Sem isto, um 401 ou um 404 passava por
+       gravação bem-sucedida e a loja não ficava sabendo de nada. */
+    if(!res.ok){
+      let detalhe = '';
+      try{ detalhe = (await res.text()).slice(0, 200); }catch(e){}
+      ultimoErroNuvem = { status: res.status, detalhe };
+      falhouAoEnviar = true;
+      tentativasDeEnvio++;
+      agendarEnvio(esperaDoReenvio());
+      atualizaAvisoDeNuvem();
+      return;
+    }
+
+    ultimoErroNuvem = null;
+    falhouAoEnviar = false;
+    ultimoCarimboDaNuvem = carimboNovo;
+    horaDoUltimoEnvioOk = Date.now();
+    temPendencia = false;
+    tentativasDeEnvio = 0;
+    atualizaAvisoDeNuvem();
+  }catch(e){
+    /* Sem rede no meio do envio. A alteração continua pendente e volta a
+       ser tentada — antes ela ficava para trás em silêncio. */
+    ultimoErroNuvem = { status: 0, detalhe: String(e && e.message || e) };
+    falhouAoEnviar = true;
+    tentativasDeEnvio++;
+    agendarEnvio(esperaDoReenvio());
+    atualizaAvisoDeNuvem();
+  }finally{
+    enviandoAgora = false;
+  }
+}
+
+/* Três momentos em que vale tentar de novo na hora, em vez de esperar a
+   próxima espera terminar: a internet voltou, o lojista desbloqueou o
+   aparelho, ou o sistema voltou para a frente da tela. */
+function ligarGatilhosDeEnvio(){
+  const tentarJa = ()=>{
+    if(temPendencia || (!nuvemLida && !nuvemVaziaConfirmada)){
+      tentativasDeEnvio = 0;
+      agendarEnvio(200);
+    }
+  };
+  window.addEventListener('online', tentarJa);
+  window.addEventListener('focus', tentarJa);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tentarJa(); });
+  /* Rede de segurança: se tudo o mais falhar, uma conferida por minuto. */
+  setInterval(tentarJa, 60000);
 }
 
 /* =========================================================
@@ -1036,6 +1241,7 @@ function deleteProduct(id){
   if(!confirm('Excluir este produto?')) return;
   const antes = DB.products.length;
   DB.products = DB.products.filter(p=>p.id!==id);
+  registrarApagado('products', id);
   saveDB(); renderProdutosTable();
   // Dizer "excluído" sem ter excluído nada é o que faz o usuário achar que
   // o botão não funciona. Só confirma quando a lista realmente encolheu.
@@ -1407,10 +1613,18 @@ async function enviarTudoParaNuvem(){
   const quantos = (DB.products||[]).length;
   if(!confirm('Enviar o que está neste aparelho para a nuvem?\n\n' +
               quantos + ' produto(s) e ' + (DB.sales||[]).length + ' venda(s).\n\n' +
-              'Se já houver dados na nuvem, eles serão substituídos por estes.')) return;
+              'O que já estiver na nuvem e não estiver aqui é preservado.')) return;
   nuvemVaziaConfirmada = true;      // decisão do lojista, tomada na tela
+  temPendencia = true;
   await cloudPush();
-  toast('Enviado. Confira em "Testar conexão".');
+  /* Dizer "Enviado" sem a nuvem ter confirmado é a mentira que fez esta
+     loja confiar num backup que não existia. */
+  if(temPendencia){
+    toast('NÃO foi possível enviar: ' + (explicarErroDaNuvem(ultimoErroNuvem) || 'a nuvem não respondeu.'), 'error');
+  } else {
+    toast(quantos + ' produto(s) salvos na nuvem.');
+  }
+  atualizaAvisoDeNuvem();
 }
 
 /* Diz, em português e sem rodeio, o que a nuvem respondeu. Enquanto a loja
@@ -3107,6 +3321,7 @@ function deleteFixa(id){
   if(!f) return;
   if(!confirm('Excluir a despesa fixa "'+f.category+'"?\n\nOs lançamentos já feitos nos meses continuam onde estão.')) return;
   DB.monthlyExpenses.fixed = DB.monthlyExpenses.fixed.filter(x=>x.id!==id);
+  registrarApagado('fixed', id);
   if(exigirGravacao('a exclusão')) { toast('Despesa fixa excluída'); navigate('gastos'); }
 }
 
@@ -3636,6 +3851,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
   conferirVersao();
+  ligarGatilhosDeEnvio();
+  document.getElementById('seloNuvem')?.addEventListener('click', ()=>{
+    if(!SESSION) return;
+    navigate('config');
+    setTimeout(()=>{ atualizaAvisoDeNuvem(); testarNuvem(); }, 300);
+  });
   atualizaAvisoDeNuvem();
   restaurarEscolhaDaEtiqueta();
   migrarFotosAntigas();
