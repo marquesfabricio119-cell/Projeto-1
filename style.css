@@ -272,6 +272,13 @@ table tr:hover td{background:var(--cream)}
 }
 .piscando{animation:piscaTabela 1.4s ease-in-out 2;border-radius:10px}
 
+/* Faixa de aviso quando a nuvem não respondeu: trabalhar achando que
+   está tudo salvo é pior do que saber que não está. */
+.aviso-nuvem{
+  padding:10px 18px;background:#F8EFE2;border-bottom:1px solid #EBDBC3;
+  color:var(--marrom);font-size:12.5px;line-height:1.5;
+}
+
 .pdf-pronto{
   margin-top:14px;padding:12px 14px;border-radius:10px;
   background:#E9F3EB;border:1px solid #CBE3D1;color:var(--success);font-size:13px;line-height:1.6;

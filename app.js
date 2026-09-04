@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "28";
+const APP_VERSION = "29";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -265,11 +265,22 @@ function migrateDB(){
   // apontar para registros que não existem mais.
   if(reparou) saveDB();
 }
+/* Um aparelho que abre SEM dados locais não pode mandar nada para a nuvem
+   antes de ler o que há lá. O iPhone apaga os dados de sites que ficam
+   alguns dias sem uso; quando isso acontece o sistema abre vazio, e um
+   único salvamento substituía a loja inteira na nuvem por um banco em
+   branco. Foi assim que o estoque se perdeu. */
+let bancoVeioVazio = false;
+let nuvemLida = false;
+let nuvemVaziaConfirmada = false;
+
 function loadDB(){
+  let raw = null;
+  try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){ raw = null; }
+  bancoVeioVazio = !raw;
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
     DB = raw ? JSON.parse(raw) : defaultDB();
-  }catch(e){ DB = defaultDB(); }
+  }catch(e){ DB = defaultDB(); bancoVeioVazio = true; }
   migrateDB();
 }
 
@@ -306,6 +317,10 @@ function saveDB(skipCloud){
 }
 
 function gravarLocal(){
+  /* Se o número de produtos ou de vendas caiu, guarda o que ESTAVA gravado
+     antes de escrever por cima. Tirar a cópia do banco em memória não
+     adiantaria: nesse ponto ele já é o banco reduzido. */
+  guardarCopiaAntesDeEncolher();
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
     localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
@@ -362,6 +377,86 @@ function exigirGravacao(oQue){
   return false;
 }
 
+/* =========================================================
+   CÓPIAS DE SEGURANÇA
+   Guarda no próprio aparelho as últimas versões do banco antes de cada
+   troca grande. Não substitui a nuvem, mas é o que permite voltar atrás
+   quando algo dá errado — nesta loja o estoque sumiu e não havia nada
+   para onde voltar.
+   ========================================================= */
+const CHAVE_COPIAS = 'estiloCiaDB_copias';
+const MAX_COPIAS = 5;
+
+function guardarCopiaDeSeguranca(motivo, bancoTexto){
+  try{
+    const texto = bancoTexto || JSON.stringify(DB);
+    const banco = bancoTexto ? JSON.parse(bancoTexto) : DB;
+    const produtos = (banco.products||[]).length;
+    const vendas = (banco.sales||[]).length;
+    if(!produtos && !vendas) return;      // nada que valha a pena guardar
+    const copias = lerCopiasDeSeguranca();
+    const anterior = copias[0];
+    if(anterior && anterior.produtos === produtos && anterior.vendas === vendas) return;
+    copias.unshift({ quando: todayISO(), motivo, produtos, vendas, dados: texto });
+    localStorage.setItem(CHAVE_COPIAS, JSON.stringify(copias.slice(0, MAX_COPIAS)));
+  }catch(err){
+    /* Sem espaço para a cópia: não é motivo para impedir o trabalho. */
+    console.warn('Não foi possível guardar a cópia de segurança:', err);
+  }
+}
+
+/* Compara o que vai ser gravado com o que já está gravado. Se encolheu,
+   a versão de antes vira cópia — é a rede que faltou quando o estoque
+   desta loja sumiu. */
+function guardarCopiaAntesDeEncolher(){
+  try{
+    const anterior = localStorage.getItem(STORAGE_KEY);
+    if(!anterior) return;
+    const antes = JSON.parse(anterior);
+    const produtosAntes = (antes.products||[]).length;
+    const vendasAntes = (antes.sales||[]).length;
+    const produtosAgora = (DB.products||[]).length;
+    const vendasAgora = (DB.sales||[]).length;
+    if(produtosAgora < produtosAntes || vendasAgora < vendasAntes){
+      guardarCopiaDeSeguranca('antes de o estoque encolher', anterior);
+    }
+  }catch(err){
+    console.warn('Não foi possível conferir a cópia de segurança:', err);
+  }
+}
+
+function lerCopiasDeSeguranca(){
+  try{ return JSON.parse(localStorage.getItem(CHAVE_COPIAS) || '[]'); }
+  catch(e){ return []; }
+}
+
+function restaurarCopiaDeSeguranca(indice){
+  const copia = lerCopiasDeSeguranca()[indice];
+  if(!copia) return;
+  if(!confirm('Voltar para a cópia de ' + dateBR(copia.quando) + '?\n\n' +
+              copia.produtos + ' produto(s) e ' + copia.vendas + ' venda(s).\n\n' +
+              'O que está no sistema agora será guardado como cópia antes da troca.')) return;
+  guardarCopiaDeSeguranca('antes de restaurar');
+  DB = JSON.parse(copia.dados);
+  migrateDB();
+  if(exigirGravacao('a restauração')){
+    toast('Cópia restaurada: ' + copia.produtos + ' produto(s).');
+    renderShell(); navigate('painel');
+  }
+}
+
+/* Enquanto a nuvem não responde, o lojista precisa saber — senão trabalha
+   achando que está tudo salvo. */
+function atualizaAvisoDeNuvem(){
+  const el = document.getElementById('avisoNuvem');
+  if(!el) return;
+  const semNuvem = !nuvemLida && !nuvemVaziaConfirmada;
+  el.style.display = semNuvem ? '' : 'none';
+  el.textContent = semNuvem
+    ? '⚠️ Sem conexão com a nuvem. O trabalho está sendo salvo neste aparelho e sobe assim que a internet voltar.'
+    : '';
+}
+
 /* ---------- Supabase sync ---------- */
 async function cloudPull(){
   try{
@@ -370,19 +465,41 @@ async function cloudPull(){
     });
     if(!res.ok) return;
     const rows = await res.json();
+    nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
     if(rows && rows[0] && rows[0].data){
       const cloudTs = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
       const localTs = Number(localStorage.getItem(LOCAL_TS_KEY)) || 0;
-      if(cloudTs <= localTs) return; // dados locais estão iguais ou mais novos: não sobrescreve
+      /* Se este aparelho abriu sem dados, o que está aqui não é a verdade
+         da loja — é um banco em branco. A nuvem vence, custe o que custar
+         ao carimbo de hora. */
+      if(cloudTs <= localTs && !bancoVeioVazio) return;
+      guardarCopiaDeSeguranca('antes de trazer da nuvem');
       DB = rows[0].data;
+      bancoVeioVazio = false;
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       saveDB(true);
       if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')){ renderShell(); navigate(currentRoute); }
+    } else {
+      nuvemVaziaConfirmada = true;          // loja nova: não há o que preservar
+      bancoVeioVazio = false;
     }
+    atualizaAvisoDeNuvem();
   }catch(e){ /* offline: segue com dados locais */ }
 }
 
 async function cloudPush(){
+  /* A nuvem só recebe depois que foi lida. Escrever sem ter lido é como
+     apagar o caderno da loja para anotar de novo o que a gente lembra:
+     foi exatamente assim que o estoque sumiu. */
+  if(!nuvemLida && !nuvemVaziaConfirmada){
+    await cloudPull();
+    if(!nuvemLida && !nuvemVaziaConfirmada){
+      atualizaAvisoDeNuvem();
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(cloudPush, 15000);   // tenta de novo mais tarde
+      return;
+    }
+  }
   try{
     await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
       method:'POST',
@@ -2900,6 +3017,31 @@ function renderConfig(el){
       <h3>Backup</h3>
       <button class="btn" onclick="exportBackup()">⬇️ Exportar JSON</button>
       <label class="btn" style="display:inline-block;margin-left:8px">⬆️ Importar JSON<input type="file" id="importFile" accept=".json" style="display:none"></label>
+      <p class="text-muted" style="font-size:12.5px;margin-top:12px">
+        Exporte de vez em quando e guarde o arquivo. É a única cópia que não depende
+        deste aparelho nem da internet.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Cópias guardadas neste aparelho</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        O sistema guarda as últimas versões antes de cada mudança grande. Se algo
+        sumir, dá para voltar por aqui.</p>
+      ${(()=>{
+        const copias = lerCopiasDeSeguranca();
+        if(!copias.length) return `<div class="empty-state">Nenhuma cópia guardada ainda.</div>`;
+        return `<div class="table-wrap"><table><thead><tr>
+            <th>Quando</th><th>Motivo</th><th style="text-align:right">Produtos</th>
+            <th style="text-align:right">Vendas</th><th></th></tr></thead><tbody>
+          ${copias.map((c,i)=>`<tr>
+            <td>${dateBR(c.quando)}</td>
+            <td>${escapeHtml(c.motivo||'-')}</td>
+            <td style="text-align:right">${c.produtos}</td>
+            <td style="text-align:right">${c.vendas}</td>
+            <td><button class="btn btn-sm" onclick="restaurarCopiaDeSeguranca(${i})">Restaurar</button></td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+      })()}
     </div>`;
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
@@ -3041,6 +3183,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
 
   conferirVersao();
+  atualizaAvisoDeNuvem();
   restaurarEscolhaDaEtiqueta();
   migrarFotosAntigas();
   atualizaDicaLogin();
