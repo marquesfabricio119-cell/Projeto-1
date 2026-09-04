@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "26";
+const APP_VERSION = "27";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1473,7 +1473,8 @@ function renderEtiquetas(el){
   const missing = countMissingBarcodes();
   el.innerHTML = `
     <div class="panel">
-      <h3>Imprimir etiquetas com código de barras</h3>
+      <h3>Imprimir etiquetas com código de barras
+        <span class="text-muted" style="font-size:11px;font-weight:400">· versão ${APP_VERSION}</span></h3>
       <p class="text-muted" style="margin-bottom:14px">Escolha o tamanho da sua etiqueta, marque as peças e a quantidade, e gere o PDF. O código de barras é criado sozinho para quem ainda não tem.</p>
       <div class="toolbar">
         <label style="font-size:12px;color:var(--muted);font-weight:600">Layout:</label>
@@ -1694,34 +1695,17 @@ function itensSelecionados(){
   return items;
 }
 
-function codigoComoImagem(codigo, larguraBarra){
-  const canvas = document.createElement('canvas');
-  JsBarcode(canvas, codigo, {
-    format:'CODE128', width: larguraBarra, height: 90,
-    fontSize: 22, textMargin: 2, margin: 0, displayValue: true
-  });
-  return { url: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height };
-}
-
-let carregandoJsPdf = null;
-function carregarJsPdf(){
-  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
-  if(carregandoJsPdf) return carregandoJsPdf;
-  const enderecos = [
-    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
-  ];
-  carregandoJsPdf = enderecos.reduce((antes, url)=>
-    antes.catch(()=> new Promise((ok, erro)=>{
-      const tag = document.createElement('script');
-      tag.src = url;
-      tag.onload = ()=> (window.jspdf && window.jspdf.jsPDF) ? ok() : erro();
-      tag.onerror = erro;
-      document.head.appendChild(tag);
-    })), Promise.reject());
-  carregandoJsPdf.catch(()=>{ carregandoJsPdf = null; });
-  return carregandoJsPdf;
+/* "Selecione ao menos uma variação" não ajuda quem não achou a lista: no
+   celular ela ficava embaixo de um paredão de texto e a loja nunca chegava
+   nela. Agora o sistema leva o lojista até lá e pisca a tabela. */
+function pedirSelecao(){
+  const wrap = document.getElementById('etiquetasTableWrap');
+  toast('Marque abaixo as peças que vão ganhar etiqueta','warn');
+  if(!wrap) return;
+  wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+  wrap.classList.remove('piscando');
+  void wrap.offsetWidth;              // reinicia a animação
+  wrap.classList.add('piscando');
 }
 
 /* Prévia de uma etiqueta, do tamanho real, na própria tela. Sem ela o
@@ -1749,7 +1733,7 @@ function renderPreviewEtiqueta(){
       <div class="label-price">${money(alvo.p.price)}</div>
     </div>`;
   if(typeof JsBarcode === 'undefined'){
-    box.innerHTML += '<p class="text-muted" style="font-size:12px">O gerador de código de barras não carregou. Verifique a internet.</p>';
+    box.innerHTML += '<p class="text-muted" style="font-size:12px">Prévia sem o desenho do código (sem internet). O PDF sai completo mesmo assim.</p>';
     return;
   }
   try{
@@ -1765,95 +1749,24 @@ function renderPreviewEtiqueta(){
   }catch(err){ console.error('Prévia da etiqueta:', err); }
 }
 
-/* "Selecione ao menos uma variação" não ajuda quem não achou a lista: no
-   celular ela ficava embaixo de um paredão de texto e a loja nunca chegava
-   nela. Agora o sistema leva o lojista até lá e pisca a tabela. */
-function pedirSelecao(){
-  const wrap = document.getElementById('etiquetasTableWrap');
-  toast('Marque abaixo as peças que vão ganhar etiqueta','warn');
-  if(!wrap) return;
-  wrap.scrollIntoView({ behavior:'smooth', block:'center' });
-  wrap.classList.remove('piscando');
-  void wrap.offsetWidth;              // reinicia a animação
-  wrap.classList.add('piscando');
-}
-
 function gerarPdfEtiquetas(itensForcados){
   const items = itensForcados || itensSelecionados();
   if(!items.length){ pedirSelecao(); return; }
-  if(typeof JsBarcode === 'undefined'){
-    toast('Não foi possível carregar o gerador de código de barras. Verifique a internet.','error');
-    return;
-  }
-  const jsPDFctor = window.jspdf && window.jspdf.jsPDF;
-  if(!jsPDFctor){
-    /* A biblioteca não veio no carregamento da página (rede lenta, ou o
-       servidor dela bloqueado). Em vez de só reclamar, tenta buscar de
-       novo agora e refaz o PDF. */
-    toast('Carregando o gerador de PDF...');
-    carregarJsPdf()
-      .then(()=>gerarPdfEtiquetas(items))
-      .catch(()=>toast('Não foi possível carregar o gerador de PDF. Verifique a internet e recarregue a página.','error'));
-    return;
-  }
-  generateMissingBarcodes(); saveDB();
+  generateMissingBarcodes();
+  saveDB();
 
   const layout = layoutAtual();
-  const L = layout.w, A = layout.h, pad = 1;
-  const larguraUtil = L - pad*2;
-
-  /* format sempre [largura, altura] com orientation "portrait": assim o
-     jsPDF não troca os lados por conta própria. */
-  const doc = new jsPDFctor({ unit:'mm', format:[L, A], orientation:'portrait' });
-
-  const PT = 2.8346;                       // 1 mm em pontos
-  const ptLoja  = A <= 20 ? 0 : 4.5;       // etiqueta baixa não leva o nome da loja
-  const ptNome  = A <= 20 ? 4 : 4.5;
-  const ptPreco = A <= 20 ? 6 : 7;
-  const mmLinha = pt => (pt / PT) * 1.25;
-
-  const alturaTextos = (ptLoja ? mmLinha(ptLoja) : 0) + mmLinha(ptNome) + mmLinha(ptPreco);
-  const alturaCodigo = Math.max(4, A - pad*2 - alturaTextos - 0.6);
-
-  items.forEach((item, idx)=>{
-    if(idx > 0) doc.addPage([L, A], 'portrait');
-    let y = pad;
-
-    if(ptLoja){
-      y += mmLinha(ptLoja);
-      doc.setFont('helvetica','bold'); doc.setFontSize(ptLoja);
-      doc.text(String(DB.storeName).toUpperCase(), L/2, y, { align:'center' });
-    }
-
-    y += mmLinha(ptNome);
-    doc.setFont('helvetica','normal'); doc.setFontSize(ptNome);
-    const nome = `${item.p.name} ${item.v.size}/${item.v.color}`;
-    doc.text(doc.splitTextToSize(nome, larguraUtil)[0], L/2, y, { align:'center' });
-
-    /* A imagem entra com a largura útil inteira, mas nunca esticada: se o
-       código for curto, mantemos a proporção para as barras não deformarem
-       — barra deformada o leitor erra. */
-    const img = codigoComoImagem(item.v.barcode, 4);
-    const proporcao = img.w / img.h;
-    let cw = larguraUtil, ch = cw / proporcao;
-    if(ch > alturaCodigo){ ch = alturaCodigo; cw = ch * proporcao; }
-    doc.addImage(img.url, 'PNG', (L - cw)/2, y + 0.3, cw, ch);
-    y += 0.3 + ch;
-
-    y += mmLinha(ptPreco);
-    doc.setFont('helvetica','bold'); doc.setFontSize(ptPreco);
-    doc.text(money(item.p.price), L/2, Math.min(y, A - pad), { align:'center' });
-  });
-
-  entregarPdf(doc, items.length, layout);
+  let blob;
+  try{
+    blob = criarPdfEtiquetas(items, layout, DB.storeName, money);
+  }catch(err){
+    console.error('Erro ao montar o PDF:', err);
+    toast('Não foi possível montar o PDF: ' + err.message, 'error');
+    return;
+  }
+  entregarPdf(blob, items.length, layout);
 }
 
-/* Como o arquivo chega às mãos do lojista.
-   `window.open` com um PDF em memória abre ABA EM BRANCO no Safari do
-   iPhone — limitação conhecida do sistema, e era isso que estava indo para
-   a impressora. O caminho certo no celular é o compartilhamento do próprio
-   iOS: ele abre a folha com "Imprimir", "Salvar em Arquivos" e os
-   aplicativos de impressora instalados. */
 let urlDoPdfAnterior = null;
 function mostrarLinkDoPdf(blob, nome, recado){
   const box = document.getElementById('linkDoPdf');
@@ -1866,9 +1779,8 @@ function mostrarLinkDoPdf(blob, nome, recado){
     <span>Se a janela de compartilhar não abriu, toque no link acima, depois em Imprimir.</span>`;
 }
 
-function entregarPdf(doc, quantas, layout){
+function entregarPdf(blob, quantas, layout){
   const nome = `etiquetas-${layout.w}x${layout.h}mm.pdf`;
-  const blob = doc.output('blob');
   const recado = `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`;
 
   /* Deixa um link à vista na tela. Se a janela de compartilhar não abrir, ou
@@ -1900,9 +1812,6 @@ function entregarPdf(doc, quantas, layout){
   toast(recado + ' — abra o arquivo baixado e mande imprimir por ele.');
 }
 
-/* `itensForcados` existe para o teste de uma etiqueta, que escolhe a peça
-   por conta própria: ele não pode depender das caixas da tela, que nesse
-   momento estão marcadas com outra coisa. */
 function printLabels(itensForcados){
   const items = itensForcados || itensSelecionados();
   if(!items.length){ pedirSelecao(); return; }
