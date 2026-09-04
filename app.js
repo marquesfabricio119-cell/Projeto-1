@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "37";
+const APP_VERSION = "38";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -615,9 +615,12 @@ async function cloudPull(){
       /* Se este aparelho abriu sem dados, o que está aqui não é a verdade
          da loja — é um banco em branco. A nuvem vence, custe o que custar
          ao carimbo de hora. */
-      if(cloudTs <= localTs && !bancoVeioVazio) return;
+      if(cloudTs <= localTs && !bancoVeioVazio && !temPendencia) return;
       guardarCopiaDeSeguranca('antes de trazer da nuvem');
-      DB = rows[0].data;
+      /* Se ainda há coisa daqui esperando para subir, o que vem da nuvem
+         entra JUNTO, não por cima: senão o aparelho perderia a alteração
+         que ele mesmo acabou de fazer. */
+      DB = temPendencia ? juntarBancos(DB, rows[0].data) : rows[0].data;
       bancoVeioVazio = false;
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
@@ -808,21 +811,33 @@ async function cloudPush(){
   }
 }
 
-/* Três momentos em que vale tentar de novo na hora, em vez de esperar a
-   próxima espera terminar: a internet voltou, o lojista desbloqueou o
-   aparelho, ou o sistema voltou para a frente da tela. */
+/* Sincronizar é MÃO DUPLA, e a volta faltava: o aparelho mandava o que
+   fazia, mas não buscava o que os outros tinham feito. Quem deixasse o
+   sistema aberto no computador não via a venda do celular até recarregar
+   a página — e ninguém recarrega página de propósito. Agora, sempre que o
+   sistema volta para a frente da tela, o lojista desbloqueia o aparelho
+   ou a internet volta, ele manda o que tem e busca o que falta. */
+function temFormularioAberto(){
+  return !!document.querySelector('.modal-overlay');
+}
+async function sincronizarAgora(){
+  if(temPendencia || (!nuvemLida && !nuvemVaziaConfirmada)){
+    tentativasDeEnvio = 0;
+    agendarEnvio(200);
+  }
+  /* Não puxa no meio de um cadastro: trocar o banco embaixo de um
+     formulário aberto seria apagar o que a pessoa está digitando. */
+  if(temFormularioAberto()) return;
+  await cloudPull();
+}
+
 function ligarGatilhosDeEnvio(){
-  const tentarJa = ()=>{
-    if(temPendencia || (!nuvemLida && !nuvemVaziaConfirmada)){
-      tentativasDeEnvio = 0;
-      agendarEnvio(200);
-    }
-  };
-  window.addEventListener('online', tentarJa);
-  window.addEventListener('focus', tentarJa);
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) tentarJa(); });
-  /* Rede de segurança: se tudo o mais falhar, uma conferida por minuto. */
-  setInterval(tentarJa, 60000);
+  window.addEventListener('online', sincronizarAgora);
+  window.addEventListener('focus', sincronizarAgora);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) sincronizarAgora(); });
+  /* E, com o sistema aberto e parado, uma conferida por minuto: é o que
+     faz a venda do celular aparecer no computador do balcão sozinha. */
+  setInterval(sincronizarAgora, 60000);
 }
 
 /* =========================================================
