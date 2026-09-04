@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "29";
+const APP_VERSION = "30";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1208,6 +1208,125 @@ function openProductModal(id){
 
 
 /* =========================================================
+   RECUPERAR DADOS DA NUVEM
+   A linha da loja é uma só e foi gravada por cima, então não há histórico
+   nela. Mas o projeto do Supabase pode guardar outras linhas e outras
+   tabelas — do sistema antigo, de outra loja, de um teste. Esta tela
+   varre tudo o que a chave alcança e mostra o que parecer um banco da
+   loja, com quantos produtos e vendas tem cada um.
+   ========================================================= */
+function pareceBancoDaLoja(v){
+  return v && typeof v === 'object' &&
+    (Array.isArray(v.products) || Array.isArray(v.sales) || Array.isArray(v.customers));
+}
+
+/* Um banco pode estar na raiz da linha ou dentro de alguma coluna. */
+function acharBancosNaLinha(linha){
+  const achados = [];
+  if(pareceBancoDaLoja(linha)) achados.push({ onde:'linha', banco: linha });
+  Object.keys(linha||{}).forEach(coluna=>{
+    let v = linha[coluna];
+    if(typeof v === 'string' && v.length > 40 && v.trim().startsWith('{')){
+      try{ v = JSON.parse(v); }catch(e){ return; }
+    }
+    if(pareceBancoDaLoja(v)) achados.push({ onde:'coluna '+coluna, banco: v });
+  });
+  return achados;
+}
+
+async function listarTabelasDoProjeto(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+  });
+  if(!res.ok) throw new Error('Não foi possível listar as tabelas (' + res.status + ')');
+  const spec = await res.json();
+  const defs = spec.definitions || (spec.components && spec.components.schemas) || {};
+  return Object.keys(defs).filter(n=>!n.startsWith('('));
+}
+
+let achadosDaNuvem = [];
+
+async function procurarNaNuvem(){
+  const saida = document.getElementById('resultadoBusca');
+  if(!saida) return;
+  saida.innerHTML = '<p class="text-muted">Procurando no Supabase...</p>';
+  achadosDaNuvem = [];
+  try{
+    const tabelas = await listarTabelasDoProjeto();
+    saida.innerHTML = `<p class="text-muted">Achei ${tabelas.length} tabela(s). Lendo...</p>`;
+    for(const tabela of tabelas){
+      let linhas = [];
+      try{
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&limit=50`, {
+          headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+        });
+        if(!res.ok) continue;
+        linhas = await res.json();
+      }catch(e){ continue; }
+      (linhas||[]).forEach((linha, i)=>{
+        acharBancosNaLinha(linha).forEach(({onde, banco})=>{
+          achadosDaNuvem.push({
+            tabela, onde,
+            id: linha.id != null ? String(linha.id) : ('linha ' + (i+1)),
+            quando: linha.updated_at || linha.created_at || null,
+            produtos: (banco.products||[]).length,
+            vendas: (banco.sales||[]).length,
+            clientes: (banco.customers||[]).length,
+            banco
+          });
+        });
+      });
+    }
+    achadosDaNuvem.sort((a,b)=> (b.produtos + b.vendas) - (a.produtos + a.vendas));
+    mostrarAchadosDaNuvem();
+  }catch(err){
+    saida.innerHTML = `<div class="aviso-codigo">Não foi possível procurar: ${escapeHtml(err.message)}.
+      Confira a internet e tente de novo.</div>`;
+  }
+}
+
+function mostrarAchadosDaNuvem(){
+  const saida = document.getElementById('resultadoBusca');
+  if(!saida) return;
+  if(!achadosDaNuvem.length){
+    saida.innerHTML = `<div class="empty-state">Não encontrei nenhum banco da loja no Supabase
+      além do que já está aqui.</div>`;
+    return;
+  }
+  saida.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Onde</th><th style="text-align:right">Produtos</th><th style="text-align:right">Vendas</th>
+      <th>Quando</th><th></th></tr></thead><tbody>
+    ${achadosDaNuvem.map((a,i)=>`<tr>
+      <td>${escapeHtml(a.tabela)}<div class="text-muted" style="font-size:11px">${escapeHtml(a.id)} · ${escapeHtml(a.onde)}</div></td>
+      <td style="text-align:right"><strong>${a.produtos}</strong></td>
+      <td style="text-align:right">${a.vendas}</td>
+      <td>${a.quando ? dateBR(a.quando) : '-'}</td>
+      <td>${a.produtos || a.vendas
+            ? `<button class="btn btn-sm btn-accent" onclick="restaurarDaNuvem(${i})">Usar este</button>`
+            : ''}</td>
+    </tr>`).join('')}
+  </tbody></table></div>
+  <p class="text-muted" style="font-size:12px;margin-top:10px">
+    O que está no sistema agora vira cópia de segurança antes de qualquer troca.</p>`;
+}
+
+function restaurarDaNuvem(indice){
+  const a = achadosDaNuvem[indice];
+  if(!a) return;
+  if(!confirm('Trazer este banco para o sistema?\n\n' +
+              a.produtos + ' produto(s), ' + a.vendas + ' venda(s), ' + a.clientes + ' cliente(s).\n' +
+              'Origem: ' + a.tabela + ' · ' + a.id + '\n\n' +
+              'O que está no sistema agora será guardado como cópia antes da troca.')) return;
+  guardarCopiaDeSeguranca('antes de trazer da nuvem (recuperação)');
+  DB = JSON.parse(JSON.stringify(a.banco));
+  migrateDB();
+  if(exigirGravacao('os dados recuperados')){
+    toast(a.produtos + ' produto(s) recuperados.');
+    renderShell(); navigate('painel');
+  }
+}
+
+/* =========================================================
    ATUALIZAÇÃO AUTOMÁTICA
    O celular da loja ficou preso numa versão antiga por dias, e cada
    correção que eu publicava parecia não funcionar — quando na verdade nem
@@ -1756,7 +1875,8 @@ function renderEtiquetasTable(){
       const checked = etiquetaQty[key] > 0;
       return `<tr data-pi="${pi}" data-vi="${vi}" data-pid="${escapeHtml(p.id)}"
         data-size="${escapeHtml(v.size)}" data-color="${escapeHtml(v.color)}"
-        data-nome="${escapeHtml(p.name)}">
+        data-nome="${escapeHtml(p.name)}" data-barcode="${escapeHtml(v.barcode||'')}"
+        data-preco="${Number(p.price)||0}">
         <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
@@ -1852,6 +1972,15 @@ function acharPecaDaLinha(linha){
   if(porNome){
     const v = casaVariacao(porNome);
     if(v) return { p: porNome, v };
+  }
+  /* 4) A peça sumiu do banco entre desenhar a lista e mandar imprimir — a
+     nuvem responde e troca tudo por baixo. Antes disso virar "marque as
+     peças" com a caixa marcada na frente do lojista, a etiqueta é montada
+     com o que a própria linha carrega. O que está marcado na tela sai. */
+  const codigo = linha.dataset.barcode;
+  if(codigo){
+    return { p: { name: nome, price: Number(linha.dataset.preco) || 0 },
+             v: { size, color, barcode: codigo } };
   }
   return null;
 }
@@ -3020,6 +3149,16 @@ function renderConfig(el){
       <p class="text-muted" style="font-size:12.5px;margin-top:12px">
         Exporte de vez em quando e guarde o arquivo. É a única cópia que não depende
         deste aparelho nem da internet.</p>
+    </div>
+
+    <div class="panel" style="border-left:4px solid var(--warning)">
+      <h3>🔎 Procurar dados perdidos no Supabase</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        Varre todas as tabelas e linhas do seu projeto no Supabase atrás de bancos da loja —
+        inclusive de sistemas antigos. Mostra quantos produtos e vendas tem cada um, e você
+        escolhe qual trazer de volta. Nada é alterado até você clicar em "Usar este".</p>
+      <button class="btn btn-accent" onclick="procurarNaNuvem()">Procurar agora</button>
+      <div id="resultadoBusca" style="margin-top:14px"></div>
     </div>
 
     <div class="panel">
