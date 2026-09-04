@@ -1,16 +1,18 @@
 /* =========================================================
-   PDF DAS ETIQUETAS — feito aqui dentro, sem biblioteca de fora
+   PDF DAS ETIQUETAS — BROTHER QL-800
    =========================================================
-   O celular ignora o tamanho de página que a página web pede, então a
-   única forma de acertar a etiqueta é entregar um PDF, que carrega o
-   tamanho da página dentro dele.
+   A QL-800 imprime a 300 dpi: cada ponto mede 1/300 de polegada
+   (0,0847 mm). Uma barra só sai nítida se a largura dela for um número
+   INTEIRO de pontos; se cair no meio de um ponto, a impressora arredonda
+   sozinha e as barras saem com larguras diferentes das que o leitor
+   espera — a etiqueta fica bonita e não passa no caixa.
+   Por isso tudo aqui é calculado em pontos de impressora, e não em
+   milímetros redondos.
 
-   Antes isso dependia de uma biblioteca baixada de outro servidor. Se ela
-   não chegasse — rede da loja, servidor fora do ar —, não havia PDF e
-   também não havia como eu conferir o resultado no desenvolvimento.
-   Aqui o arquivo é montado do zero: linhas do código de barras são
+   O arquivo é montado do zero, sem biblioteca de fora: as barras são
    retângulos pretos e o texto usa as fontes que todo leitor de PDF já
-   tem. Nada para baixar, e o resultado é verificável.
+   tem. Nada para baixar, e o resultado é conferível com um leitor de
+   código de barras de verdade.
    ========================================================= */
 
 /* Os 107 padrões do Code 128. Cada um traz as larguras, em módulos, de
@@ -29,27 +31,67 @@ const CODE128_PADROES = ('212222 222122 222221 121223 121322 131222 122213 12231
   '114131 311141 411131 211412 211214 211232 2331112').split(' ');
 
 const CODE128_INICIO_B = 104;
+const CODE128_INICIO_C = 105;
+const CODE128_TROCA_B  = 100;
+const CODE128_TROCA_C  = 99;
 const CODE128_PARADA   = 106;
 
-/* Traduz o texto para os símbolos do Code 128B e acrescenta o dígito
-   verificador, que é o que faz o leitor confiar na leitura. */
+/* Traduz o texto para os símbolos do Code 128 e acrescenta o dígito
+   verificador, que é o que faz o leitor confiar na leitura.
+
+   O ponto importante aqui é o subset C: no C cada símbolo carrega DOIS
+   dígitos em vez de um. Um código de 6 dígitos ocupa 68 módulos no C e
+   101 no B. Em fita de 29 mm essa diferença é a diferença entre uma
+   barra de 0,25 mm (que o leitor de balcão lê) e uma de 0,17 mm (que
+   ele não lê). O código antigo, com letras, continua funcionando: o
+   trecho de letras sai em B e o de números em C, na mesma etiqueta. */
 function code128Simbolos(texto){
-  const valores = [];
-  for(let i = 0; i < texto.length; i++){
-    const c = texto.charCodeAt(i);
+  const s = String(texto == null ? '' : texto);
+  if(!s.length) return null;
+  for(let i = 0; i < s.length; i++){
+    const c = s.charCodeAt(i);
     /* O 128B cobre de espaço a til. Fora disso o leitor não teria o que
        fazer com o símbolo, então a peça fica sem código em vez de sair
        com um código que ninguém lê. */
     if(c < 32 || c > 126) return null;
-    valores.push(c - 32);
   }
-  let soma = CODE128_INICIO_B;
-  valores.forEach((v, i)=>{ soma += v * (i + 1); });
-  return [CODE128_INICIO_B, ...valores, soma % 103, CODE128_PARADA];
+
+  const ehDigito = i => i < s.length && s.charCodeAt(i) >= 48 && s.charCodeAt(i) <= 57;
+  const corrida = i => { let n = 0; while(ehDigito(i + n)) n++; return n; };
+  /* Trocar de subset custa um símbolo. Só compensa quando a sequência de
+     dígitos é longa o bastante para devolver o que a troca custou. */
+  const compensaC = i => {
+    const n = corrida(i);
+    if(i === 0) return n >= 4;
+    return n >= 6 || (i + n === s.length && n >= 4);
+  };
+
+  const codigos = [];
+  let i = 0, modoC;
+  if(compensaC(0)){ codigos.push(CODE128_INICIO_C); modoC = true; }
+  else { codigos.push(CODE128_INICIO_B); modoC = false; }
+
+  while(i < s.length){
+    if(modoC){
+      if(ehDigito(i) && ehDigito(i + 1)){ codigos.push(Number(s.substr(i, 2))); i += 2; continue; }
+      codigos.push(CODE128_TROCA_B); modoC = false; continue;
+    }
+    if(compensaC(i)){
+      /* Sequência ímpar: o primeiro dígito sai no B para que o resto
+         caia em pares certinhos no C. */
+      if(corrida(i) % 2 === 1){ codigos.push(s.charCodeAt(i) - 32); i++; }
+      codigos.push(CODE128_TROCA_C); modoC = true; continue;
+    }
+    codigos.push(s.charCodeAt(i) - 32); i++;
+  }
+
+  let soma = codigos[0];
+  for(let k = 1; k < codigos.length; k++) soma += codigos[k] * k;
+  return [...codigos, soma % 103, CODE128_PARADA];
 }
 
-/* Devolve as barras pretas como {x, largura}, em módulos, e quantos
-   módulos o código ocupa por inteiro. */
+/* Devolve as barras pretas como {x, w}, em módulos, e quantos módulos o
+   código ocupa por inteiro. */
 function code128Barras(texto){
   const simbolos = code128Simbolos(texto);
   if(!simbolos) return null;
@@ -66,9 +108,45 @@ function code128Barras(texto){
   return { barras, modulos: x };
 }
 
-/* ---------- Montagem do arquivo ---------- */
+/* ---------- Medidas da QL-800 ---------- */
 
 const MM_EM_PONTOS = 72 / 25.4;
+/* 300 dpi: um ponto da impressora vale 0,24 ponto de PDF, exatamente. */
+const QL800_DPI = 300;
+const PONTO_PDF_DA_IMPRESSORA = 72 / QL800_DPI;
+const QL800_PONTO_MM = 25.4 / QL800_DPI;          // 0,08467 mm
+
+/* A QL-800 não imprime até a beirada da fita: sobra cerca de 1,5 mm de
+   cada lado que o cabeçote não alcança. Desenhar ali é desenhar no que
+   vai sair branco. */
+const MARGEM_NAO_IMPRIMIVEL_MM = 1.5;
+/* O Code 128 exige 10 módulos de silêncio (branco) antes e depois das
+   barras. Sem isso o leitor não sabe onde o código começa — é a causa
+   mais comum de "a etiqueta saiu, mas o leitor não lê". */
+const SILENCIO_EM_MODULOS = 10;
+/* Abaixo de 0,19 mm por barra o leitor de balcão comum não lê. Três
+   pontos da QL-800 dão 0,254 mm, com folga. */
+const BARRA_MINIMA_PONTOS = 3;
+
+/* Quantos pontos de impressora cada barra fina pode ter nesta etiqueta,
+   já descontando as margens e o silêncio das pontas. Devolve 0 quando
+   não cabe de jeito nenhum. */
+function pontosPorModulo(larguraMM, modulos){
+  const util = larguraMM - MARGEM_NAO_IMPRIMIVEL_MM * 2;
+  const total = modulos + SILENCIO_EM_MODULOS * 2;
+  const cabe = Math.floor((util / total) / QL800_PONTO_MM);
+  return cabe > 0 ? cabe : 0;
+}
+
+/* Quanto mede a barra fina, em mm, para um código nesta etiqueta. É o
+   número que decide se o caixa vai conseguir bipar a peça. */
+function espessuraDaBarraMM(larguraMM, codigo){
+  const c = code128Barras(codigo || '000001');
+  if(!c) return 0;
+  return pontosPorModulo(larguraMM, c.modulos) * QL800_PONTO_MM;
+}
+
+/* ---------- Montagem do arquivo ---------- */
 
 /* O PDF guarda o texto em bytes, não em caracteres. As fontes internas
    usam WinAnsi, que dá conta do português. */
@@ -89,25 +167,31 @@ function escaparTextoPdf(s){
    variável; esta média basta para centralizar numa etiqueta — errar por
    um décimo de milímetro ninguém vê. */
 function larguraAproximada(texto, tamanho, negrito){
-  return texto.length * tamanho * (negrito ? 0.58 : 0.53);
+  return String(texto).length * tamanho * (negrito ? 0.58 : 0.53);
 }
 
 function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco){
   const L = layout.w * MM_EM_PONTOS;
   const A = layout.h * MM_EM_PONTOS;
-  const padMM = 1;
-  const pad = padMM * MM_EM_PONTOS;
-  const util = L - pad * 2;
+  const margem = MARGEM_NAO_IMPRIMIVEL_MM * MM_EM_PONTOS;
+  const util = L - margem * 2;
 
   const baixa = layout.h <= 20;
-  const ptLoja  = baixa ? 0 : 4.5;
-  const ptNome  = baixa ? 4 : 4.5;
+  const estreita = layout.w <= 25;
+  const ptLoja  = baixa ? 0 : (estreita ? 4 : 4.5);
+  const ptNome  = baixa ? 4 : (estreita ? 4 : 4.5);
   const ptCodigo = layout.w <= 40 ? 4.5 : 5.5;
-  const ptPreco = baixa ? 6 : 7;
+  const ptPreco = baixa ? 6 : (estreita ? 6.5 : 7.5);
   const linha = pt => pt * 1.25;
 
   const alturaTextos = (ptLoja ? linha(ptLoja) : 0) + linha(ptNome) + linha(ptCodigo) + linha(ptPreco);
-  const alturaBarras = Math.max(4 * MM_EM_PONTOS, A - pad * 2 - alturaTextos);
+  /* Barra alta demais é fita jogada fora, e barra baixa demais o leitor
+     perde quando a mão treme. Entre 8 e 15 mm o leitor de balcão pega de
+     primeira; o que sobrar da etiqueta vira espaço em volta, e o conjunto
+     fica centralizado em vez de esticado. */
+  const sobra = A - margem * 2 - alturaTextos;
+  const alturaBarras = Math.max(4 * MM_EM_PONTOS, Math.min(sobra, 15 * MM_EM_PONTOS));
+  const folgaDeCima = Math.max(0, (sobra - alturaBarras) / 2);
 
   const conteudos = items.map(item=>{
     const partes = [];
@@ -119,7 +203,7 @@ function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco){
 
     /* O PDF conta a altura de baixo para cima; aqui descemos a partir do
        topo, que é como a etiqueta é lida. */
-    let topo = A - pad;
+    let topo = A - margem - folgaDeCima;
 
     if(ptLoja){
       topo -= linha(ptLoja);
@@ -135,11 +219,18 @@ function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco){
 
     const codigo = code128Barras(item.v.barcode || '');
     if(codigo){
-      const larguraModulo = util / codigo.modulos;
+      /* Aqui está o coração da coisa: a barra recebe um número INTEIRO de
+         pontos da impressora. Antes a largura vinha de uma divisão em
+         milímetros e a QL-800 arredondava cada barra do jeito dela — as
+         larguras saíam desiguais e o leitor recusava. */
+      const pontos = Math.max(1, pontosPorModulo(layout.w, codigo.modulos));
+      const larguraModulo = pontos * PONTO_PDF_DA_IMPRESSORA;
+      const larguraCodigo = codigo.modulos * larguraModulo;
+      const esquerda = (L - larguraCodigo) / 2;   // sobra vira silêncio dos dois lados
       const yBarras = topo - linha(ptCodigo) * 0.2 - alturaBarras;
       partes.push('0 0 0 rg');
       codigo.barras.forEach(b=>{
-        const x = pad + b.x * larguraModulo;
+        const x = esquerda + b.x * larguraModulo;
         partes.push(`${x.toFixed(3)} ${yBarras.toFixed(2)} ${(b.w * larguraModulo).toFixed(3)} ${alturaBarras.toFixed(2)} re f`);
       });
       topo = yBarras;
@@ -149,7 +240,7 @@ function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco){
     centrar(item.v.barcode || '', ptCodigo, false, topo);
 
     topo -= linha(ptPreco);
-    centrar(formatarPreco(item.p.price), ptPreco, true, Math.max(topo, pad));
+    centrar(formatarPreco(item.p.price), ptPreco, true, Math.max(topo, margem));
 
     return partes.join('\n');
   });

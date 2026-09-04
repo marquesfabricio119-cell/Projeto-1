@@ -224,17 +224,18 @@ table tr:hover td{background:var(--cream)}
 
 /* ===== Receipt / labels / print ===== */
 #receipt{display:none}
-#labelSheet{display:none}
 @media print{
   /* Antes isto usava visibility:hidden. O elemento some da vista mas a
      caixa continua ocupando lugar, e a impressora cuspia folhas em branco
      antes das etiquetas — no rolo térmico, etiqueta em branco desperdiçada.
      display:none tira do papel de verdade. */
   #login-screen, .sidebar, .sidebar-backdrop, .topbar, #toast, .modal-overlay{ display:none !important }
-  /* A folha de etiquetas e o recibo moram dentro de .view: esconde os
-     irmãos, não o pai, senão some junto o que se quer imprimir. */
+  /* O recibo mora dentro de .view: esconde os irmãos, não o pai, senão
+     some junto o que se quer imprimir. As etiquetas não passam mais por
+     aqui — elas saem em PDF, que é o único jeito de a QL-800 receber o
+     tamanho certo da fita. */
   .view > *{ display:none !important }
-  #receipt, #labelSheet{ display:block !important; margin:0; padding:0 }
+  #receipt{ display:block !important; margin:0; padding:0 }
   html, body, #app, .main, .view{
     margin:0 !important; padding:0 !important; background:#fff !important;
     height:auto !important; min-height:0 !important; display:block !important;
@@ -253,10 +254,12 @@ table tr:hover td{background:var(--cream)}
 }
 .label-store{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .label-name{font-size:7.5px;line-height:1.2;margin:1px 0;max-height:18px;overflow:hidden}
+.label-code{font-size:6.5px;letter-spacing:.5px;line-height:1.1}
 .label-price{font-size:10px;font-weight:700}
 /* etiqueta baixa (17-20 mm): sobra pouco espaço, então o texto encolhe
    para o código de barras continuar do tamanho que o leitor precisa */
 .label-compacta .label-name{font-size:6.5px;max-height:9px}
+.label-compacta .label-code{font-size:5.5px}
 .label-compacta .label-price{font-size:9px}
 .label svg{max-width:100%}
 
@@ -317,9 +320,6 @@ canvas{max-width:100%}
 .sidebar-backdrop{display:none}
 
 @media (max-width:900px){
-  /* No celular o navegador ignora o tamanho da etiqueta: imprimir direto
-     dali só gera folha em branco. O caminho é o PDF. */
-  .so-no-computador{display:none}
   /* Na lista de etiquetas o que o lojista precisa tocar é a caixa e a
      quantidade. O código e o estoque saem para essas duas caberem na tela
      do celular, em vez de ficarem fora da borda. */
