@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -18,17 +18,28 @@ const APP_VERSION = "33";
    aparelho: não sobem para a nuvem, para uma configuração ruim não se
    espalhar para os outros aparelhos da loja. */
 const NUVEM_PADRAO = {
-  url: "https://sjuvryprgbkrbzkvnnhw.supabase.co",
-  key: "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau",
+  url: "https://mfywchoecdhbzuiskpwx.supabase.co",
+  key: "sb_publishable_aHss5Ke_FyBqGAdoXsM9ZA_OWv9iNER",
   tabela: "loja_roupas_db",
   bucket: "fotos"
 };
+
+/* O projeto anterior ficou sem dono acessível. Um aparelho que tenha a
+   ligação antiga guardada continuaria falando com ele para sempre, então
+   ela é descartada uma vez, e o aparelho passa a usar o projeto novo. */
+const NUVEM_ABANDONADA = "sjuvryprgbkrbzkvnnhw";
 const CHAVE_NUVEM = 'estiloFashion_nuvem';
 
 function configNuvem(){
   try{
     const c = JSON.parse(localStorage.getItem(CHAVE_NUVEM) || 'null');
-    if(c && c.url && c.key) return { ...NUVEM_PADRAO, ...c };
+    if(c && c.url && c.key){
+      if(String(c.url).includes(NUVEM_ABANDONADA)){
+        localStorage.removeItem(CHAVE_NUVEM);
+        return { ...NUVEM_PADRAO };
+      }
+      return { ...NUVEM_PADRAO, ...c };
+    }
   }catch(e){}
   return { ...NUVEM_PADRAO };
 }
