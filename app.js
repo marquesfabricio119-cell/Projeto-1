@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "34";
+const APP_VERSION = "35";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -321,9 +321,15 @@ function loadDB(){
 }
 
 /* ---------- Código de barras interno (gerado pela loja) ---------- */
+/* O código nasce SÓ COM NÚMEROS, e isso não é detalhe: o Code 128 tem um
+   modo (o subset C) em que cada símbolo carrega dois dígitos de uma vez.
+   Seis dígitos ocupam 68 módulos; os antigos "EC000008" ocupavam 101.
+   Na fita de 29 mm da QL-800 essa diferença é a diferença entre uma barra
+   de 0,25 mm, que o leitor do balcão lê, e uma de 0,17 mm, que ele não lê.
+   Os códigos antigos continuam valendo — o leitor lê os dois. */
 function nextBarcodeCode(){
   DB.barcodeSeq = (DB.barcodeSeq||0) + 1;
-  return 'EC' + String(DB.barcodeSeq).padStart(6,'0');
+  return String(DB.barcodeSeq).padStart(6,'0');
 }
 function allBarcodes(){
   const set = new Set();
@@ -475,6 +481,7 @@ function restaurarCopiaDeSeguranca(indice){
   guardarCopiaDeSeguranca('antes de restaurar');
   DB = JSON.parse(copia.dados);
   migrateDB();
+  restaurarEscolhaDaEtiqueta();
   if(exigirGravacao('a restauração')){
     toast('Cópia restaurada: ' + copia.produtos + ' produto(s).');
     renderShell(); navigate('painel');
@@ -530,6 +537,13 @@ async function cloudPull(){
     ultimoErroNuvem = null;
     const rows = await res.json();
     nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
+    /* O aviso é atualizado AQUI, e não só no fim. Havia um caminho — o mais
+       comum de todos, o aparelho que reabre já com os dados em dia — que
+       saía por um `return` no meio e deixava na tela o aviso de que a nuvem
+       não respondia, com a nuvem respondendo. Nesta loja, que já perdeu
+       dados, alarme falso custa caro: o lojista para de acreditar no aviso
+       justamente quando ele for verdade. */
+    atualizaAvisoDeNuvem();
     if(rows && rows[0] && rows[0].data){
       const cloudTs = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
       const localTs = Number(localStorage.getItem(LOCAL_TS_KEY)) || 0;
@@ -541,6 +555,7 @@ async function cloudPull(){
       DB = rows[0].data;
       bancoVeioVazio = false;
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
+      restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
       saveDB(true);
       if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')){ renderShell(); navigate(currentRoute); }
     } else {
@@ -1551,6 +1566,7 @@ function restaurarDaNuvem(indice){
   guardarCopiaDeSeguranca('antes de trazer da nuvem (recuperação)');
   DB = JSON.parse(JSON.stringify(a.banco));
   migrateDB();
+  restaurarEscolhaDaEtiqueta();
   if(exigirGravacao('os dados recuperados')){
     toast(a.produtos + ' produto(s) recuperados.');
     renderShell(); navigate('painel');
@@ -1893,111 +1909,149 @@ function adjustStock(pid,size,color,val){
 /* =========================================================
    ETIQUETAS — geração e impressão de códigos de barras
    ========================================================= */
-/* IMPRESSORA TÉRMICA: cada etiqueta é uma página do tamanho exato da
-   etiqueta. O sistema usava `size: 50mm auto`, que não existe no CSS —
-   `auto` não pode vir junto com uma medida. O navegador jogava a regra
-   inteira fora e mandava uma folha A4/carta para uma impressora carregada
-   com etiqueta de 5 cm. Resultado: não saía nada, ou saía cortado.
-   Medidas em milímetros, do tamanho real da etiqueta comprada. */
-const LABEL_LAYOUTS = {
-  t32x22:   { name:'Térmica 32 × 22 mm', rolo:true, w:32, h:22 },
-  t30x22:   { name:'Térmica 30 × 22 mm', rolo:true, w:30, h:22 },
-  t22x30:   { name:'Térmica 22 × 30 mm (em pé)', rolo:true, w:22, h:30 },
-  t50x25:   { name:'Térmica 50 × 25 mm (deitada)', rolo:true, w:50, h:25 },
-  t60x30:   { name:'Térmica 60 × 30 mm (deitada)', rolo:true, w:60, h:30 },
-  t40x20:   { name:'Térmica 40 × 20 mm (deitada)', rolo:true, w:40, h:20 },
-  t33x17:   { name:'Térmica 33 × 17 mm (deitada)', rolo:true, w:33, h:17 },
-  t33x22:   { name:'Térmica 33 × 22 mm', rolo:true, w:33, h:22 },
-  t40x25:   { name:'Térmica 40 × 25 mm', rolo:true, w:40, h:25 },
-  t50x30:   { name:'Térmica 50 × 30 mm', rolo:true, w:50, h:30 },
-  t60x40:   { name:'Térmica 60 × 40 mm', rolo:true, w:60, h:40 },
-  t80x40:   { name:'Térmica 80 × 40 mm', rolo:true, w:80, h:40 },
-  custom:   { name:'Outro tamanho (eu meço e informo)', rolo:true, w:50, h:25, custom:true },
-  pimaco:   { name:'Folha A4 — 3 colunas (Pimaco 6180)', rolo:false, cols:3, w:63.5, h:26.6, gap:3, margem:8 },
-  a4_2col:  { name:'Folha A4 — 2 colunas', rolo:false, cols:2, w:96, h:34, gap:4, margem:8 },
-};
-let etiquetaLayout = 't32x22';
-let etiquetaCustom = { w:50, h:25 };
+/* IMPRESSORA: BROTHER QL-800.
+   Ela imprime a 300 dpi (0,0847 mm por ponto), aceita fita de até 62 mm e
+   usa rolos Brother DK. Duas consequências que mandam em tudo aqui:
 
-/* O tamanho que vale na hora de imprimir, já com o "outro tamanho". */
-function layoutAtual(){
-  const l = LABEL_LAYOUTS[etiquetaLayout] || LABEL_LAYOUTS.t32x22;
-  if(!l.custom) return l;
-  return { ...l, w: Number(etiquetaCustom.w)||50, h: Number(etiquetaCustom.h)||25 };
+   1) Cada etiqueta é uma página do tamanho exato do rolo. O sistema usava
+      `size: 50mm auto`, que não existe no CSS — `auto` não pode vir junto
+      com uma medida —, o navegador jogava a regra fora e mandava uma folha
+      A4 para uma impressora carregada com fita de 3 cm. Nunca mais se
+      imprime pelo navegador: o caminho é o PDF, que carrega o tamanho da
+      página dentro dele e é obedecido no computador e no celular.
+
+   2) A QL-800 é ligada por CABO USB. Não tem Wi-Fi, não tem Bluetooth e
+      não tem AirPrint. O iPhone não enxerga esta impressora de jeito
+      nenhum — quem imprime é o computador onde ela está ligada. O PDF
+      pode ser gerado no celular, mas tem de ser aberto no computador.
+
+   As medidas abaixo são as dos rolos DK de verdade, no catálogo Brother.
+   Nas fitas contínuas o comprimento é escolhido pela loja. */
+const MIDIAS_QL800 = {
+  dk2210: { name:'DK-2210 — fita contínua 29 mm (o rolo mais usado)', w:29, h:40, continua:true },
+  dk2205: { name:'DK-2205 — fita contínua 62 mm',                     w:62, h:30, continua:true },
+  dk2211: { name:'DK-2211 — fita contínua de filme 29 mm',            w:29, h:40, continua:true },
+  dk2212: { name:'DK-2212 — fita contínua de filme 62 mm',            w:62, h:30, continua:true },
+  dk2113: { name:'DK-2113 — fita contínua transparente 62 mm',        w:62, h:30, continua:true },
+  dk2251: { name:'DK-2251 — fita contínua 62 mm preto e vermelho',    w:62, h:30, continua:true },
+  dk1201: { name:'DK-1201 — etiqueta recortada 29 × 90 mm',           w:29, h:90 },
+  dk1209: { name:'DK-1209 — etiqueta recortada 29 × 62 mm',           w:29, h:62 },
+  dk1208: { name:'DK-1208 — etiqueta recortada 38 × 90 mm',           w:38, h:90 },
+  dk1202: { name:'DK-1202 — etiqueta recortada 62 × 100 mm',          w:62, h:100 },
+  dk1203: { name:'DK-1203 — etiqueta recortada 17 × 87 mm',           w:17, h:87 },
+  dk1204: { name:'DK-1204 — etiqueta recortada 17 × 54 mm',           w:17, h:54 },
+  dk1221: { name:'DK-1221 — etiqueta recortada 23 × 23 mm',           w:23, h:23 },
+  outro:  { name:'Outro rolo — eu meço e informo', w:29, h:40, continua:true, medido:true },
+};
+let etiquetaMidia = 'dk2210';
+let etiquetaComprimento = 40;
+
+/* O tamanho que vale na hora de imprimir. Na fita contínua o comprimento é
+   o que a loja escolheu; na etiqueta recortada é o do próprio rolo, que
+   não se discute. */
+function midiaAtual(){
+  const m = MIDIAS_QL800[etiquetaMidia] || MIDIAS_QL800.dk2210;
+  if(m.medido) return { ...m, w: Math.min(62, Number(etiquetaCustom.w)||29),
+                              h: Math.min(200, Number(etiquetaCustom.h)||40) };
+  if(m.continua) return { ...m, h: Math.min(200, Math.max(12, Number(etiquetaComprimento)||m.h)) };
+  return m;
 }
+/* Nome antigo, mantido porque o resto do arquivo chama por ele. */
+function layoutAtual(){ return midiaAtual(); }
+let etiquetaCustom = { w:29, h:40 };
 let etiquetaQty = {}; // key -> quantidade selecionada
 
 function varKey(pid,size,color){ return `${pid}|${size}|${color}`; }
 
-/* A escolha do tamanho ficava só na memória: bastava recarregar a página
-   para voltar ao padrão, e o lojista reimprimia errado sem entender. Agora
-   fica guardada junto com o resto dos dados da loja. */
+/* A escolha do rolo ficava só na memória: bastava recarregar a página para
+   voltar ao padrão, e o lojista reimprimia errado sem entender. Agora fica
+   guardada junto com o resto dos dados da loja. */
 function guardarEscolhaDaEtiqueta(){
-  DB.config.etiqueta = { layout: etiquetaLayout, w: etiquetaCustom.w, h: etiquetaCustom.h };
+  DB.config.etiqueta = { midia: etiquetaMidia, comp: etiquetaComprimento,
+                         w: etiquetaCustom.w, h: etiquetaCustom.h };
   saveDB();
 }
+/* Chamada em TODO lugar onde o banco é trocado por inteiro — e não só ao
+   abrir o sistema, como era antes. O erro era silencioso e caro: o aparelho
+   novo (ou o que acabou de receber os dados da nuvem) voltava para o rolo
+   padrão enquanto a loja tinha escolhido outro, e a etiqueta saía no
+   tamanho errado sem ninguém ter mexido em nada. */
 function restaurarEscolhaDaEtiqueta(){
   const e = DB.config && DB.config.etiqueta;
   if(!e) return;
-  if(LABEL_LAYOUTS[e.layout]) etiquetaLayout = e.layout;
+  if(MIDIAS_QL800[e.midia]) etiquetaMidia = e.midia;
+  if(Number(e.comp) > 0) etiquetaComprimento = Number(e.comp);
   if(Number(e.w) > 0) etiquetaCustom.w = Number(e.w);
   if(Number(e.h) > 0) etiquetaCustom.h = Number(e.h);
 }
 
 /* Barra fina demais o leitor não enxerga. O limite prático dos leitores de
    balcão é 0,19 mm por módulo; abaixo disso a etiqueta sai bonita e não
-   passa no caixa, que é pior do que não sair. */
+   passa no caixa, que é pior do que não sair. Quem calcula é o gerador do
+   PDF, com a régua da própria QL-800 — assim o aviso na tela e o que sai
+   na fita nunca discordam. */
 const BARRA_MINIMA_MM = 0.19;
-function espessuraDaBarra(layout, codigo){
-  const utilMM = Math.max(6, layout.w - (layout.rolo ? 2 : 3));
-  const modulos = 11 * ((codigo||'EC000001').length + 2) + 13;
-  return utilMM / modulos;
-}
 function atualizaAvisoDoCodigo(){
   const box = document.getElementById('avisoCodigo');
   if(!box) return;
-  const layout = layoutAtual();
-  let maior = 'EC000001';
+  const midia = midiaAtual();
+  /* O aviso tem de olhar para o PIOR código da loja, não para um bonito:
+     basta uma peça com código comprido para o caixa travar nela. */
+  let pior = '000001', piorMM = Infinity;
   DB.products.forEach(p=>p.variations.forEach(v=>{
-    if(v.barcode && v.barcode.length > maior.length) maior = v.barcode;
+    if(!v.barcode) return;
+    const mm = espessuraDaBarraMM(midia.w, v.barcode);
+    if(mm < piorMM){ piorMM = mm; pior = v.barcode; }
   }));
-  const mm = espessuraDaBarra(layout, maior);
+  const mm = piorMM === Infinity ? espessuraDaBarraMM(midia.w, '000001') : piorMM;
   if(mm >= BARRA_MINIMA_MM){ box.innerHTML = ''; box.className = ''; return; }
   box.className = 'aviso-codigo';
-  box.innerHTML = `<strong>Atenção:</strong> em ${layout.w} mm de largura o código fica com
-    ${mm.toFixed(2)} mm por barra — fino demais, o leitor do balcão pode não conseguir ler.
-    Use uma etiqueta com pelo menos ${Math.ceil(BARRA_MINIMA_MM * (11*(maior.length+2)+13) + 2)} mm de largura.`;
+  const soNumeros = /^[0-9]+$/.test(pior);
+  box.innerHTML = `<strong>Atenção:</strong> na largura de ${midia.w} mm o código
+    <strong>${escapeHtml(pior)}</strong> fica com ${mm.toFixed(2)} mm por barra — fino demais,
+    o leitor do balcão pode não conseguir ler.
+    ${soNumeros
+      ? 'Use um rolo mais largo (a fita de 29 mm da DK-2210, por exemplo).'
+      : 'Esse código é dos antigos, com letras, e ocupa quase o dobro do espaço de um código só de números. Um rolo mais largo resolve, e as peças cadastradas de agora em diante já saem com código curto.'}`;
 }
 
 function renderEtiquetas(el){
   const missing = countMissingBarcodes();
+  const m = midiaAtual();
+  const daMidia = MIDIAS_QL800[etiquetaMidia] || MIDIAS_QL800.dk2210;
   el.innerHTML = `
     <div class="panel">
-      <h3>Imprimir etiquetas com código de barras
+      <h3>Imprimir etiquetas — Brother QL-800
         <span class="text-muted" style="font-size:11px;font-weight:400">· versão ${APP_VERSION}</span></h3>
-      <p class="text-muted" style="margin-bottom:14px">Escolha o tamanho da sua etiqueta, marque as peças e a quantidade, e gere o PDF. O código de barras é criado sozinho para quem ainda não tem.</p>
+      <p class="text-muted" style="margin-bottom:14px">Escolha o rolo que está na impressora, marque as peças e gere o arquivo. O código de barras é criado sozinho para quem ainda não tem.</p>
       <div class="toolbar">
-        <label style="font-size:12px;color:var(--muted);font-weight:600">Layout:</label>
-        <select id="layoutSel">
-          ${Object.entries(LABEL_LAYOUTS).map(([k,v])=>`<option value="${k}" ${etiquetaLayout===k?'selected':''}>${v.name}</option>`).join('')}
+        <label style="font-size:12px;color:var(--muted);font-weight:600">Rolo na impressora:</label>
+        <select id="midiaSel">
+          ${Object.entries(MIDIAS_QL800).map(([k,v])=>`<option value="${k}" ${etiquetaMidia===k?'selected':''}>${v.name}</option>`).join('')}
         </select>
-        <span id="customSize" style="display:inline-flex;align-items:center;gap:6px"
-              title="A medida que vai ser impressa. Se não bater com a sua etiqueta, corrija aqui.">
-          <input type="number" id="custW" step="1" min="10" max="200" value="${layoutAtual().w}" style="width:66px">
+        <span id="campoComprimento" style="display:${daMidia.continua && !daMidia.medido ? 'inline-flex' : 'none'};align-items:center;gap:6px"
+              title="Na fita contínua quem decide o comprimento de cada etiqueta é você.">
+          <span class="text-muted" style="font-size:12px">comprimento</span>
+          <input type="number" id="compEtq" step="1" min="12" max="200" value="${m.h}" style="width:66px">
+          <span class="text-muted" style="font-size:12px">mm</span>
+        </span>
+        <span id="campoMedido" style="display:${daMidia.medido ? 'inline-flex' : 'none'};align-items:center;gap:6px"
+              title="Meça o rolo com uma régua: a largura é a da fita, o comprimento é o de cada etiqueta.">
+          <input type="number" id="custW" step="1" min="10" max="62" value="${etiquetaCustom.w}" style="width:66px">
           <span class="text-muted" style="font-size:12px">×</span>
-          <input type="number" id="custH" step="1" min="10" max="200" value="${layoutAtual().h}" style="width:66px">
+          <input type="number" id="custH" step="1" min="10" max="200" value="${etiquetaCustom.h}" style="width:66px">
           <span class="text-muted" style="font-size:12px">mm</span>
         </span>
         <div class="spacer"></div>
         ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
         <button class="btn" id="selAllBtn">✔️ Marcar todas as peças</button>
-        <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
-        <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o PDF já no tamanho da etiqueta">📄 Gerar PDF das etiquetas</button>
-        <button class="btn so-no-computador" id="printLabelsBtn" title="Só funciona no computador">🖨️ Imprimir direto (computador)</button>
+        <button class="btn" id="testLabelBtn" title="Gera uma etiqueta só, para conferir antes de gastar o rolo">🧪 Testar 1 etiqueta</button>
+        <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o arquivo já no tamanho do rolo da QL-800">🏷️ Gerar etiquetas para a QL-800</button>
       </div>
       <div id="linkDoPdf"></div>
       <div id="previewEtiqueta" class="preview-box"></div>
       <div id="avisoCodigo"></div>
+      <div id="diagnosticoSelecao"></div>
     </div>
 
     <div class="panel">
@@ -2007,58 +2061,67 @@ function renderEtiquetas(el){
 
     <div class="panel">
       <h3 style="margin:0">
-        <button class="btn btn-sm" id="toggleAjuda" type="button">▸ Como imprimir (leia se sair errado)</button>
+        <button class="btn btn-sm" id="toggleAjuda" type="button">▸ Como imprimir na QL-800 (leia se sair errado)</button>
       </h3>
       <div id="ajudaImpressao" style="display:none;margin-top:12px">
       <div class="aviso-impressao">
-        <strong>No celular, use sempre o botão "Gerar PDF das etiquetas".</strong>
-        O navegador do iPhone ignora o tamanho de página que o site pede — ele manda A4, e a etiqueta
-        sai minúscula num canto da folha, com as outras em branco. O PDF já nasce no tamanho da sua
-        etiqueta, e esse tamanho o iPhone respeita: abra o PDF e mande imprimir por ele.
+        <strong>A QL-800 é ligada por cabo USB — ela não tem Wi-Fi nem Bluetooth.</strong>
+        Quem imprime é o computador em que ela está ligada. Dá para gerar o arquivo pelo
+        celular, mas para sair etiqueta ele precisa ser aberto nesse computador.
         <ol style="margin:8px 0 0;padding-left:20px">
-          <li>Meça sua etiqueta com uma régua e escolha o tamanho aqui em cima.
-              Não achou na lista? Digite a medida nos campos ao lado.</li>
-          <li>Toque em <strong>Gerar PDF das etiquetas</strong>. Vai abrir a janela de
-              compartilhar do celular — escolha <strong>Imprimir</strong> (ou o aplicativo da
-              sua impressora).</li>
-          <li>Escolha a <strong>impressora de etiquetas</strong> e deixe
-              <strong>Redimensionamento em 100%</strong>.</li>
-          <li>Se aparecer <strong>Tamanho do Papel</strong>, escolha o da sua etiqueta —
-              a lista só mostra os tamanhos certos depois que a impressora está selecionada.</li>
+          <li>Confira em cima o <strong>rolo que está na impressora</strong>. O código do rolo
+              (DK-2210, DK-1201...) está escrito na caixa e no próprio carretel.</li>
+          <li>Marque as peças aqui embaixo e toque em
+              <strong>Gerar etiquetas para a QL-800</strong>. O arquivo baixa pronto, já no
+              tamanho do rolo.</li>
+          <li>Abra o arquivo no computador da impressora e mande imprimir escolhendo a
+              <strong>Brother QL-800</strong>.</li>
+          <li>Na janela de impressão deixe o <strong>redimensionamento em 100%</strong>
+              (ou "Tamanho real"). Se estiver em "Ajustar à página", o código encolhe e o
+              leitor do caixa não lê.</li>
         </ol>
-        <p style="margin:8px 0 0">No computador, o botão <strong>Imprimir direto</strong> também funciona.
-        Antes do lote inteiro, use <strong>Testar 1 etiqueta</strong>.</p>
+        <p style="margin:8px 0 0">Antes do lote inteiro, use <strong>Testar 1 etiqueta</strong> e
+        passe o leitor nela. Se bipar, pode mandar o resto.</p>
       </div>
       </div>
-    </div>
-    <div id="labelSheet"></div>`;
+    </div>`;
   el.querySelector('#toggleAjuda').addEventListener('click', e=>{
     const box = el.querySelector('#ajudaImpressao');
     const aberto = box.style.display !== 'none';
     box.style.display = aberto ? 'none' : '';
-    e.target.textContent = (aberto ? '▸' : '▾') + ' Como imprimir (leia se sair errado)';
+    e.target.textContent = (aberto ? '▸' : '▾') + ' Como imprimir na QL-800 (leia se sair errado)';
   });
-  el.querySelector('#layoutSel').addEventListener('change', e=>{
-    etiquetaLayout = e.target.value;
-    const l = layoutAtual();
-    /* Os campos passam a mostrar a medida do tamanho escolhido: o lojista
-       enxerga em milímetros exatamente o que vai sair na impressora. */
-    etiquetaCustom = { w: l.w, h: l.h };
-    el.querySelector('#custW').value = l.w;
-    el.querySelector('#custH').value = l.h;
+  el.querySelector('#midiaSel').addEventListener('change', e=>{
+    etiquetaMidia = e.target.value;
+    const nova = MIDIAS_QL800[etiquetaMidia];
+    /* O comprimento que a loja digitou NÃO é apagado ao trocar de rolo.
+       Apagar parecia arrumação e era perda: quem tinha ajustado 45 mm,
+       espiava outro rolo e voltava, reimprimia em 40 sem perceber. */
+    el.querySelector('#campoComprimento').style.display = (nova.continua && !nova.medido) ? 'inline-flex' : 'none';
+    el.querySelector('#campoMedido').style.display = nova.medido ? 'inline-flex' : 'none';
+    el.querySelector('#compEtq').value = midiaAtual().h;
     guardarEscolhaDaEtiqueta();
     atualizaAvisoDoCodigo();
     renderPreviewEtiqueta();
   });
-  /* Mexeu na medida à mão? Então é "Outro tamanho". Antes o lojista digitava
+  const comprimentoMudou = ()=>{
+    etiquetaComprimento = Number(el.querySelector('#compEtq').value) || 40;
+    guardarEscolhaDaEtiqueta();
+    atualizaAvisoDoCodigo();
+    renderPreviewEtiqueta();
+  };
+  el.querySelector('#compEtq').addEventListener('input', comprimentoMudou);
+  /* Mexeu na medida à mão? Então o rolo é "Outro". Antes o lojista digitava
      nesses campos com um tamanho pronto selecionado e a medida era ignorada
      em silêncio — parecia que o sistema não obedecia. */
   const medidaMudou = ()=>{
-    etiquetaCustom.w = Number(el.querySelector('#custW').value) || 32;
-    etiquetaCustom.h = Number(el.querySelector('#custH').value) || 22;
-    if(etiquetaLayout !== 'custom'){
-      etiquetaLayout = 'custom';
-      el.querySelector('#layoutSel').value = 'custom';
+    etiquetaCustom.w = Math.min(62, Number(el.querySelector('#custW').value) || 29);
+    etiquetaCustom.h = Number(el.querySelector('#custH').value) || 40;
+    if(etiquetaMidia !== 'outro'){
+      etiquetaMidia = 'outro';
+      el.querySelector('#midiaSel').value = 'outro';
+      el.querySelector('#campoComprimento').style.display = 'none';
+      el.querySelector('#campoMedido').style.display = 'inline-flex';
     }
     guardarEscolhaDaEtiqueta();
     atualizaAvisoDoCodigo();
@@ -2079,8 +2142,7 @@ function renderEtiquetas(el){
     }));
     renderEtiquetasTable();
   });
-  el.querySelector('#printLabelsBtn').addEventListener('click', printLabels);
-  el.querySelector('#pdfLabelsBtn').addEventListener('click', gerarPdfEtiquetas);
+  el.querySelector('#pdfLabelsBtn').addEventListener('click', ()=>gerarPdfEtiquetas());
   renderEtiquetasTable();
 }
 function countMissingBarcodes(){
@@ -2143,16 +2205,15 @@ function imprimirEtiquetaTeste(){
   imprimirOuGerarPdf([{ p: alvo.p, v: alvo.v }]);
 }
 
-/* No celular a impressão direta do navegador NUNCA acerta o tamanho: o
-   Safari manda A4 e a etiqueta sai minúscula num canto. Quem decide o
-   caminho é o sistema, não o lojista — ele já errou por nós vezes demais.
-   A mesma medida que esconde o botão "Imprimir direto" vale aqui. */
-function impressaoDiretaFunciona(){
-  return window.innerWidth > 900;
-}
+/* UM CAMINHO SÓ, e de propósito. Havia dois — "imprimir direto pelo
+   navegador" e "gerar PDF" — e o direto nunca funcionou: o navegador
+   manda o papel da janela (A4), não o tamanho da etiqueta, e saía folha
+   em branco com um borrão no canto. Dois caminhos também significavam
+   dois lugares para errar e o lojista escolhendo no escuro. Agora existe
+   o PDF, que carrega o tamanho da página dentro dele e é o único formato
+   que o driver da QL-800 respeita. */
 function imprimirOuGerarPdf(items){
-  if(impressaoDiretaFunciona()) printLabels(items);
-  else gerarPdfEtiquetas(items);
+  gerarPdfEtiquetas(items);
 }
 
 /* =========================================================
@@ -2247,9 +2308,42 @@ function itensSelecionados(){
 
 /* "Selecione ao menos uma variação" não ajuda quem não achou a lista: no
    celular ela ficava embaixo de um paredão de texto e a loja nunca chegava
-   nela. Agora o sistema leva o lojista até lá e pisca a tabela. */
+   nela. Agora o sistema leva o lojista até lá e pisca a tabela.
+
+   E, quando ele JURA que marcou — e já jurou, com a caixa marcada na tela
+   —, o aviso para de repetir a mesma frase e passa a dizer o que o sistema
+   está enxergando: quantas caixas existem, quantas estão marcadas e o que
+   falhou em cada linha marcada. Sem isso a conversa vira "não funciona" de
+   um lado e "aqui funciona" do outro, que não conserta nada. */
 function pedirSelecao(){
   const wrap = document.getElementById('etiquetasTableWrap');
+  const caixas = wrap ? wrap.querySelectorAll('input[type=checkbox][data-check]') : [];
+  const marcadas = [...caixas].filter(c=>c.checked);
+  const box = document.getElementById('diagnosticoSelecao');
+
+  if(marcadas.length){
+    /* Marcou e mesmo assim não veio item: o problema não é o lojista. */
+    const motivos = marcadas.map(chk=>{
+      const linha = chk.closest('tr');
+      if(!linha) return 'uma linha marcada sumiu da tabela';
+      const nome = linha.dataset.nome || '(sem nome)';
+      if(!acharPecaDaLinha(linha)) return `${nome} ${linha.dataset.size||''}/${linha.dataset.color||''} — sem código de barras e a peça não está mais no cadastro`;
+      return null;
+    }).filter(Boolean);
+    toast('Marcado, mas não consegui montar a etiqueta — veja o aviso na tela','error');
+    if(box){
+      box.className = 'aviso-codigo';
+      box.innerHTML = `<strong>O que o sistema está vendo:</strong>
+        ${caixas.length} peça(s) na lista, ${marcadas.length} marcada(s).
+        ${motivos.length
+          ? 'Não deu para usar: <br>· ' + motivos.map(escapeHtml).join('<br>· ') +
+            '<br>Toque em <strong>Gerar código(s) faltando</strong> e tente de novo.'
+          : 'As peças foram encontradas — se isto apareceu, recarregue a página e tente outra vez.'}`;
+    }
+    return;
+  }
+
+  if(box){ box.innerHTML = ''; box.className = ''; }
   toast('Marque abaixo as peças que vão ganhar etiqueta','warn');
   if(!wrap) return;
   wrap.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -2261,8 +2355,23 @@ function pedirSelecao(){
 /* Prévia de uma etiqueta, do tamanho real, na própria tela. Sem ela o
    lojista só descobre que deu errado depois de gastar o rolo — e, quando
    dá errado, não dá para saber se o problema é o sistema ou a impressora.
-   Se a prévia aparece certa aqui, o desenho está bom e o que falta ajustar
-   é a janela de impressão. */
+
+   A prévia é desenhada pelo MESMO gerador que monta o PDF. Antes vinha de
+   uma biblioteca baixada da internet: numa loja com rede ruim a prévia
+   sumia, e pior — ela desenhava o código de um jeito e o PDF de outro, de
+   modo que conferir na tela não provava nada. Agora, se aparece certo
+   aqui, é exatamente isso que vai para a fita. */
+function desenhoSvgDoCodigo(codigo, larguraMM, alturaMM){
+  const c = code128Barras(codigo);
+  if(!c) return '';
+  const modulo = larguraMM / (c.modulos + 20);   // 10 módulos de silêncio de cada lado
+  const largura = c.modulos * modulo;
+  const inicio = (larguraMM - largura) / 2;
+  const barras = c.barras.map(b=>
+    `<rect x="${(inicio + b.x*modulo).toFixed(3)}" y="0" width="${(b.w*modulo).toFixed(3)}" height="${alturaMM}" fill="#000"/>`).join('');
+  return `<svg viewBox="0 0 ${larguraMM} ${alturaMM}" width="${larguraMM}mm" height="${alturaMM}mm"
+               preserveAspectRatio="none" shape-rendering="crispEdges">${barras}</svg>`;
+}
 function renderPreviewEtiqueta(){
   const box = document.getElementById('previewEtiqueta');
   if(!box) return;
@@ -2272,31 +2381,19 @@ function renderPreviewEtiqueta(){
     box.innerHTML = '<p class="text-muted" style="font-size:12.5px">Cadastre uma peça para ver a prévia da etiqueta.</p>';
     return;
   }
-  const layout = layoutAtual();
-  const baixa = layout.h <= 20;
+  const midia = midiaAtual();
+  const baixa = midia.h <= 20;
+  const utilMM = Math.max(6, midia.w - 3);            // as bordas que a QL-800 não imprime
+  const alturaBarrasMM = Math.max(4, midia.h * (baixa ? 0.34 : 0.40));
   box.innerHTML = `
-    <div class="preview-titulo">Como vai sair — ${layout.w} × ${layout.h} mm, tamanho real</div>
-    <div class="label preview-label${baixa?' label-compacta':''}" style="width:${layout.w}mm;height:${layout.h}mm">
+    <div class="preview-titulo">Como vai sair — ${midia.w} × ${midia.h} mm, tamanho real</div>
+    <div class="label preview-label${baixa?' label-compacta':''}" style="width:${midia.w}mm;height:${midia.h}mm">
       ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
       <div class="label-name">${escapeHtml(alvo.p.name)} ${escapeHtml(alvo.v.size)}/${escapeHtml(alvo.v.color)}</div>
-      <svg id="previewBc"></svg>
+      ${desenhoSvgDoCodigo(alvo.v.barcode, utilMM, alturaBarrasMM)}
+      <div class="label-code">${escapeHtml(alvo.v.barcode)}</div>
       <div class="label-price">${money(alvo.p.price)}</div>
     </div>`;
-  if(typeof JsBarcode === 'undefined'){
-    box.innerHTML += '<p class="text-muted" style="font-size:12px">Prévia sem o desenho do código (sem internet). O PDF sai completo mesmo assim.</p>';
-    return;
-  }
-  try{
-    const PX = 96/25.4;
-    const util = Math.max(10, layout.w - 2);
-    const modulos = 11 * (alvo.v.barcode.length + 2) + 13;
-    const larguraBarra = Math.max(0.6, Math.min(2, (util*PX)/modulos));
-    JsBarcode('#previewBc', alvo.v.barcode, {
-      format:'CODE128', width:Number(larguraBarra.toFixed(2)),
-      height: Math.round(Math.max(4, layout.h*0.30) * PX),
-      fontSize: layout.w <= 40 ? 8 : 10, margin:0, displayValue:true
-    });
-  }catch(err){ console.error('Prévia da etiqueta:', err); }
 }
 
 function gerarPdfEtiquetas(itensForcados){
@@ -2324,13 +2421,14 @@ function mostrarLinkDoPdf(blob, nome, recado){
   if(urlDoPdfAnterior) URL.revokeObjectURL(urlDoPdfAnterior);
   urlDoPdfAnterior = URL.createObjectURL(blob);
   box.className = 'pdf-pronto';
-  box.innerHTML = `<strong>PDF pronto — ${escapeHtml(recado)}</strong>
-    <a href="${urlDoPdfAnterior}" download="${escapeHtml(nome)}">📄 Abrir / salvar o PDF</a>
-    <span>Se a janela de compartilhar não abriu, toque no link acima, depois em Imprimir.</span>`;
+  box.innerHTML = `<strong>Etiquetas prontas — ${escapeHtml(recado)}</strong>
+    <a href="${urlDoPdfAnterior}" download="${escapeHtml(nome)}">🏷️ Abrir / salvar o arquivo</a>
+    <span>Abra este arquivo no computador em que a Brother QL-800 está ligada pelo cabo USB
+    e mande imprimir por ele, com o redimensionamento em 100%.</span>`;
 }
 
 function entregarPdf(blob, quantas, layout){
-  const nome = `etiquetas-${layout.w}x${layout.h}mm.pdf`;
+  const nome = `etiquetas-QL800-${layout.w}x${layout.h}mm.pdf`;
   const recado = `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`;
 
   /* Deixa um link à vista na tela. Se a janela de compartilhar não abrir, ou
@@ -2342,7 +2440,7 @@ function entregarPdf(blob, quantas, layout){
     const arquivo = new File([blob], nome, { type:'application/pdf' });
     if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
       navigator.share({ files:[arquivo], title:'Etiquetas' })
-        .then(()=>toast(recado + ' — escolha Imprimir na lista.'))
+        .then(()=>toast(recado + ' — envie para o computador da QL-800.'))
         .catch(()=>{ /* fechou a folha de compartilhamento: nada a fazer */ });
       return;
     }
@@ -2359,125 +2457,7 @@ function entregarPdf(blob, quantas, layout){
   document.body.appendChild(link);
   link.click();
   setTimeout(()=>{ document.body.removeChild(link); URL.revokeObjectURL(url); }, 4000);
-  toast(recado + ' — abra o arquivo baixado e mande imprimir por ele.');
-}
-
-function printLabels(itensForcados){
-  const items = itensForcados || itensSelecionados();
-  if(!items.length){ pedirSelecao(); return; }
-  /* Rede de segurança: por qualquer caminho que se chegue aqui num celular,
-     o resultado seria folha em branco. Desvia para o PDF. */
-  if(!impressaoDiretaFunciona()){ gerarPdfEtiquetas(items); return; }
-  if(typeof JsBarcode === 'undefined'){
-    toast('Não foi possível carregar o gerador de código de barras. Verifique sua conexão com a internet e tente novamente.','error');
-    return;
-  }
-  /* Os códigos que faltam são criados agora; os itens já apontam para os
-     mesmos objetos, então recebem o código gerado. */
-  generateMissingBarcodes(); saveDB();
-
-  const layout = layoutAtual();
-  const sheet = document.getElementById('labelSheet');
-  /* Em etiqueta baixa não cabe tudo: o nome da loja sai para o código de
-     barras e o preço, que são o que a loja precisa, ficarem legíveis. */
-  const baixa = layout.h <= 20;
-  const dim = `width:${layout.w}mm;height:${layout.h}mm`;
-  sheet.innerHTML = items.map((item,idx)=>`
-    <div class="label${baixa?' label-compacta':''}" style="${dim}">
-      ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
-      <div class="label-name">${escapeHtml(item.p.name)} ${escapeHtml(item.v.size)}/${escapeHtml(item.v.color)}</div>
-      <svg id="lbl-bc-${idx}"></svg>
-      <div class="label-price">${money(item.p.price)}</div>
-    </div>`).join('');
-
-  let styleTag = document.getElementById('labelPrintStyle');
-  if(!styleTag){ styleTag = document.createElement('style'); styleTag.id='labelPrintStyle'; document.head.appendChild(styleTag); }
-
-  styleTag.textContent = layout.rolo
-    /* Rolo: a página É a etiqueta. Uma por página, sem margem, para o rolo
-       avançar certinho e o desenho ocupar a etiqueta inteira. */
-    ? `@media print {
-         @page { size: ${layout.w}mm ${layout.h}mm; margin: 0; }
-         #labelSheet { display:block; }
-         .label { margin:0; border:none; padding:1mm;
-                  break-after:page; page-break-after:always; }
-         .label:last-child { break-after:auto; page-break-after:auto; }
-       }`
-    /* Folha A4: várias etiquetas por página, em colunas. */
-    : `@media print {
-         @page { size: A4; margin: ${layout.margem}mm; }
-         #labelSheet { display:grid; grid-template-columns: repeat(${layout.cols}, ${layout.w}mm);
-                       gap:${layout.gap}mm; }
-         .label { border:none; }
-       }`;
-
-  /* O código precisa CABER na etiqueta. Largura fixa fazia o desenho passar
-     da borda em etiqueta pequena e sair cortado — e código cortado o leitor
-     não lê. Calculamos a espessura da barra a partir da largura real da
-     etiqueta, em vez de chutar. */
-  const PX_POR_MM = 96 / 25.4;          // 1 mm em pixels de CSS
-  const padMM = layout.rolo ? 1 : 1.5;  // a folha de dentro da etiqueta
-  const utilMM = Math.max(10, layout.w - padMM*2);
-  const fonteCodigo = layout.w <= 40 ? 8 : 10;
-
-  function desenhar(alturaBarrasMM){
-    items.forEach((item,idx)=>{
-      const codigo = item.v.barcode;
-      /* Code128: 11 módulos por caractere, mais início, verificador e o
-         padrão de parada (13). */
-      const modulos = 11 * (codigo.length + 2) + 13;
-      const larguraBarra = Math.max(0.6, Math.min(2, (utilMM * PX_POR_MM) / modulos));
-      JsBarcode(`#lbl-bc-${idx}`, codigo, {
-        format:'CODE128',
-        width: Number(larguraBarra.toFixed(2)),
-        height: Math.max(14, Math.round(alturaBarrasMM * PX_POR_MM)),
-        fontSize: fonteCodigo,
-        margin: 0, displayValue: true
-      });
-    });
-  }
-
-  /* Calcular a altura das barras por regra de três dava errado: com 32 × 22
-     o número do código saía cortado pelo preço. E não dá para confiar no
-     scrollHeight: com o conteúdo centralizado o corte acontece dos dois
-     lados e ele não acusa nada. Então medimos os textos, que são fixos, e
-     damos ao código de barras exatamente o espaço que sobrar. */
-  desenhar(Math.max(5, layout.h * 0.42));   // primeiro desenho, só para medir
-
-  /* A folha fica escondida na tela (só existe para a impressora), e o que
-     está escondido não tem altura para medir. Trazemos para fora da vista
-     por um instante, medimos, e devolvemos. */
-  const primeira = sheet.querySelector('.label');
-  if(primeira){
-    const estiloAntes = sheet.getAttribute('style');
-    sheet.setAttribute('style',
-      'display:block;position:absolute;left:-10000px;top:0;visibility:hidden');
-    /* O finally não é decoração: se o desenho falhar no meio, a folha ficava
-       invisível para sempre e a impressora cuspia tudo em branco. A medida é
-       um luxo; imprimir é obrigação. */
-    try{
-      const dentro = primeira.clientHeight - 2 * padMM * PX_POR_MM;
-      let usadoPorTexto = 0;
-      primeira.querySelectorAll(':scope > *').forEach(el=>{
-        if(el.tagName.toLowerCase() !== 'svg') usadoPorTexto += el.getBoundingClientRect().height;
-      });
-      /* O número do código é desenhado dentro do próprio svg, então ele
-         também come altura. */
-      const alturaDoNumero = fonteCodigo + 2;
-      const sobra = dentro - usadoPorTexto - alturaDoNumero - 2;   // 2px de folga
-      const barrasMM = sobra / PX_POR_MM;
-      if(barrasMM > 0 && Math.abs(barrasMM - layout.h * 0.42) > 0.2){
-        desenhar(Math.max(4, barrasMM));
-      }
-    }catch(err){
-      console.error('Não foi possível ajustar a altura do código:', err);
-    }finally{
-      if(estiloAntes === null) sheet.removeAttribute('style');
-      else sheet.setAttribute('style', estiloAntes);
-    }
-  }
-
-  setTimeout(()=>window.print(), 250);
+  toast(recado + ' — abra o arquivo baixado e mande imprimir na QL-800, em 100%.');
 }
 
 /* =========================================================
@@ -3464,7 +3444,8 @@ function renderConfig(el){
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      try{ DB = JSON.parse(ev.target.result); loadDB(); saveDB(); toast('Backup importado'); navigate('painel'); }
+      try{ DB = JSON.parse(ev.target.result); loadDB(); restaurarEscolhaDaEtiqueta();
+           saveDB(); toast('Backup importado'); navigate('painel'); }
       catch(err){ toast('Arquivo inválido','error'); }
     };
     reader.readAsText(file);
