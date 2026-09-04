@@ -272,6 +272,15 @@ table tr:hover td{background:var(--cream)}
 }
 .piscando{animation:piscaTabela 1.4s ease-in-out 2;border-radius:10px}
 
+.pdf-pronto{
+  margin-top:14px;padding:12px 14px;border-radius:10px;
+  background:#E9F3EB;border:1px solid #CBE3D1;color:var(--success);font-size:13px;line-height:1.6;
+}
+.pdf-pronto strong{display:block}
+.pdf-pronto a{display:inline-block;margin:8px 0 4px;padding:9px 16px;border-radius:8px;
+  background:var(--rose-gold);color:#fff;text-decoration:none;font-weight:600}
+.pdf-pronto span{display:block;color:var(--muted);font-size:12px}
+
 .preview-box{margin-top:14px}
 .preview-titulo{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
 .preview-label{border:1px solid var(--border) !important;background:#fff;box-shadow:var(--shadow)}

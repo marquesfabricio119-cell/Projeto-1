@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "25";
+const APP_VERSION = "26";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1494,6 +1494,7 @@ function renderEtiquetas(el){
         <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o PDF já no tamanho da etiqueta">📄 Gerar PDF das etiquetas</button>
         <button class="btn so-no-computador" id="printLabelsBtn" title="Só funciona no computador">🖨️ Imprimir direto (computador)</button>
       </div>
+      <div id="linkDoPdf"></div>
       <div id="previewEtiqueta" class="preview-box"></div>
       <div id="avisoCodigo"></div>
     </div>
@@ -1635,7 +1636,19 @@ function imprimirEtiquetaTeste(){
     generateMissingBarcodes(); saveDB();
     alvo = { p, v: p.variations[0] };
   }
-  printLabels([{ p: alvo.p, v: alvo.v }]);
+  imprimirOuGerarPdf([{ p: alvo.p, v: alvo.v }]);
+}
+
+/* No celular a impressão direta do navegador NUNCA acerta o tamanho: o
+   Safari manda A4 e a etiqueta sai minúscula num canto. Quem decide o
+   caminho é o sistema, não o lojista — ele já errou por nós vezes demais.
+   A mesma medida que esconde o botão "Imprimir direto" vale aqui. */
+function impressaoDiretaFunciona(){
+  return window.innerWidth > 900;
+}
+function imprimirOuGerarPdf(items){
+  if(impressaoDiretaFunciona()) printLabels(items);
+  else gerarPdfEtiquetas(items);
 }
 
 /* =========================================================
@@ -1841,10 +1854,27 @@ function gerarPdfEtiquetas(itensForcados){
    a impressora. O caminho certo no celular é o compartilhamento do próprio
    iOS: ele abre a folha com "Imprimir", "Salvar em Arquivos" e os
    aplicativos de impressora instalados. */
+let urlDoPdfAnterior = null;
+function mostrarLinkDoPdf(blob, nome, recado){
+  const box = document.getElementById('linkDoPdf');
+  if(!box) return;
+  if(urlDoPdfAnterior) URL.revokeObjectURL(urlDoPdfAnterior);
+  urlDoPdfAnterior = URL.createObjectURL(blob);
+  box.className = 'pdf-pronto';
+  box.innerHTML = `<strong>PDF pronto — ${escapeHtml(recado)}</strong>
+    <a href="${urlDoPdfAnterior}" download="${escapeHtml(nome)}">📄 Abrir / salvar o PDF</a>
+    <span>Se a janela de compartilhar não abriu, toque no link acima, depois em Imprimir.</span>`;
+}
+
 function entregarPdf(doc, quantas, layout){
   const nome = `etiquetas-${layout.w}x${layout.h}mm.pdf`;
   const blob = doc.output('blob');
   const recado = `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`;
+
+  /* Deixa um link à vista na tela. Se a janela de compartilhar não abrir, ou
+     o lojista fechá-la sem querer, o arquivo continua ao alcance de um toque
+     em vez de sumir. */
+  mostrarLinkDoPdf(blob, nome, recado);
 
   try{
     const arquivo = new File([blob], nome, { type:'application/pdf' });
@@ -1876,6 +1906,9 @@ function entregarPdf(doc, quantas, layout){
 function printLabels(itensForcados){
   const items = itensForcados || itensSelecionados();
   if(!items.length){ pedirSelecao(); return; }
+  /* Rede de segurança: por qualquer caminho que se chegue aqui num celular,
+     o resultado seria folha em branco. Desvia para o PDF. */
+  if(!impressaoDiretaFunciona()){ gerarPdfEtiquetas(items); return; }
   if(typeof JsBarcode === 'undefined'){
     toast('Não foi possível carregar o gerador de código de barras. Verifique sua conexão com a internet e tente novamente.','error');
     return;
