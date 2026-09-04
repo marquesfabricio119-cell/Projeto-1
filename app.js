@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "24";
+const APP_VERSION = "25";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -148,10 +148,22 @@ function normalizeDB(){
   const num = v => Number(v) || 0;
   let reparou = false;
   const novoId = () => { reparou = true; return uid(); };
+  /* Um produto sem id ganhava um id novo A CADA carregamento. Quem já estava
+     marcado na tela de etiquetas passava a apontar para um id que não existe
+     mais, e o sistema dizia que nada estava selecionado — com a caixa
+     marcada na frente do lojista. O id passa a sair do próprio conteúdo,
+     então é sempre o mesmo. */
+  const idEstavel = (p, i) => {
+    reparou = true;
+    const semente = (p && (p.sku || p.name || '') || '') + '#' + i;
+    let h = 5381;
+    for(let k = 0; k < semente.length; k++) h = ((h * 33) ^ semente.charCodeAt(k)) >>> 0;
+    return 'r' + h.toString(36) + i;
+  };
 
-  DB.products = arr(DB.products).filter(Boolean).map(p=>({
+  DB.products = arr(DB.products).filter(Boolean).map((p, i)=>({
     ...p,
-    id: p.id || novoId(),
+    id: p.id || idEstavel(p, i),
     name: p.name || 'Produto sem nome',
     sku: p.sku || '',
     category: p.category || '',
@@ -1581,16 +1593,16 @@ function renderEtiquetasTable(){
   const wrap = document.getElementById('etiquetasTableWrap');
   if(!wrap) return;
   const rows=[];
-  DB.products.forEach(p=>p.variations.forEach(v=>rows.push({p,v})));
+  DB.products.forEach((p, pi)=>p.variations.forEach((v, vi)=>rows.push({p,v,pi,vi})));
   if(!rows.length){ wrap.innerHTML = emptyProductsMessage(); return; }
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
     <th></th><th>Produto</th><th>Tam/Cor</th><th class="col-codigo">Código</th>
     <th class="col-estoque">Estoque</th><th>Etiquetas</th>
   </tr></thead><tbody>
-    ${rows.map(({p,v})=>{
+    ${rows.map(({p,v,pi,vi})=>{
       const key = varKey(p.id,v.size,v.color);
       const checked = etiquetaQty[key] > 0;
-      return `<tr>
+      return `<tr data-pi="${pi}" data-vi="${vi}">
         <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
@@ -1623,11 +1635,7 @@ function imprimirEtiquetaTeste(){
     generateMissingBarcodes(); saveDB();
     alvo = { p, v: p.variations[0] };
   }
-  const guardado = { ...etiquetaQty };
-  etiquetaQty = { [varKey(alvo.p.id, alvo.v.size, alvo.v.color)]: 1 };
-  printLabels();
-  etiquetaQty = guardado;
-  renderEtiquetasTable();
+  printLabels([{ p: alvo.p, v: alvo.v }]);
 }
 
 /* =========================================================
@@ -1638,10 +1646,32 @@ function imprimirEtiquetaTeste(){
    Um PDF já nasce com o tamanho da página dentro dele, e esse tamanho o
    iPhone respeita. Por isso, no celular, este é o caminho certo.
    ========================================================= */
+/* O que o lojista vê marcado é o que vale. Antes a seleção era procurada
+   por uma chave de texto com o id do produto dentro; quando o id mudava, a
+   caixa continuava marcada na tela e o sistema jurava que nada estava
+   selecionado. Agora lemos as próprias caixas e chegamos ao produto pela
+   posição na lista, que não depende de id nenhum. */
 function itensSelecionados(){
-  const selecionados = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
   const items = [];
-  selecionados.forEach(([key, qty])=>{
+  const wrap = document.getElementById('etiquetasTableWrap');
+  const caixas = wrap ? wrap.querySelectorAll('input[type=checkbox][data-check]') : [];
+
+  if(caixas.length){
+    caixas.forEach(chk=>{
+      if(!chk.checked) return;
+      const linha = chk.closest('tr');
+      const p = DB.products[Number(linha.dataset.pi)];
+      const v = p && p.variations[Number(linha.dataset.vi)];
+      if(!p || !v) return;
+      const campo = linha.querySelector('[data-qty]');
+      const qty = Math.max(1, Number(campo && campo.value) || 1);
+      for(let i=0;i<qty;i++) items.push({ p, v });
+    });
+    return items;
+  }
+
+  /* Sem a tela aberta (o teste de uma etiqueta chama daqui), usa o registro. */
+  Object.entries(etiquetaQty).filter(([,qty])=>qty>0).forEach(([key, qty])=>{
     const [pid,size,color] = key.split('|');
     const p = DB.products.find(x=>x.id===pid);
     const v = p && p.variations.find(x=>x.size===size && x.color===color);
@@ -1735,8 +1765,8 @@ function pedirSelecao(){
   wrap.classList.add('piscando');
 }
 
-function gerarPdfEtiquetas(){
-  const items = itensSelecionados();
+function gerarPdfEtiquetas(itensForcados){
+  const items = itensForcados || itensSelecionados();
   if(!items.length){ pedirSelecao(); return; }
   if(typeof JsBarcode === 'undefined'){
     toast('Não foi possível carregar o gerador de código de barras. Verifique a internet.','error');
@@ -1749,7 +1779,7 @@ function gerarPdfEtiquetas(){
        novo agora e refaz o PDF. */
     toast('Carregando o gerador de PDF...');
     carregarJsPdf()
-      .then(()=>gerarPdfEtiquetas())
+      .then(()=>gerarPdfEtiquetas(items))
       .catch(()=>toast('Não foi possível carregar o gerador de PDF. Verifique a internet e recarregue a página.','error'));
     return;
   }
@@ -1840,23 +1870,19 @@ function entregarPdf(doc, quantas, layout){
   toast(recado + ' — abra o arquivo baixado e mande imprimir por ele.');
 }
 
-function printLabels(){
-  const selected = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
-  if(!selected.length){ pedirSelecao(); return; }
+/* `itensForcados` existe para o teste de uma etiqueta, que escolhe a peça
+   por conta própria: ele não pode depender das caixas da tela, que nesse
+   momento estão marcadas com outra coisa. */
+function printLabels(itensForcados){
+  const items = itensForcados || itensSelecionados();
+  if(!items.length){ pedirSelecao(); return; }
   if(typeof JsBarcode === 'undefined'){
     toast('Não foi possível carregar o gerador de código de barras. Verifique sua conexão com a internet e tente novamente.','error');
     return;
   }
+  /* Os códigos que faltam são criados agora; os itens já apontam para os
+     mesmos objetos, então recebem o código gerado. */
   generateMissingBarcodes(); saveDB();
-
-  const items = [];
-  selected.forEach(([key, qty])=>{
-    const [pid,size,color] = key.split('|');
-    const p = DB.products.find(x=>x.id===pid);
-    const v = p && p.variations.find(x=>x.size===size && x.color===color);
-    if(!p || !v) return;
-    for(let i=0;i<qty;i++) items.push({ p, v });
-  });
 
   const layout = layoutAtual();
   const sheet = document.getElementById('labelSheet');
