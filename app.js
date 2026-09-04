@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "23";
+const APP_VERSION = "24";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -1477,13 +1477,25 @@ function renderEtiquetas(el){
         </span>
         <div class="spacer"></div>
         ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
-        <button class="btn" id="selAllBtn">Selecionar todas (estoque atual)</button>
+        <button class="btn" id="selAllBtn">✔️ Marcar todas as peças</button>
         <button class="btn" id="testLabelBtn" title="Imprime uma etiqueta só, para conferir o tamanho">🧪 Testar 1 etiqueta</button>
         <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o PDF já no tamanho da etiqueta">📄 Gerar PDF das etiquetas</button>
         <button class="btn so-no-computador" id="printLabelsBtn" title="Só funciona no computador">🖨️ Imprimir direto (computador)</button>
       </div>
       <div id="previewEtiqueta" class="preview-box"></div>
       <div id="avisoCodigo"></div>
+    </div>
+
+    <div class="panel">
+      <h3>1 · Marque as peças que vão ganhar etiqueta</h3>
+      <div id="etiquetasTableWrap"></div>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin:0">
+        <button class="btn btn-sm" id="toggleAjuda" type="button">▸ Como imprimir (leia se sair errado)</button>
+      </h3>
+      <div id="ajudaImpressao" style="display:none;margin-top:12px">
       <div class="aviso-impressao">
         <strong>No celular, use sempre o botão "Gerar PDF das etiquetas".</strong>
         O navegador do iPhone ignora o tamanho de página que o site pede — ele manda A4, e a etiqueta
@@ -1492,8 +1504,10 @@ function renderEtiquetas(el){
         <ol style="margin:8px 0 0;padding-left:20px">
           <li>Meça sua etiqueta com uma régua e escolha o tamanho aqui em cima.
               Não achou na lista? Digite a medida nos campos ao lado.</li>
-          <li>Clique em <strong>Gerar PDF das etiquetas</strong> e abra o arquivo.</li>
-          <li>Na impressão, escolha a <strong>impressora de etiquetas</strong> e deixe
+          <li>Toque em <strong>Gerar PDF das etiquetas</strong>. Vai abrir a janela de
+              compartilhar do celular — escolha <strong>Imprimir</strong> (ou o aplicativo da
+              sua impressora).</li>
+          <li>Escolha a <strong>impressora de etiquetas</strong> e deixe
               <strong>Redimensionamento em 100%</strong>.</li>
           <li>Se aparecer <strong>Tamanho do Papel</strong>, escolha o da sua etiqueta —
               a lista só mostra os tamanhos certos depois que a impressora está selecionada.</li>
@@ -1501,9 +1515,15 @@ function renderEtiquetas(el){
         <p style="margin:8px 0 0">No computador, o botão <strong>Imprimir direto</strong> também funciona.
         Antes do lote inteiro, use <strong>Testar 1 etiqueta</strong>.</p>
       </div>
+      </div>
     </div>
-    <div id="etiquetasTableWrap"></div>
     <div id="labelSheet"></div>`;
+  el.querySelector('#toggleAjuda').addEventListener('click', e=>{
+    const box = el.querySelector('#ajudaImpressao');
+    const aberto = box.style.display !== 'none';
+    box.style.display = aberto ? 'none' : '';
+    e.target.textContent = (aberto ? '▸' : '▾') + ' Como imprimir (leia se sair errado)';
+  });
   el.querySelector('#layoutSel').addEventListener('change', e=>{
     etiquetaLayout = e.target.value;
     const l = layoutAtual();
@@ -1564,7 +1584,8 @@ function renderEtiquetasTable(){
   DB.products.forEach(p=>p.variations.forEach(v=>rows.push({p,v})));
   if(!rows.length){ wrap.innerHTML = emptyProductsMessage(); return; }
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
-    <th></th><th>Produto</th><th>Tam/Cor</th><th>Código</th><th>Estoque</th><th>Qtd. etiquetas</th>
+    <th></th><th>Produto</th><th>Tam/Cor</th><th class="col-codigo">Código</th>
+    <th class="col-estoque">Estoque</th><th>Etiquetas</th>
   </tr></thead><tbody>
     ${rows.map(({p,v})=>{
       const key = varKey(p.id,v.size,v.color);
@@ -1573,8 +1594,8 @@ function renderEtiquetasTable(){
         <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
-        <td>${escapeHtml(v.barcode||'(sem código — será gerado ao imprimir)')}</td>
-        <td>${v.stock}</td>
+        <td class="col-codigo">${escapeHtml(v.barcode||'(será gerado)')}</td>
+        <td class="col-estoque">${v.stock}</td>
         <td><input type="number" min="1" style="width:70px" data-qty="${key}" value="${etiquetaQty[key]||v.stock||1}"></td>
       </tr>`;
     }).join('')}
@@ -1701,9 +1722,22 @@ function renderPreviewEtiqueta(){
   }catch(err){ console.error('Prévia da etiqueta:', err); }
 }
 
+/* "Selecione ao menos uma variação" não ajuda quem não achou a lista: no
+   celular ela ficava embaixo de um paredão de texto e a loja nunca chegava
+   nela. Agora o sistema leva o lojista até lá e pisca a tabela. */
+function pedirSelecao(){
+  const wrap = document.getElementById('etiquetasTableWrap');
+  toast('Marque abaixo as peças que vão ganhar etiqueta','warn');
+  if(!wrap) return;
+  wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+  wrap.classList.remove('piscando');
+  void wrap.offsetWidth;              // reinicia a animação
+  wrap.classList.add('piscando');
+}
+
 function gerarPdfEtiquetas(){
   const items = itensSelecionados();
-  if(!items.length){ toast('Selecione ao menos uma variação','error'); return; }
+  if(!items.length){ pedirSelecao(); return; }
   if(typeof JsBarcode === 'undefined'){
     toast('Não foi possível carregar o gerador de código de barras. Verifique a internet.','error');
     return;
@@ -1768,21 +1802,47 @@ function gerarPdfEtiquetas(){
     doc.text(money(item.p.price), L/2, Math.min(y, A - pad), { align:'center' });
   });
 
-  /* No iPhone, abrir numa aba deixa o usuário mandar imprimir pelo próprio
-     visualizador de PDF, que é onde o tamanho da página é respeitado. */
-  const url = doc.output('bloburl');
-  const aba = window.open(url, '_blank');
-  if(!aba){
-    doc.save('etiquetas-' + layout.w + 'x' + layout.h + 'mm.pdf');
-    toast('PDF baixado. Abra o arquivo e mande imprimir por ele.','warn');
-  } else {
-    toast(items.length + ' etiqueta(s) de ' + layout.w + ' × ' + layout.h + ' mm no PDF. Mande imprimir por ele.');
+  entregarPdf(doc, items.length, layout);
+}
+
+/* Como o arquivo chega às mãos do lojista.
+   `window.open` com um PDF em memória abre ABA EM BRANCO no Safari do
+   iPhone — limitação conhecida do sistema, e era isso que estava indo para
+   a impressora. O caminho certo no celular é o compartilhamento do próprio
+   iOS: ele abre a folha com "Imprimir", "Salvar em Arquivos" e os
+   aplicativos de impressora instalados. */
+function entregarPdf(doc, quantas, layout){
+  const nome = `etiquetas-${layout.w}x${layout.h}mm.pdf`;
+  const blob = doc.output('blob');
+  const recado = `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`;
+
+  try{
+    const arquivo = new File([blob], nome, { type:'application/pdf' });
+    if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+      navigator.share({ files:[arquivo], title:'Etiquetas' })
+        .then(()=>toast(recado + ' — escolha Imprimir na lista.'))
+        .catch(()=>{ /* fechou a folha de compartilhamento: nada a fazer */ });
+      return;
+    }
+  }catch(err){
+    console.warn('Compartilhamento não disponível:', err);
   }
+
+  /* Sem compartilhamento (navegador de computador): baixa o arquivo. O link
+     com "download" funciona onde o window.open falha. */
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = nome;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(()=>{ document.body.removeChild(link); URL.revokeObjectURL(url); }, 4000);
+  toast(recado + ' — abra o arquivo baixado e mande imprimir por ele.');
 }
 
 function printLabels(){
   const selected = Object.entries(etiquetaQty).filter(([,qty])=>qty>0);
-  if(!selected.length){ toast('Selecione ao menos uma variação','error'); return; }
+  if(!selected.length){ pedirSelecao(); return; }
   if(typeof JsBarcode === 'undefined'){
     toast('Não foi possível carregar o gerador de código de barras. Verifique sua conexão com a internet e tente novamente.','error');
     return;
