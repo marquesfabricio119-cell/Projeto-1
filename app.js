@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "30";
+const APP_VERSION = "32";
 
 const SUPABASE_URL = "https://sjuvryprgbkrbzkvnnhw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uMMZINGFWPcXmwQGevnBQ_ksULyUau";
@@ -452,18 +452,45 @@ function atualizaAvisoDeNuvem(){
   if(!el) return;
   const semNuvem = !nuvemLida && !nuvemVaziaConfirmada;
   el.style.display = semNuvem ? '' : 'none';
-  el.textContent = semNuvem
-    ? '⚠️ Sem conexão com a nuvem. O trabalho está sendo salvo neste aparelho e sobe assim que a internet voltar.'
-    : '';
+  if(!semNuvem){ el.textContent = ''; return; }
+  const porque = explicarErroDaNuvem(ultimoErroNuvem);
+  el.innerHTML = '⚠️ <strong>O sistema não está conseguindo falar com a nuvem.</strong> ' +
+    'O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar. ' +
+    'Nada é enviado enquanto isso, para não gravar por cima do que está lá.' +
+    (porque ? '<br><span style="font-size:12px">' + escapeHtml(porque) + '</span>' : '');
 }
 
 /* ---------- Supabase sync ---------- */
+let ultimoErroNuvem = null;
+
+/* Diagnóstico em português do que o Supabase respondeu. "Sem internet" era
+   um chute que mandava a loja olhar para o lugar errado. */
+function explicarErroDaNuvem(erro){
+  if(!erro) return '';
+  if(erro.status === 401 || erro.status === 403)
+    return 'A nuvem recusou a chave de acesso (' + erro.status + '). A chave pode ter sido trocada ou as permissões da tabela mudaram, no painel do Supabase.';
+  if(erro.status === 404)
+    return 'A nuvem respondeu, mas não encontrou a tabela "' + SUPABASE_TABLE + '" (404). O nome da tabela pode ter mudado.';
+  if(erro.status >= 500)
+    return 'O servidor da nuvem respondeu com erro ' + erro.status + '. Projetos gratuitos do Supabase são pausados após alguns dias sem uso — confira no painel se o projeto precisa ser reativado.';
+  if(erro.status === 0)
+    return 'Não houve resposta da nuvem. Pode ser a internet, ou o projeto do Supabase estar pausado — o painel dele diz qual dos dois.';
+  return 'A nuvem respondeu ' + erro.status + '.';
+}
+
 async function cloudPull(){
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&select=data,updated_at`, {
       headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
     });
-    if(!res.ok) return;
+    if(!res.ok){
+      let detalhe = '';
+      try{ detalhe = (await res.text()).slice(0, 200); }catch(e){}
+      ultimoErroNuvem = { status: res.status, detalhe };
+      atualizaAvisoDeNuvem();
+      return;
+    }
+    ultimoErroNuvem = null;
     const rows = await res.json();
     nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
     if(rows && rows[0] && rows[0].data){
@@ -484,7 +511,10 @@ async function cloudPull(){
       bancoVeioVazio = false;
     }
     atualizaAvisoDeNuvem();
-  }catch(e){ /* offline: segue com dados locais */ }
+  }catch(e){
+    ultimoErroNuvem = { status: 0, detalhe: String(e && e.message || e) };
+    atualizaAvisoDeNuvem();
+  }
 }
 
 async function cloudPush(){
@@ -1215,6 +1245,42 @@ function openProductModal(id){
    varre tudo o que a chave alcança e mostra o que parecer um banco da
    loja, com quantos produtos e vendas tem cada um.
    ========================================================= */
+/* Diz, em português e sem rodeio, o que a nuvem respondeu. Enquanto a loja
+   só via "sem internet", ninguém sabia para onde olhar. */
+async function testarNuvem(){
+  const box = document.getElementById('diagnosticoNuvem');
+  if(!box) return;
+  box.innerHTML = '<p class="text-muted">Testando...</p>';
+  const linhas = [];
+  const testar = async (rotulo, url)=>{
+    try{
+      const res = await fetch(url, { headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` } });
+      let corpo = '';
+      try{ corpo = (await res.text()).slice(0,120); }catch(e){}
+      linhas.push({ rotulo, status: res.status, ok: res.ok, corpo });
+    }catch(err){
+      linhas.push({ rotulo, status: 0, ok:false, corpo: String(err && err.message || err) });
+    }
+  };
+  await testar('Ler a tabela da loja', `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=id&limit=1`);
+  await testar('Listar as tabelas', `${SUPABASE_URL}/rest/v1/`);
+
+  const leitura = linhas[0];
+  box.innerHTML = `<div class="${leitura.ok ? 'pdf-pronto' : 'aviso-codigo'}">
+      <strong>${leitura.ok ? 'A nuvem está respondendo.' : 'A nuvem NÃO está respondendo à leitura.'}</strong>
+      ${leitura.ok ? '' : '<br>' + escapeHtml(explicarErroDaNuvem({status:leitura.status}))}
+    </div>
+    <div class="table-wrap" style="margin-top:10px"><table><thead><tr>
+      <th>Teste</th><th>Resposta</th><th>Detalhe</th></tr></thead><tbody>
+      ${linhas.map(l=>`<tr><td>${escapeHtml(l.rotulo)}</td>
+        <td><strong>${l.status || 'sem resposta'}</strong></td>
+        <td class="text-muted" style="font-size:11px">${escapeHtml(l.corpo || '-')}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="text-muted" style="font-size:12px;margin-top:8px">
+      Projeto: <code>${escapeHtml(SUPABASE_URL.replace('https://','').split('.')[0])}</code> ·
+      tabela <code>${escapeHtml(SUPABASE_TABLE)}</code></p>`;
+}
+
 function pareceBancoDaLoja(v){
   return v && typeof v === 'object' &&
     (Array.isArray(v.products) || Array.isArray(v.sales) || Array.isArray(v.customers));
@@ -1234,63 +1300,98 @@ function acharBancosNaLinha(linha){
   return achados;
 }
 
+/* O endereço raiz do PostgREST lista as tabelas, mas a chave pública nem
+   sempre tem permissão para ele — a loja recebeu 401 ali. Então tentamos,
+   e se não der, procuramos pelos nomes de tabela mais prováveis. A leitura
+   das tabelas em si funciona: é assim que o sistema sincroniza. */
+const TABELAS_PROVAVEIS = [
+  'loja_roupas_db', 'lumina_db', 'loja_db', 'sistema_db', 'estilo_db',
+  'db', 'dados', 'banco', 'backup', 'backups', 'loja', 'store', 'sistema',
+  'app_data', 'estado', 'snapshot', 'snapshots', 'historico'
+];
+
 async function listarTabelasDoProjeto(){
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
-  });
-  if(!res.ok) throw new Error('Não foi possível listar as tabelas (' + res.status + ')');
-  const spec = await res.json();
-  const defs = spec.definitions || (spec.components && spec.components.schemas) || {};
-  return Object.keys(defs).filter(n=>!n.startsWith('('));
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
+                Accept:'application/openapi+json' }
+    });
+    if(res.ok){
+      const spec = await res.json();
+      const defs = spec.definitions || (spec.components && spec.components.schemas) || {};
+      const nomes = Object.keys(defs).filter(n=>!n.startsWith('('));
+      if(nomes.length) return { nomes, completa:true };
+    }
+  }catch(e){ /* segue para a tentativa por nomes */ }
+  return { nomes: TABELAS_PROVAVEIS, completa:false };
 }
 
 let achadosDaNuvem = [];
 
-async function procurarNaNuvem(){
+async function procurarNaNuvem(tabelaExtra){
   const saida = document.getElementById('resultadoBusca');
   if(!saida) return;
   saida.innerHTML = '<p class="text-muted">Procurando no Supabase...</p>';
   achadosDaNuvem = [];
-  try{
-    const tabelas = await listarTabelasDoProjeto();
-    saida.innerHTML = `<p class="text-muted">Achei ${tabelas.length} tabela(s). Lendo...</p>`;
-    for(const tabela of tabelas){
-      let linhas = [];
-      try{
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&limit=50`, {
-          headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
-        });
-        if(!res.ok) continue;
-        linhas = await res.json();
-      }catch(e){ continue; }
-      (linhas||[]).forEach((linha, i)=>{
-        acharBancosNaLinha(linha).forEach(({onde, banco})=>{
-          achadosDaNuvem.push({
-            tabela, onde,
-            id: linha.id != null ? String(linha.id) : ('linha ' + (i+1)),
-            quando: linha.updated_at || linha.created_at || null,
-            produtos: (banco.products||[]).length,
-            vendas: (banco.sales||[]).length,
-            clientes: (banco.customers||[]).length,
-            banco
-          });
+  const problemas = [];
+  let algumaLeituraDeu = false;
+
+  const { nomes: base, completa } = await listarTabelasDoProjeto();
+  const extra = (tabelaExtra||'').trim();
+  const nomes = extra ? [extra, ...base.filter(n=>n!==extra)] : base;
+  saida.innerHTML = `<p class="text-muted">Lendo ${nomes.length} tabela(s)...</p>`;
+
+  for(const tabela of nomes){
+    let linhas = null;
+    try{
+      /* Sem filtro de id: a linha principal foi gravada por cima, mas pode
+         haver outras linhas guardadas ao lado dela. */
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*&limit=100`, {
+        headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+      });
+      if(res.status === 404 || res.status === 400) continue;   // tabela não existe
+      if(!res.ok){ problemas.push(tabela + ' (' + res.status + ')'); continue; }
+      linhas = await res.json();
+      algumaLeituraDeu = true;
+    }catch(e){ problemas.push(tabela + ' (sem resposta)'); continue; }
+
+    (linhas||[]).forEach((linha, i)=>{
+      acharBancosNaLinha(linha).forEach(({onde, banco})=>{
+        achadosDaNuvem.push({
+          tabela, onde,
+          id: linha.id != null ? String(linha.id) : ('linha ' + (i+1)),
+          quando: linha.updated_at || linha.created_at || null,
+          produtos: (banco.products||[]).length,
+          vendas: (banco.sales||[]).length,
+          clientes: (banco.customers||[]).length,
+          banco
         });
       });
-    }
-    achadosDaNuvem.sort((a,b)=> (b.produtos + b.vendas) - (a.produtos + a.vendas));
-    mostrarAchadosDaNuvem();
-  }catch(err){
-    saida.innerHTML = `<div class="aviso-codigo">Não foi possível procurar: ${escapeHtml(err.message)}.
-      Confira a internet e tente de novo.</div>`;
+    });
   }
+
+  achadosDaNuvem.sort((a,b)=> (b.produtos + b.vendas) - (a.produtos + a.vendas));
+  mostrarAchadosDaNuvem({ completa, problemas, algumaLeituraDeu });
 }
 
-function mostrarAchadosDaNuvem(){
+function mostrarAchadosDaNuvem(info){
   const saida = document.getElementById('resultadoBusca');
   if(!saida) return;
+  const { completa, problemas, algumaLeituraDeu } = info || {};
+
+  const rodape = `
+    ${!completa ? `<p class="text-muted" style="font-size:12px;margin-top:10px">
+      A chave pública não deixa listar as tabelas do projeto, então procurei pelos nomes mais
+      comuns. Se você souber o nome da tabela antiga, me diga que eu incluo na busca.</p>` : ''}
+    ${problemas && problemas.length ? `<p class="text-muted" style="font-size:12px;margin-top:6px">
+      Sem permissão de leitura em: ${escapeHtml(problemas.join(', '))}.</p>` : ''}`;
+
   if(!achadosDaNuvem.length){
-    saida.innerHTML = `<div class="empty-state">Não encontrei nenhum banco da loja no Supabase
-      além do que já está aqui.</div>`;
+    saida.innerHTML = `<div class="empty-state">
+      ${algumaLeituraDeu
+        ? 'Li o que a chave alcança e não encontrei outro banco da loja além do que já está aqui.'
+        : 'Não consegui ler nenhuma tabela. Confira a chave do Supabase em uso.'}
+    </div>` + rodape;
     return;
   }
   saida.innerHTML = `<div class="table-wrap"><table><thead><tr>
@@ -1307,7 +1408,7 @@ function mostrarAchadosDaNuvem(){
     </tr>`).join('')}
   </tbody></table></div>
   <p class="text-muted" style="font-size:12px;margin-top:10px">
-    O que está no sistema agora vira cópia de segurança antes de qualquer troca.</p>`;
+    O que está no sistema agora vira cópia de segurança antes de qualquer troca.</p>` + rodape;
 }
 
 function restaurarDaNuvem(indice){
@@ -3158,6 +3259,12 @@ function renderConfig(el){
         inclusive de sistemas antigos. Mostra quantos produtos e vendas tem cada um, e você
         escolhe qual trazer de volta. Nada é alterado até você clicar em "Usar este".</p>
       <button class="btn btn-accent" onclick="procurarNaNuvem()">Procurar agora</button>
+      <button class="btn" onclick="testarNuvem()">Testar conexão com a nuvem</button>
+      <div id="diagnosticoNuvem" style="margin-top:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+        <input id="tabelaExtra" placeholder="Nome de outra tabela (se souber)" style="flex:1;min-width:180px">
+        <button class="btn btn-sm" onclick="procurarNaNuvem(document.getElementById('tabelaExtra').value)">Procurar nela</button>
+      </div>
       <div id="resultadoBusca" style="margin-top:14px"></div>
     </div>
 
