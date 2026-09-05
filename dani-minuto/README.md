@@ -101,6 +101,25 @@ Tudo fica num único JSON: `{ settings, orders, anamneses, removidos }`.
 - Pagamento é PIX manual, conferido pela consultora. Não há gateway integrado.
 - Sem upload de fotos: peça as fotos da pele pelo WhatsApp.
 
+## Publicando na Vercel
+
+O repositório tem dois projetos independentes: a raiz é o sistema da Estilo & Cia, e o site da Dani está
+nesta pasta. Por isso o deploy precisa apontar para cá — senão o domínio mostra o login da loja de roupas.
+
+Na Vercel:
+
+1. **Add New → Project** e importe `marquesfabricio119-cell/Projeto-1`.
+2. Em **Project Name**, dê o nome desejado (ele vira o endereço `<nome>.vercel.app`).
+3. Em **Root Directory**, clique em *Edit* e escolha **`dani-minuto`**. É este passo que faz a diferença.
+4. Framework Preset: **Other**. Build Command e Install Command ficam vazios — é HTML estático.
+5. **Deploy**.
+
+O `vercel.json` desta pasta já cuida do resto: URLs sem `.html`, cache longo para fontes e imagens,
+cache curto para o CSS e o JS (para correção entrar na hora) e `noindex` nas páginas internas
+(`/admin`, `/area`, `/anamnese`, `/checkout`), que não devem aparecer no Google.
+
+Depois do primeiro deploy, cada push no branch publica sozinho.
+
 ## Rodando localmente
 
 ```bash
