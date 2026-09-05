@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300" role="img" aria-label="Sky — O céu">
+  <rect width="400" height="300" rx="24" fill="#fdfaf3"/>
+  <circle cx="330" cy="58" r="86" fill="#7ec8d3" opacity="0.28"/>
+  <circle cx="58" cy="252" r="60" fill="#7ec8d3" opacity="0.20"/>
+  <rect x="26" y="26" width="348" height="248" rx="20" fill="none" stroke="#7ec8d3" stroke-width="3" stroke-dasharray="10 8" opacity="0.55"/>
+  <text x="200" y="130" text-anchor="middle" font-family="Poppins, Segoe UI, Arial, sans-serif" font-size="42" font-weight="700" fill="#2b2016">Sky</text>
+  <line x1="140" y1="152" x2="260" y2="152" stroke="#7ec8d3" stroke-width="5" stroke-linecap="round"/>
+  <text x="200" y="192" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" fill="#6b5a48">O céu</text>
+  <text x="200" y="244" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" fill="#9c8b78">Lá fora · mapa 09</text>
+</svg>
