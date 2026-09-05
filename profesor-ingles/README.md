@@ -72,12 +72,35 @@ el valor nuevo.
 > `VITE_` se incluye en el archivo que descarga el navegador y quedaría a la vista de
 > cualquiera.
 
-### Desplegar en Vercel
+### Desplegar en Vercel, paso a paso
 
-Este repositorio tiene más de un proyecto, así que en Vercel hay que apuntar a la
-carpeta correcta: **Settings → General → Root Directory → `profesor-ingles`**.
-El resto (build con Vite, la carpeta `dist`, la función de `api/`) ya viene resuelto
-en `vercel.json`.
+El proyecto se llama **profesor-con-ia** y queda en
+`https://profesor-con-ia.vercel.app`.
+
+1. Entra a <https://vercel.com/new> y elige el repositorio **Projeto-1**.
+2. **Project Name**: escribe `profesor-con-ia`.
+3. **Root Directory**: toca *Edit* y elige la carpeta **`profesor-ingles`**.
+   Este repositorio tiene más de un proyecto; si no cambias esto, Vercel intenta
+   desplegar la tienda que vive en la raíz.
+   El resto (framework Vite, la carpeta `dist`, la función de `api/`) ya viene
+   resuelto en `vercel.json`; no hay que tocar nada más ahí.
+4. **Environment Variables**: agrega `ANTHROPIC_API_KEY` con tu llave.
+   Sin esta variable la app se despliega igual, pero el chat contesta con el
+   aviso de error: el profesor no puede hablar sin llave.
+5. **Deploy**.
+
+**Ojo con la rama.** Vercel publica la rama de producción, que por defecto es
+`main`, y la app vive en la rama `claude/ai-english-tutor-app-upvi51`. Elige una:
+
+- **Unir la rama a `main`** (lo normal cuando ya la revisaste): a partir de ahí
+  cada `git push` a `main` vuelve a desplegar solo.
+- **O apuntar Vercel a la rama**: *Settings → Git → Production Branch* →
+  `claude/ai-english-tutor-app-upvi51` → *Save* → *Deployments → Redeploy*.
+
+Si el despliegue termina pero el chat falla, revisa en **Deployments → la función
+`api/chat`** que la variable `ANTHROPIC_API_KEY` esté en el entorno *Production*.
+Después de agregar o cambiar una variable hay que **redesplegar** para que la
+función la tome.
 
 ---
 
