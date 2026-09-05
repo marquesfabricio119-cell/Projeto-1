@@ -74,11 +74,11 @@ el valor nuevo.
 
 ### Desplegar en Vercel, paso a paso
 
-El proyecto se llama **profesor-con-ia** y queda en
-`https://profesor-con-ia.vercel.app`.
+El proyecto se llama **profesor-personal** y queda en
+`https://profesor-personal.vercel.app`.
 
 1. Entra a <https://vercel.com/new> y elige el repositorio **Projeto-1**.
-2. **Project Name**: escribe `profesor-con-ia`.
+2. **Project Name**: escribe `profesor-personal`.
 3. **Root Directory**: toca *Edit* y elige la carpeta **`profesor-ingles`**.
    Este repositorio tiene más de un proyecto; si no cambias esto, Vercel intenta
    desplegar la tienda que vive en la raíz.
