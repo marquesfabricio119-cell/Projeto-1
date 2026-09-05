@@ -89,13 +89,19 @@ El proyecto se llama **profesor-con-ia** y queda en
    aviso de error: el profesor no puede hablar sin llave.
 5. **Deploy**.
 
-**Ojo con la rama.** Vercel publica la rama de producción, que por defecto es
-`main`, y la app vive en la rama `claude/ai-english-tutor-app-upvi51`. Elige una:
+**Ojo con la rama: esto es lo que hay que hacer.** Vercel publica la rama de
+producción, que por defecto es `main`, y la app todavía no está en `main`: vive en
+`claude/ai-english-tutor-app-upvi51`. Por eso **el primer despliegue va a fallar**
+con un error de carpeta raíz que no existe. Es lo esperado, no está roto:
 
-- **Unir la rama a `main`** (lo normal cuando ya la revisaste): a partir de ahí
-  cada `git push` a `main` vuelve a desplegar solo.
-- **O apuntar Vercel a la rama**: *Settings → Git → Production Branch* →
-  `claude/ai-english-tutor-app-upvi51` → *Save* → *Deployments → Redeploy*.
+1. *Settings → Git → Production Branch* → escribe `claude/ai-english-tutor-app-upvi51`
+   → *Save*.
+2. *Deployments* → en el despliegue fallido, menú `⋯` → *Redeploy*.
+
+Ese segundo intento sí encuentra la carpeta y publica. De ahí en adelante, cada push
+a esa rama vuelve a desplegar solo.
+
+El día que unas la rama a `main`, regresa la Production Branch a `main` y listo.
 
 Si el despliegue termina pero el chat falla, revisa en **Deployments → la función
 `api/chat`** que la variable `ANTHROPIC_API_KEY` esté en el entorno *Production*.
