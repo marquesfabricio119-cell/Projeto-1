@@ -16,11 +16,10 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
   Financeiro, Gastos Mensais, Abrir Loja, Relatórios, Configurações)
 - `loja/index.html` — loja virtual (arquivo único, lê o mesmo Supabase)
 - `marca/` — `logo.svg`, `simbolo.svg`, `identidade.html` (manual da marca)
-- `skincare/` — **site da consultoria de skin care**: página de vendas, checkout com código de acesso,
-  área da cliente, quiz da anamnese e painel da consultora. Projeto independente do sistema da loja —
-  veja `skincare/README.md`.
-- `skincare/social/` — kit de Instagram da consultoria: 15 artes prontas (PNG), legendas, prompt da
-  logo, bio e identidade visual.
+- `dani-minuto/` — **site da consultoria de skin care da Dani Minuto**: página de vendas, checkout com
+  código de acesso, área da cliente, quiz da anamnese e painel da Dani. Projeto independente do sistema
+  da loja, com identidade visual própria (Manual "Vulcão") — veja `dani-minuto/README.md`.
+- `dani-minuto/social/` — kit de Instagram: 18 artes prontas (PNG), legendas e o material de marca.
 
 ## Funcionalidades
 

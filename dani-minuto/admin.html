@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel da Dani</title>
+<link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="site-header" id="siteHeader"></header>
+
+<main class="secao" style="padding-top:26px">
+  <div class="wrap" id="conteudo"></div>
+</main>
+
+<footer class="site-footer" id="siteFooter"></footer>
+
+<script src="app.js?v=1"></script>
+<script src="quiz.js?v=1"></script>
+<script>
+let aba = 'pedidos';
+
+/* ---------------- login ---------------- */
+function telaLogin(erro){
+  $('#conteudo').innerHTML = `
+    <div class="wrap-sm">
+      <div class="secao-head" style="margin-bottom:24px">
+        <h2>Painel da Dani</h2>
+        <p>Acesso restrito.</p>
+      </div>
+      <div class="painel">
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <input id="senha" type="password" autocomplete="current-password">
+        </div>
+        <div class="erro-msg" id="erro">${erro ? esc(erro) : ''}</div>
+        <button class="btn btn-primary btn-block" id="btnEntrar">Entrar</button>
+      </div>
+    </div>`;
+  const entrar = () => {
+    if($('#senha').value === DB.settings.adminPass){
+      sessionStorage.setItem(ADMIN_KEY, '1');
+      telaPainel();
+    }else{
+      $('#erro').textContent = 'Senha incorreta.';
+    }
+  };
+  $('#btnEntrar').addEventListener('click', entrar);
+  $('#senha').addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); });
+}
+
+/* ---------------- painel ---------------- */
+function kpis(){
+  const pagos = DB.orders.filter(o => o.status === 'pago' || o.status === 'concluido');
+  const receita = pagos.reduce((a, o) => a + (Number(o.preco) || 0), 0);
+  const semAnamnese = DB.orders.filter(o => o.status !== 'cancelado' && !anamnesePorPedido(o.id)).length;
+  const aConferir = DB.orders.filter(o => o.status === 'pendente').length;
+  return `
+    <div class="kpis">
+      <div class="kpi"><span>Pedidos</span><strong>${DB.orders.length}</strong></div>
+      <div class="kpi"><span>Aguardando pagamento</span><strong>${aConferir}</strong></div>
+      <div class="kpi"><span>Anamneses recebidas</span><strong>${DB.anamneses.length}</strong></div>
+      <div class="kpi"><span>Falta responder</span><strong>${semAnamnese}</strong></div>
+      <div class="kpi"><span>Receita confirmada</span><strong>${money(receita)}</strong></div>
+    </div>`;
+}
+
+function tabelaPedidos(){
+  if(!DB.orders.length) return `<div class="vazio"><span class="ico"><svg viewBox="0 0 96 64" width="86" height="57" fill="none" stroke="currentColor" stroke-width="1.6" style="margin:0 auto;opacity:.5"><circle cx="36" cy="32" r="26"/><circle cx="60" cy="32" r="26"/></svg></span>Nenhum pedido ainda.</div>`;
+  const linhas = [...DB.orders].reverse().map(o => {
+    const a = anamnesePorPedido(o.id);
+    return `<tr>
+      <td><strong>${esc(o.codigo)}</strong><br><span class="tiny">${fmtDateShort(o.criadoEm)}</span></td>
+      <td>${esc(o.nome)}<br><span class="tiny">${esc(o.email)} · ${esc(o.fone)}</span></td>
+      <td>${esc(o.planoNome)}<br><span class="tiny">${money(o.preco)}</span></td>
+      <td><span class="selo selo-${esc(o.status)}">${esc(statusLabel(o.status))}</span></td>
+      <td>${a ? `<button class="btn btn-ghost btn-sm" data-ver="${esc(a.id)}">Ver anamnese</button>` : '<span class="tiny">Não respondeu</span>'}</td>
+      <td><div class="acoes-linha">
+        ${o.status === 'pendente' ? `<button class="btn btn-brasa btn-sm" data-status="pago" data-id="${esc(o.id)}">Confirmar pago</button>` : ''}
+        ${o.status === 'pago' ? `<button class="btn btn-brasa btn-sm" data-status="concluido" data-id="${esc(o.id)}">Marcar entregue</button>` : ''}
+        <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener"
+           href="https://wa.me/55${esc(onlyDigits(o.fone).replace(/^55/, ''))}?text=${encodeURIComponent('Oi, ' + String(o.nome).split(' ')[0] + '! Aqui é a ' + DB.settings.consultora + '.')}">WhatsApp</a>
+        ${o.status !== 'cancelado' ? `<button class="btn btn-ghost btn-sm" data-status="cancelado" data-id="${esc(o.id)}">Cancelar</button>` : ''}
+        <button class="btn btn-perigo btn-sm" data-excluir-pedido="${esc(o.id)}">Excluir</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  return `<div class="tabela-wrap"><table>
+    <thead><tr><th>Código</th><th>Cliente</th><th>Plano</th><th>Status</th><th>Anamnese</th><th>Ações</th></tr></thead>
+    <tbody>${linhas}</tbody></table></div>`;
+}
+
+function tabelaAnamneses(){
+  if(!DB.anamneses.length) return `<div class="vazio"><span class="ico"><svg viewBox="0 0 96 64" width="86" height="57" fill="none" stroke="currentColor" stroke-width="1.6" style="margin:0 auto;opacity:.5"><circle cx="36" cy="32" r="26"/><circle cx="60" cy="32" r="26"/></svg></span>Nenhuma anamnese recebida ainda.</div>`;
+  const linhas = [...DB.anamneses].reverse().map(a => {
+    const r = a.resultado || {};
+    const alertas = (r.alertas || []).length;
+    return `<tr>
+      <td><strong>${esc(a.nome)}</strong><br><span class="tiny">${esc(a.codigo)} · ${fmtDateShort(a.criadoEm)}</span></td>
+      <td>${esc(r.tipoPele || '—')}</td>
+      <td>${esc(r.sensibilidade || '—')}</td>
+      <td>${esc(r.barreira || '—')}</td>
+      <td>${alertas ? `<span class="selo selo-cancelado">${alertas} alerta${alertas > 1 ? 's' : ''}</span>` : '<span class="tiny">—</span>'}</td>
+      <td><div class="acoes-linha">
+        <button class="btn btn-ghost btn-sm" data-ver="${esc(a.id)}">Abrir</button>
+        <button class="btn btn-perigo btn-sm" data-excluir-anamnese="${esc(a.id)}">Excluir</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  return `<div class="tabela-wrap"><table>
+    <thead><tr><th>Cliente</th><th>Tipo de pele</th><th>Sensibilidade</th><th>Barreira</th><th>Segurança</th><th></th></tr></thead>
+    <tbody>${linhas}</tbody></table></div>`;
+}
+
+function telaConfig(){
+  const s = DB.settings;
+  return `
+    <div class="painel" style="margin-bottom:18px">
+      <h3 style="font-size:20px;margin-bottom:4px">Dados do site</h3>
+      <p class="tiny" style="margin-bottom:18px">Isso aparece para as clientes no site inteiro.</p>
+      <div class="linha-2">
+        <div class="campo"><label for="cfMarca">Nome da marca</label><input id="cfMarca" value="${esc(s.marca)}"></div>
+        <div class="campo"><label for="cfConsultora">Seu nome</label><input id="cfConsultora" value="${esc(s.consultora)}"></div>
+      </div>
+      <div class="campo"><label for="cfAssinatura">Assinatura da marca</label><input id="cfAssinatura" value="${esc(s.assinatura || '')}" placeholder="A ponte entre os mundos"></div>
+      <div class="campo"><label for="cfHeadline">Título da página inicial</label><textarea id="cfHeadline">${esc(s.headline)}</textarea></div>
+      <div class="campo"><label for="cfSub">Subtítulo</label><textarea id="cfSub">${esc(s.sub)}</textarea></div>
+      <div class="linha-2">
+        <div class="campo"><label for="cfWhats">WhatsApp (só números, com 55)</label><input id="cfWhats" value="${esc(s.whatsapp)}" placeholder="5511999999999"></div>
+        <div class="campo"><label for="cfInsta">Instagram</label><input id="cfInsta" value="${esc(s.instagram)}" placeholder="@seuperfil"></div>
+      </div>
+      <div class="linha-2">
+        <div class="campo"><label for="cfPix">Chave PIX</label><input id="cfPix" value="${esc(s.pix)}"></div>
+        <div class="campo"><label for="cfPixNome">Nome do titular do PIX</label><input id="cfPixNome" value="${esc(s.pixNome)}"></div>
+      </div>
+      <div class="linha-2">
+        <div class="campo"><label for="cfEmail">E-mail de contato</label><input id="cfEmail" value="${esc(s.email)}"></div>
+        <div class="campo"><label for="cfSenha">Senha do painel</label><input id="cfSenha" value="${esc(s.adminPass)}"></div>
+      </div>
+      <button class="btn btn-primary" id="btnSalvarCfg">Salvar dados</button>
+    </div>
+
+    <div class="painel" style="margin-bottom:18px">
+      <h3 style="font-size:20px;margin-bottom:4px">Planos</h3>
+      <p class="tiny" style="margin-bottom:18px">Um item por linha na lista do que está incluso.</p>
+      ${s.planos.map((p, i) => `
+        <div style="border:1px solid var(--linha);border-radius:var(--raio-sm);padding:18px;margin-bottom:14px">
+          <div class="linha-2">
+            <div class="campo"><label>Nome</label><input data-plano="${i}" data-campo="nome" value="${esc(p.nome)}"></div>
+            <div class="campo"><label>Preço (R$)</label><input type="number" step="1" data-plano="${i}" data-campo="preco" value="${esc(p.preco)}"></div>
+          </div>
+          <div class="campo"><label>Resumo</label><input data-plano="${i}" data-campo="resumo" value="${esc(p.resumo || '')}"></div>
+          <div class="campo"><label>O que está incluso</label><textarea data-plano="${i}" data-campo="itens" style="min-height:120px">${esc((p.itens || []).join('\n'))}</textarea></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <label class="opcao" style="margin:0;flex:1 1 240px">
+              <input type="checkbox" data-plano="${i}" data-campo="destaque" ${p.destaque ? 'checked' : ''}>
+              <span>Marcar como “mais escolhido”</span>
+            </label>
+            <button class="btn btn-perigo btn-sm" data-remover-plano="${i}">Remover plano</button>
+          </div>
+        </div>`).join('')}
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btnSalvarPlanos">Salvar planos</button>
+        <button class="btn btn-ghost" id="btnAddPlano">Adicionar plano</button>
+      </div>
+    </div>
+
+    <div class="painel">
+      <h3 style="font-size:20px;margin-bottom:4px">Backup</h3>
+      <p class="tiny" style="margin-bottom:16px">Baixe uma cópia de tudo (pedidos, anamneses e configurações).</p>
+      <button class="btn btn-ghost" id="btnBackup">Baixar backup em JSON</button>
+    </div>`;
+}
+
+function telaPainel(){
+  $('#conteudo').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+      <div>
+        <h2 style="font-size:clamp(26px,4vw,34px)">Painel</h2>
+        <p class="muted">Pedidos, anamneses e configurações da consultoria.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="selo selo-nuvem">${cloudOk ? 'Sincronizado ✓' : 'Offline — só neste aparelho'}</span>
+        <button class="btn btn-ghost btn-sm" id="btnAtualizar">Atualizar</button>
+        <button class="btn btn-ghost btn-sm" id="btnSair">Sair</button>
+      </div>
+    </div>
+
+    ${kpis()}
+
+    <div class="abas">
+      <button class="aba ${aba === 'pedidos' ? 'on' : ''}" data-aba="pedidos">Pedidos</button>
+      <button class="aba ${aba === 'anamneses' ? 'on' : ''}" data-aba="anamneses">Anamneses</button>
+      <button class="aba ${aba === 'config' ? 'on' : ''}" data-aba="config">Configurações</button>
+    </div>
+
+    <div id="abaConteudo">
+      ${aba === 'pedidos' ? tabelaPedidos() : aba === 'anamneses' ? tabelaAnamneses() : telaConfig()}
+    </div>`;
+
+  $$('.aba').forEach(b => b.addEventListener('click', () => { aba = b.dataset.aba; telaPainel(); }));
+  $('#btnSair').addEventListener('click', () => { sessionStorage.removeItem(ADMIN_KEY); telaLogin(); });
+  $('#btnAtualizar').addEventListener('click', async () => { await initDB(); telaPainel(); toast('Dados atualizados'); });
+
+  $$('[data-status]').forEach(b => b.addEventListener('click', () => mudarStatus(b.dataset.id, b.dataset.status)));
+  $$('[data-ver]').forEach(b => b.addEventListener('click', () => abrirAnamnese(b.dataset.ver)));
+  $$('[data-excluir-pedido]').forEach(b => b.addEventListener('click', () => apagarPedido(b.dataset.excluirPedido)));
+  $$('[data-excluir-anamnese]').forEach(b => b.addEventListener('click', () => apagarAnamnese(b.dataset.excluirAnamnese)));
+
+  if(aba === 'config'){
+    $('#btnSalvarCfg').addEventListener('click', salvarConfig);
+    $('#btnSalvarPlanos').addEventListener('click', salvarPlanos);
+    $('#btnAddPlano').addEventListener('click', adicionarPlano);
+    $('#btnBackup').addEventListener('click', baixarBackup);
+    $$('[data-remover-plano]').forEach(b =>
+      b.addEventListener('click', () => removerPlano(Number(b.dataset.removerPlano))));
+  }
+}
+
+/* ---------------- ações ---------------- */
+async function mudarStatus(id, status){
+  const rotulo = { pago:'confirmar o pagamento', concluido:'marcar como entregue', cancelado:'cancelar' }[status];
+  if(status === 'cancelado' && !confirm('Tem certeza que quer cancelar este pedido?')) return;
+  const ok = await salvarComMerge(db => {
+    const o = db.orders.find(x => x.id === id);
+    if(o){ o.status = status; if(status === 'pago') o.pagoEm = new Date().toISOString(); }
+  });
+  telaPainel();
+  toast(ok ? 'Pedido atualizado' : 'Salvo só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
+}
+
+async function apagarPedido(id){
+  const o = DB.orders.find(x => x.id === id);
+  if(!o) return;
+  const temAnamnese = !!anamnesePorPedido(o.id);
+  const aviso = `Excluir o pedido de ${o.nome} (${o.codigo})?` +
+    (temAnamnese ? '\n\nA anamnese dela será excluída junto.' : '') +
+    '\n\nIsso não tem volta e ela perde o acesso com esse código.';
+  if(!confirm(aviso)) return;
+  const ok = await salvarComMerge(db => excluirPedido(db, id));
+  telaPainel();
+  toast(ok ? 'Pedido excluído' : 'Excluído só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
+}
+
+async function apagarAnamnese(id){
+  const a = DB.anamneses.find(x => x.id === id);
+  if(!a) return;
+  if(!confirm(`Excluir a anamnese de ${a.nome} (${a.codigo})?\n\n` +
+              'O pedido continua ativo e ela poderá responder de novo pela área dela.')) return;
+  const ok = await salvarComMerge(db => excluirAnamnese(db, id));
+  telaPainel();
+  toast(ok ? 'Anamnese excluída' : 'Excluída só neste aparelho — sem conexão', ok ? 'ok' : 'erro');
+}
+
+function abrirAnamnese(id){
+  const a = DB.anamneses.find(x => x.id === id);
+  if(!a) return;
+  const r = a.resultado || {};
+
+  const grupos = QUIZ_ETAPAS.map(e => {
+    const linhas = perguntasVisiveis(e, a.respostas || {})
+      .filter(p => { const v = (a.respostas || {})[p.id]; return !(v === undefined || v === '' || (Array.isArray(v) && !v.length)); })
+      .map(p => `<div class="resposta"><dt>${esc(p.label)}</dt><dd>${esc(respostaLegivel(p.id, a.respostas[p.id]))}</dd></div>`).join('');
+    return linhas ? `<div class="resposta-grupo"><h4>${esc(e.titulo)}</h4><dl>${linhas}</dl></div>` : '';
+  }).join('');
+
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h3>${esc(a.nome)}</h3>
+          <p class="tiny">${esc(a.codigo)} · ${esc(a.planoNome || '')} · enviada em ${fmtDate(a.criadoEm)}<br>
+          ${esc(a.email)} · ${esc(a.fone)}</p>
+        </div>
+        <button class="fechar" id="fecharModal" aria-label="Fechar">×</button>
+      </div>
+
+      <div class="perfil">
+        <div class="perfil-item"><span>Tipo de pele</span><strong>${esc(r.tipoPele || '—')}</strong></div>
+        <div class="perfil-item"><span>Sensibilidade</span><strong>${esc(r.sensibilidade || '—')}</strong></div>
+        <div class="perfil-item"><span>Barreira</span><strong>${esc(r.barreira || '—')}</strong></div>
+        <div class="perfil-item"><span>Fotoproteção</span><strong>${esc(r.fotoprotecao || '—')}</strong></div>
+        <div class="perfil-item"><span>Rotina</span><strong>${esc(r.rotina || '—')}</strong></div>
+      </div>
+
+      ${(r.alertas || []).length ? `
+        <div class="aviso" style="margin-bottom:18px">
+          <strong>Atenção antes de prescrever</strong>
+          <ul class="lista-check" style="color:inherit">${r.alertas.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        </div>` : ''}
+
+      <div class="resposta-grupo">
+        <h4>Prioridades sugeridas</h4>
+        <ul class="lista-check">${(r.prioridades || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      </div>
+
+      <div class="rotina-2" style="margin-bottom:22px">
+        <div class="bloco"><h4>☀️ Manhã</h4><ul class="lista-check">${(r.sugestao?.manha || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+        <div class="bloco"><h4>🌙 Noite</h4><ul class="lista-check">${(r.sugestao?.noite || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+      </div>
+
+      ${grupos}
+
+      <div class="campo">
+        <label for="notas">Minhas anotações</label>
+        <textarea id="notas" placeholder="Observações do atendimento, protocolo definido, próximos passos...">${esc(a.notas || '')}</textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="salvarNotas">Salvar anotações</button>
+        <button class="btn btn-ghost" onclick="window.print()">Imprimir</button>
+        <button class="btn btn-perigo" id="excluirDoModal">Excluir anamnese</button>
+        <a class="btn btn-ghost" target="_blank" rel="noopener"
+           href="https://wa.me/55${esc(onlyDigits(a.fone).replace(/^55/, ''))}?text=${encodeURIComponent('Oi, ' + String(a.nome).split(' ')[0] + '! Terminei de analisar a sua anamnese.')}">Falar com ela</a>
+      </div>
+    </div>`;
+
+  document.body.appendChild(back);
+  const fechar = () => back.remove();
+  $('#fecharModal', back).addEventListener('click', fechar);
+  back.addEventListener('click', e => { if(e.target === back) fechar(); });
+  $('#excluirDoModal', back).addEventListener('click', async () => { fechar(); await apagarAnamnese(id); });
+  $('#salvarNotas', back).addEventListener('click', async () => {
+    const txt = $('#notas', back).value;
+    const ok = await salvarComMerge(db => {
+      const alvo = db.anamneses.find(x => x.id === id);
+      if(alvo) alvo.notas = txt;
+    });
+    toast(ok ? 'Anotações salvas' : 'Salvo só neste aparelho', ok ? 'ok' : 'erro');
+    fechar();
+  });
+}
+
+async function salvarConfig(){
+  const ok = await salvarComMerge(db => {
+    Object.assign(db.settings, {
+      marca:      $('#cfMarca').value.trim(),
+      consultora: $('#cfConsultora').value.trim(),
+      assinatura: $('#cfAssinatura').value.trim(),
+      headline:   $('#cfHeadline').value.trim(),
+      sub:        $('#cfSub').value.trim(),
+      whatsapp:   onlyDigits($('#cfWhats').value),
+      instagram:  $('#cfInsta').value.trim(),
+      pix:        $('#cfPix').value.trim(),
+      pixNome:    $('#cfPixNome').value.trim(),
+      email:      $('#cfEmail').value.trim(),
+      adminPass:  $('#cfSenha').value || db.settings.adminPass
+    });
+  });
+  montarHeader(); montarFooter(); telaPainel();
+  toast(ok ? 'Configurações salvas' : 'Salvo só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+async function salvarPlanos(){
+  const novos = planosDaTela();
+  const ok = await salvarComMerge(db => { db.settings.planos = novos; });
+  telaPainel();
+  toast(ok ? 'Planos salvos' : 'Salvo só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+/* Lê o que está na tela agora, para não perder edições não salvas ao mexer na lista. */
+function planosDaTela(){
+  const novos = DB.settings.planos.map(p => ({ ...p }));
+  $$('[data-plano]').forEach(el => {
+    const i = Number(el.dataset.plano), campo = el.dataset.campo;
+    if(!novos[i]) return;
+    if(campo === 'preco')          novos[i].preco = Number(el.value) || 0;
+    else if(campo === 'itens')     novos[i].itens = el.value.split('\n').map(s => s.trim()).filter(Boolean);
+    else if(campo === 'destaque')  novos[i].destaque = el.checked;
+    else                           novos[i][campo] = el.value.trim();
+  });
+  return novos;
+}
+
+async function removerPlano(indice){
+  const plano = DB.settings.planos[indice];
+  if(!plano) return;
+  if(DB.settings.planos.length === 1){
+    toast('Você precisa de pelo menos um plano no site.', 'erro');
+    return;
+  }
+  const vendidos = DB.orders.filter(o => o.planoId === plano.id).length;
+  if(!confirm(`Remover o plano ${plano.nome} do site?` +
+    (vendidos ? `\n\n${vendidos} pedido(s) já foram feitos nele. Os pedidos continuam na lista, o plano é que deixa de aparecer para novas clientes.` : ''))) return;
+  const novos = planosDaTela();
+  novos.splice(indice, 1);
+  const ok = await salvarComMerge(db => { db.settings.planos = novos; });
+  telaPainel();
+  toast(ok ? 'Plano removido' : 'Removido só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+async function adicionarPlano(){
+  const novos = planosDaTela();
+  novos.push({
+    id: 'plano-' + uid(),
+    nome: 'Novo plano',
+    preco: 0,
+    resumo: '',
+    itens: ['Descreva aqui o que está incluso']
+  });
+  const ok = await salvarComMerge(db => { db.settings.planos = novos; });
+  telaPainel();
+  toast(ok ? 'Plano adicionado — agora é só editar' : 'Adicionado só neste aparelho', ok ? 'ok' : 'erro');
+}
+
+function baixarBackup(){
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `skincare-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------------- boot ---------------- */
+(async function(){
+  await initDB();
+  montarHeader();
+  montarFooter();
+  if(sessionStorage.getItem(ADMIN_KEY) === '1') telaPainel(); else telaLogin();
+})();
+</script>
+</body>
+</html>

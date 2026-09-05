@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" role="img" aria-label="Símbolo Dani Minuto">
+  <!-- Os dois mundos: carmim (ciência, sol) e ameixa (espiritualidade, lua).
+       A interseção que emerge é a ponte — o espaço da Dani. -->
+  <defs>
+    <clipPath id="soDireita"><circle cx="60" cy="32" r="26"/></clipPath>
+  </defs>
+  <circle cx="60" cy="32" r="26" fill="#F0EBF4"/>
+  <circle cx="36" cy="32" r="26" fill="#FDEAEC"/>
+  <g clip-path="url(#soDireita)"><circle cx="36" cy="32" r="26" fill="#F6E4E8"/></g>
+  <circle cx="36" cy="32" r="26" fill="none" stroke="#B83240" stroke-width="1.6"/>
+  <circle cx="60" cy="32" r="26" fill="none" stroke="#7A4E6A" stroke-width="1.6"/>
+</svg>

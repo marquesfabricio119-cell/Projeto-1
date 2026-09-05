@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Artes para Instagram — Dani Minuto</title>
+<link rel="stylesheet" href="fontes/fontes.css">
+<style>
+/* ===========================================================
+   Artes de Instagram — Dani Minuto · identidade Vulcão
+   Manual: essencialismo (muito respiro), fluidez (sem bordas
+   duras nem grades rígidas), dualidade (carmim e ameixa
+   coexistem como sol e lua).
+   O motivo gráfico é o próprio símbolo: dois círculos que se
+   sobrepõem, em escala grande e translúcida.
+   =========================================================== */
+:root{
+  --carmim:#B83240; --brasa:#D4782A; --ameixa:#7A4E6A;
+  --aurora:#F8EDE8; --obsidiana:#1A0F0F;
+  --lav-carmim:#FDEAEC; --lav-ameixa:#F0EBF4; --lav-brasa:#FDF0E6;
+  --areia:#E8D8D0; --tinta-2:#6B5654; --tinta-3:#9A8480;
+  --display:"Fraunces",Georgia,serif;
+  --sans:"Inter","Liberation Sans",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#6E5D59;padding:40px;display:flex;flex-wrap:wrap;gap:40px;font-family:var(--sans)}
+
+.art{
+  width:1080px;height:1350px;background:var(--aurora);color:var(--obsidiana);
+  position:relative;overflow:hidden;display:flex;flex-direction:column;
+  padding:104px 92px;flex:0 0 auto;
+}
+.art.story{height:1920px;padding:230px 92px}
+.art.sol{background:linear-gradient(160deg,var(--lav-carmim),var(--aurora) 62%)}
+.art.lua{background:linear-gradient(160deg,var(--lav-ameixa),var(--aurora) 62%)}
+.art.escura{background:var(--obsidiana);color:var(--aurora)}
+
+/* --- os dois mundos, em escala --- */
+.mundos{position:absolute;pointer-events:none;opacity:.42}
+.mundos circle{fill:none;stroke-width:2.4}
+.m-canto{width:900px;height:600px;right:-260px;top:-170px}
+.m-pe{width:760px;height:507px;left:-240px;bottom:-150px;opacity:.4}
+.m-centro{width:1180px;height:787px;left:50%;top:52%;transform:translate(-50%,-50%);opacity:.22}
+.escura .mundos{opacity:.3}
+
+/* --- topo: sem fio, só respiro (fluidez) --- */
+.topo{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:auto;position:relative}
+.marca{display:flex;align-items:center;gap:16px}
+.marca svg{width:66px;height:44px;flex:0 0 auto}
+.marca span{font-family:var(--display);font-weight:300;font-size:29px;letter-spacing:-.01em}
+.selo-ficha{font-size:16px;letter-spacing:.24em;text-transform:uppercase;color:var(--ameixa)}
+.escura .selo-ficha{color:#C9A7BC}
+
+.rodape{display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-top:auto;
+  font-size:20px;color:var(--tinta-2);position:relative}
+.escura .rodape{color:#B29C97}
+.rodape .acao{color:var(--carmim)}
+.escura .rodape .acao{color:var(--brasa)}
+
+/* --- tipografia: display sempre light --- */
+.miolo{display:flex;flex-direction:column;justify-content:center;flex:1;padding:60px 0;gap:34px;position:relative}
+.eyebrow{font-size:19px;letter-spacing:.22em;text-transform:uppercase;color:var(--ameixa)}
+.sol .eyebrow{color:var(--carmim)}
+.escura .eyebrow{color:var(--brasa)}
+h1{font-family:var(--display);font-weight:300;font-size:92px;line-height:1.04;
+  letter-spacing:-.022em;text-wrap:balance}
+h1.menor{font-size:74px}
+h1 em{font-style:italic;color:var(--carmim)}
+.escura h1 em{color:var(--brasa)}
+.lua h1 em{color:var(--ameixa)}
+h2{font-family:var(--display);font-weight:300;font-size:64px;line-height:1.08;letter-spacing:-.018em}
+.lead{font-size:32px;line-height:1.5;color:var(--tinta-2);max-width:25ch}
+.escura .lead{color:#C7B2AD}
+.citacao{font-family:var(--display);font-weight:300;font-style:italic;font-size:44px;
+  line-height:1.3;color:var(--ameixa);max-width:20ch}
+.escura .citacao{color:#D6B6C8}
+
+.numero{font-family:var(--display);font-weight:300;font-size:230px;line-height:.76;color:var(--carmim)}
+.lua .numero{color:var(--ameixa)}
+.escura .numero{color:var(--brasa)}
+
+/* --- listas: ponto, nunca caixa --- */
+.itens{display:flex;flex-direction:column;gap:34px}
+.item{display:flex;gap:26px;align-items:flex-start}
+.item .ponto{flex:0 0 13px;height:13px;border-radius:50%;background:var(--carmim);margin-top:14px}
+.lua .item .ponto{background:var(--ameixa)}
+.escura .item .ponto{background:var(--brasa)}
+.item .txt{font-size:32px;line-height:1.35}
+.item .txt small{display:block;font-size:25px;color:var(--tinta-2);margin-top:8px;line-height:1.4}
+.escura .item .txt small{color:#B29C97}
+
+.passos{display:flex;flex-direction:column;gap:38px}
+.passo{display:flex;gap:30px;align-items:flex-start}
+.passo b{font-family:var(--display);font-weight:300;font-size:56px;color:var(--carmim);line-height:.95;flex:0 0 70px}
+.escura .passo b{color:var(--brasa)}
+.passo div{font-size:32px;line-height:1.35}
+.passo div small{display:block;font-size:25px;color:var(--tinta-2);margin-top:7px}
+.escura .passo div small{color:#B29C97}
+
+/* --- "no lugar disso": lavagem, sem contorno --- */
+.troca{background:var(--lav-ameixa);border-radius:34px;padding:38px 40px}
+.escura .troca{background:rgba(248,237,232,.09)}
+.troca .rot{display:block;font-size:18px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ameixa);margin-bottom:16px}
+.escura .troca .rot{color:#C9A7BC}
+.troca p{font-size:30px;line-height:1.4}
+
+/* --- dualidade lado a lado --- */
+.dois{display:flex;gap:34px}
+.mundo{flex:1;border-radius:34px;padding:40px 36px}
+.mundo.solo{background:var(--lav-carmim)}
+.mundo.luar{background:var(--lav-ameixa)}
+.mundo .rot{display:block;font-size:18px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:18px}
+.mundo.solo .rot{color:var(--carmim)}
+.mundo.luar .rot{color:var(--ameixa)}
+.mundo p{font-size:28px;line-height:1.4;color:var(--tinta-2)}
+.mundo strong{display:block;font-family:var(--display);font-weight:300;font-size:40px;
+  color:var(--obsidiana);margin-bottom:12px}
+
+/* --- planos --- */
+.planos{display:flex;flex-direction:column;gap:36px}
+.plano{display:flex;justify-content:space-between;align-items:baseline;gap:24px}
+.plano .nome{font-family:var(--display);font-weight:300;font-size:48px}
+.plano .desc{font-size:25px;color:var(--tinta-2);margin-top:8px;max-width:30ch}
+.plano .preco{font-family:var(--display);font-weight:300;font-size:48px;color:var(--carmim);white-space:nowrap}
+
+.btn{display:inline-block;background:var(--brasa);color:var(--obsidiana);font-size:30px;
+  padding:28px 50px;border-radius:99px;align-self:flex-start;font-weight:500}
+.escura .btn{background:var(--brasa);color:var(--obsidiana)}
+
+.legal{font-size:19px;color:var(--tinta-3);line-height:1.45;max-width:40ch}
+.escura .legal{color:#8E7C78}
+</style>
+</head>
+<body>
+<script>
+const MUNDOS = (classe, c1, c2) =>
+  `<svg class="mundos ${classe}" viewBox="0 0 96 64" aria-hidden="true">
+     <circle cx="36" cy="32" r="26" stroke="${c1}"/><circle cx="60" cy="32" r="26" stroke="${c2}"/></svg>`;
+const LOGO = `<svg viewBox="0 0 96 64" aria-hidden="true">
+  <circle cx="60" cy="32" r="26" fill="#F0EBF4"/><circle cx="36" cy="32" r="26" fill="#FDEAEC"/>
+  <circle cx="36" cy="32" r="26" fill="none" stroke="#B83240" stroke-width="1.8"/>
+  <circle cx="60" cy="32" r="26" fill="none" stroke="#7A4E6A" stroke-width="1.8"/></svg>`;
+const LOGO_ESC = `<svg viewBox="0 0 96 64" aria-hidden="true">
+  <circle cx="36" cy="32" r="26" fill="none" stroke="#D4782A" stroke-width="1.8"/>
+  <circle cx="60" cy="32" r="26" fill="none" stroke="#C9A7BC" stroke-width="1.8"/></svg>`;
+
+const topo   = (selo, esc) => `<div class="topo"><div class="marca">${esc ? LOGO_ESC : LOGO}<span>Dani Minuto</span></div><span class="selo-ficha">${selo}</span></div>`;
+const rodape = (perfil, acao) => `<div class="rodape"><span>${perfil}</span>${acao ? `<span class="acao">${acao}</span>` : ''}</div>`;
+const item   = (t, s) => `<div class="item"><span class="ponto"></span><span class="txt">${t}${s ? `<small>${s}</small>` : ''}</span></div>`;
+const passo  = (n, t, s) => `<div class="passo"><b>${n}</b><div>${t}${s ? `<small>${s}</small>` : ''}</div></div>`;
+
+const ARTES = [
+
+/* ===== MANIFESTO — os dois mundos ===== */
+{ id:'p-manifesto', classe:'escura', html:`
+  ${MUNDOS('m-centro','#D4782A','#C9A7BC')}
+  ${topo('Manifesto', true)}
+  <div class="miolo">
+    <span class="eyebrow">A ponte entre os mundos</span>
+    <h1>A ciência que <em>sente</em>. A cura que <em>pensa</em>.</h1>
+    <p class="lead">Eu venho da ciência farmacêutica e não abro mão dela. Também não finjo que a sua pele é só química.</p>
+  </div>
+  ${rodape('@daniminuto', 'siga')}`},
+
+/* ===== CARROSSEL — 5 erros ===== */
+{ id:'c1-capa', classe:'escura', html:`
+  ${MUNDOS('m-canto','#D4782A','#C9A7BC')}
+  ${topo('Carrossel 01', true)}
+  <div class="miolo">
+    <span class="eyebrow">Cuidados com a pele</span>
+    <h1>5 erros que fazem a sua pele <em>piorar</em></h1>
+    <p class="lead">Todos eles são comuns. Três provavelmente estão na sua rotina agora.</p>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-erro1', classe:'sol', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Erro 01')}
+  <div class="miolo">
+    <span class="numero">01</span>
+    <h2>Lavar o rosto com sabonete de corpo</h2>
+    <p class="lead">O pH é outro. Ele remove a camada que protege a sua pele, e ela responde produzindo mais óleo — ou repuxando.</p>
+    <div class="troca"><span class="rot">No lugar disso</span><p>Sabonete facial adequado ao seu tipo de pele, uma a duas vezes por dia.</p></div>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-erro2', html:`
+  ${MUNDOS('m-pe','#B83240','#7A4E6A')}
+  ${topo('Erro 02')}
+  <div class="miolo">
+    <span class="numero">02</span>
+    <h2>Pular o hidratante porque a pele é oleosa</h2>
+    <p class="lead">Pele oleosa também fica desidratada. E pele desidratada costuma produzir ainda mais oleosidade.</p>
+    <div class="troca"><span class="rot">No lugar disso</span><p>Hidratante de textura leve, em gel ou sérum. Oleosidade e hidratação são coisas diferentes.</p></div>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-erro3', classe:'sol', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Erro 03')}
+  <div class="miolo">
+    <span class="numero">03</span>
+    <h2>Esfoliar todo dia para “limpar melhor”</h2>
+    <p class="lead">Esfoliação em excesso machuca a barreira da pele. O resultado costuma ser ardência, vermelhidão e mais sensibilidade.</p>
+    <div class="troca"><span class="rot">No lugar disso</span><p>Frequência definida para o seu caso — e nunca com a pele já irritada.</p></div>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-erro4', html:`
+  ${MUNDOS('m-pe','#B83240','#7A4E6A')}
+  ${topo('Erro 04')}
+  <div class="miolo">
+    <span class="numero">04</span>
+    <h2>Começar três ativos novos na mesma semana</h2>
+    <p class="lead">Se a pele reagir, você não vai saber qual deles foi. E vai descartar um produto que talvez fosse ótimo.</p>
+    <div class="troca"><span class="rot">No lugar disso</span><p>Um ativo por vez, com tempo para a pele responder antes do próximo.</p></div>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-erro5', classe:'sol', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Erro 05')}
+  <div class="miolo">
+    <span class="numero">05</span>
+    <h2>Usar protetor solar só quando vai pegar sol</h2>
+    <p class="lead">A luz do dia atravessa a janela. Sem fotoproteção diária, qualquer tratamento de mancha anda para trás.</p>
+    <div class="troca"><span class="rot">No lugar disso</span><p>Protetor todo dia, com reaplicação quando você fica exposta.</p></div>
+  </div>
+  ${rodape('@daniminuto', 'arrasta →')}`},
+
+{ id:'c1-fecho', classe:'escura', html:`
+  ${MUNDOS('m-canto','#D4782A','#C9A7BC')}
+  ${topo('Carrossel 01', true)}
+  <div class="miolo">
+    <h1 class="menor">Quantos desses estão na sua rotina hoje?</h1>
+    <p class="lead">Na consultoria eu começo exatamente por aqui: entender o que você já faz, antes de indicar qualquer produto.</p>
+    <span class="btn">Link na bio</span>
+  </div>
+  ${rodape('@daniminuto', 'salva para depois')}`},
+
+/* ===== POST — tipo de pele ===== */
+{ id:'p-tipo', classe:'sol', html:`
+  ${MUNDOS('m-pe','#B83240','#7A4E6A')}
+  ${topo('Ficha 02')}
+  <div class="miolo">
+    <span class="eyebrow">Responde sinceramente</span>
+    <h1 class="menor">Você sabe mesmo qual é o seu tipo de pele?</h1>
+    <div class="itens">
+      ${item('Repuxa logo depois de lavar','Sinal de pele seca ou desidratada')}
+      ${item('Brilha só na testa, nariz e queixo','Sinal de pele mista')}
+      ${item('Volta a brilhar inteira em duas horas','Sinal de pele oleosa')}
+      ${item('Arde ou avermelha com produto novo','Isso não é tipo de pele — é sensibilidade, e muda todo o protocolo')}
+    </div>
+  </div>
+  ${rodape('@daniminuto', 'comenta a sua')}`},
+
+/* ===== POST — anamnese ===== */
+{ id:'p-anamnese', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Ficha 03')}
+  <div class="miolo">
+    <span class="eyebrow">Antes de qualquer produto</span>
+    <h1 class="menor">O que é uma <em>anamnese</em> de pele?</h1>
+    <p class="lead">É a entrevista que mapeia a sua pele antes de montar a rotina. Na minha consultoria ela pergunta:</p>
+    <div class="itens">
+      ${item('Como sua pele se comporta ao longo do dia')}
+      ${item('O que você já usa e como reagiu')}
+      ${item('Gestação, ciclo, medicamentos e diagnósticos')}
+      ${item('Quanto tempo e quanto dinheiro cabem na sua rotina')}
+    </div>
+  </div>
+  ${rodape('@daniminuto', 'link na bio')}`},
+
+/* ===== POST — pele e ciclo (a ponte) ===== */
+{ id:'p-ciclo', classe:'lua', html:`
+  ${MUNDOS('m-canto','#7A4E6A','#B83240')}
+  ${topo('Ficha 04')}
+  <div class="miolo">
+    <span class="eyebrow">Lado lua</span>
+    <h1 class="menor">Sua pele muda com o seu ciclo — e ninguém te contou</h1>
+    <div class="itens">
+      ${item('Depois da menstruação','Pele mais firme e receptiva: bom momento para introduzir ativo novo')}
+      ${item('Perto da ovulação','Mais viço e mais oleosidade')}
+      ${item('Semana antes de menstruar','Mais sensível e mais reativa: não é hora de começar ácido')}
+    </div>
+    <p class="lead">Um protocolo que ignora isso te faz culpar a pele por algo que é ritmo.</p>
+  </div>
+  ${rodape('@daniminuto', 'salva')}`},
+
+/* ===== POST — como funciona ===== */
+{ id:'p-como', html:`
+  ${MUNDOS('m-pe','#B83240','#7A4E6A')}
+  ${topo('Ficha 05')}
+  <div class="miolo">
+    <span class="eyebrow">Como funciona</span>
+    <h1 class="menor">Da anamnese à sua rotina, em 4 passos</h1>
+    <div class="passos">
+      ${passo('1','Você escolhe seu protocolo','Recebe na hora o código de acesso à sua área')}
+      ${passo('2','Responde a anamnese','Um quiz guiado, no seu tempo, sem termo difícil')}
+      ${passo('3','Eu analiso tudo','Leio suas respostas e monto o protocolo')}
+      ${passo('4','Você recebe sua rotina','Manhã e noite, com ordem de uso e frequência')}
+    </div>
+  </div>
+  ${rodape('@daniminuto', 'link na bio')}`},
+
+/* ===== POST — rotina mínima ===== */
+{ id:'p-rotina', classe:'escura', html:`
+  ${MUNDOS('m-canto','#D4782A','#C9A7BC')}
+  ${topo('Ficha 06', true)}
+  <div class="miolo">
+    <span class="eyebrow">O básico bem feito</span>
+    <h1 class="menor">Se você só puder fazer três coisas pela sua pele</h1>
+    <div class="passos">
+      ${passo('1','Limpar','Sabonete facial adequado, de manhã e à noite')}
+      ${passo('2','Hidratar','Sim, também se a sua pele for oleosa')}
+      ${passo('3','Proteger','Protetor solar todo dia, faça chuva ou sol')}
+    </div>
+    <p class="lead">Três produtos bem escolhidos ganham de uma gaveta cheia de produto aleatório.</p>
+  </div>
+  ${rodape('@daniminuto', 'salva para lembrar')}`},
+
+/* ===== POST — os dois mundos explicado ===== */
+{ id:'p-dois-mundos', html:`
+  ${MUNDOS('m-pe','#B83240','#7A4E6A')}
+  ${topo('Ficha 07')}
+  <div class="miolo">
+    <span class="eyebrow">Por que comigo</span>
+    <h1 class="menor">Dois mundos que se encontram</h1>
+    <div class="dois">
+      <div class="mundo solo"><span class="rot">Lado sol</span>
+        <strong>Ciência</strong>
+        <p>Ativo, concentração, interação, ordem de uso. O que a formulação pode e o que não pode fazer.</p></div>
+      <div class="mundo luar"><span class="rot">Lado lua</span>
+        <strong>Inteireza</strong>
+        <p>Sono, ciclo, estresse e rotina. O que aparece na pele antes de aparecer em qualquer exame.</p></div>
+    </div>
+    <p class="citacao">“A interseção é onde eu vivo.”</p>
+  </div>
+  ${rodape('@daniminuto', 'link na bio')}`},
+
+/* ===== POST — planos ===== */
+{ id:'p-planos', classe:'sol', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Ficha 08')}
+  <div class="miolo">
+    <span class="eyebrow">Consultoria de skin care</span>
+    <h1 class="menor">Escolha o acompanhamento que cabe em você</h1>
+    <div class="planos">
+      <div class="plano"><div><div class="nome">Essencial</div><div class="desc">Anamnese + protocolo em PDF + 7 dias de suporte</div></div><span class="preco">R$ 197</span></div>
+      <div class="plano"><div><div class="nome">Completo</div><div class="desc">Tudo do Essencial + videochamada + 30 dias de suporte</div></div><span class="preco">R$ 347</span></div>
+      <div class="plano"><div><div class="nome">90 dias</div><div class="desc">3 encontros + reavaliação por fotos a cada mês</div></div><span class="preco">R$ 597</span></div>
+    </div>
+    <p class="legal">Consultoria de skin care é orientação estética e educativa. Não substitui consulta, diagnóstico ou prescrição médica.</p>
+  </div>
+  ${rodape('@daniminuto', 'link na bio')}`},
+
+/* ===== STORIES ===== */
+{ id:'s-enquete', classe:'story escura', html:`
+  ${MUNDOS('m-centro','#D4782A','#C9A7BC')}
+  ${topo('Story', true)}
+  <div class="miolo">
+    <span class="eyebrow">Responde aí</span>
+    <h1>Sua pele repuxa depois que você lava o rosto?</h1>
+    <p class="lead">A resposta muda completamente o sabonete que eu indicaria para você.</p>
+  </div>
+  ${rodape('@daniminuto', '')}`},
+
+{ id:'s-cta', classe:'story sol', html:`
+  ${MUNDOS('m-canto','#B83240','#7A4E6A')}
+  ${topo('Story')}
+  <div class="miolo">
+    <span class="eyebrow">Consultoria de skin care</span>
+    <h1>Sua pele merece um plano, não um palpite.</h1>
+    <p class="lead">Anamnese completa, protocolo personalizado e suporte de verdade.</p>
+    <span class="btn">Link na bio ↗</span>
+  </div>
+  ${rodape('@daniminuto', '')}`},
+
+{ id:'s-erro', classe:'story lua', html:`
+  ${MUNDOS('m-pe','#7A4E6A','#B83240')}
+  ${topo('Story')}
+  <div class="miolo">
+    <span class="numero">01</span>
+    <h1 class="menor">Lavar o rosto com sabonete de corpo</h1>
+    <p class="lead">Está no post de hoje, junto com outros quatro erros que quase toda pele passa.</p>
+    <span class="btn">Ver o post</span>
+  </div>
+  ${rodape('@daniminuto', '')}`}
+];
+
+document.body.innerHTML = ARTES.map(a =>
+  `<div class="art ${a.classe || ''}" id="${a.id}">${a.html}</div>`).join('');
+</script>
+</body>
+</html>
