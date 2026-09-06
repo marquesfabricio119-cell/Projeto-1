@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "38";
+const APP_VERSION = "39";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -364,26 +364,77 @@ function gravarLocal(){
      antes de escrever por cima. Tirar a cópia do banco em memória não
      adiantaria: nesse ponto ele já é o banco reduzido. */
   guardarCopiaAntesDeEncolher();
-  try{
+
+  const escrever = ()=>{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
     localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
-    return true;
-  }catch(err){
+  };
+
+  try{ escrever(); return true; }
+  catch(err){
     if(!ehErroDeEspaco(err)){ console.error('Erro ao gravar:', err); return false; }
-    /* Sem espaço. O que ocupa lugar são as fotos antigas guardadas dentro
-       do próprio banco; elas já estão (ou vão) na nuvem, então podem sair
-       daqui para a venda caber. */
-    const liberou = liberarEspacoDeFotos();
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
-      localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
-      if(liberou) toast('Espaço do aparelho estava cheio: as fotos foram movidas para a nuvem.','warn');
+  }
+
+  /* APARELHO CHEIO. A venda não pode ser a coisa que se perde por falta de
+     espaço — ela é o motivo de o sistema existir. Então libera-se espaço em
+     degraus, do que é mais descartável para o que é menos, tentando gravar
+     depois de cada degrau. Antes só existia um degrau (tirar as fotos do
+     banco), e ele nem tocava nas cópias de segurança, que são justamente o
+     que mais ocupa o aparelho. */
+  const degraus = [
+    ['cópias de segurança antigas', ()=>{
+      const copias = lerCopiasDeSeguranca();
+      if(copias.length <= 1) return false;
+      localStorage.setItem(CHAVE_COPIAS, JSON.stringify(copias.slice(0, 1)));
       return true;
-    }catch(err2){
-      console.error('Sem espaço mesmo depois de liberar:', err2);
-      return false;
+    }],
+    ['fotos guardadas dentro do banco', ()=>liberarEspacoDeFotos()],
+    ['todas as cópias de segurança', ()=>{
+      if(!localStorage.getItem(CHAVE_COPIAS)) return false;
+      localStorage.removeItem(CHAVE_COPIAS);
+      return true;
+    }],
+    /* Último degrau, e o único que perde alguma coisa: fotos que ainda não
+       subiram para a nuvem. Perder uma foto dói; perder a venda fecha o
+       caixa. O lojista é avisado do que foi descartado. */
+    ['fotos que ainda não subiram', ()=>{
+      const chaves = chavesDeFotosPendentes();
+      if(!chaves.length) return false;
+      const chave = chaves[0];
+      fotosPendentes.delete(chave.slice(PREFIXO_FOTO.length));
+      localStorage.removeItem(chave);
+      fotosDescartadas++;
+      return true;
+    }],
+  ];
+
+  for(const [oQue, liberar] of degraus){
+    let mexeu = true;
+    while(mexeu){
+      try{ mexeu = liberar(); }catch(e){ mexeu = false; }
+      if(!mexeu) break;
+      try{
+        escrever();
+        avisarDoEspacoLiberado(oQue);
+        return true;
+      }catch(e){
+        if(!ehErroDeEspaco(e)){ console.error('Erro ao gravar:', e); return false; }
+      }
     }
   }
+
+  console.error('Sem espaço mesmo depois de liberar tudo o que dava.');
+  return false;
+}
+
+let fotosDescartadas = 0;
+function avisarDoEspacoLiberado(oQue){
+  if(fotosDescartadas > 0){
+    toast('O aparelho estava cheio: ' + fotosDescartadas + ' foto(s) que ainda não tinham subido para a nuvem foram descartadas para a venda poder ser salva.','warn');
+    fotosDescartadas = 0;
+    return;
+  }
+  toast('O aparelho estava cheio. Liberamos espaço (' + oQue + ') e a gravação foi feita.','warn');
 }
 
 function ehErroDeEspaco(err){
@@ -392,21 +443,18 @@ function ehErroDeEspaco(err){
     || err.code===22 || err.code===1014);
 }
 
-/* Tira do armazenamento local as fotos que estão embutidas em texto
-   (as antigas, em base64). A foto não some da peça: fica marcada como
-   pendente e sobe para a nuvem na primeira oportunidade. */
+/* Tira do banco a foto que está embutida em texto (as antigas, em base64)
+   e a guarda numa chave própria do aparelho, na fila para subir. A foto
+   não some da peça e não some do aparelho — antes ela ia só para a
+   memória, e fechar o sistema apagava tudo. */
 function liberarEspacoDeFotos(){
-  let mexeu = false;
-  DB.products.forEach(p=>{
-    if(p.photo && p.photo.startsWith('data:')){
-      fotosPendentes.set(p.id, p.photo);
-      p.photo = '';
-      p.photoPendente = true;
-      mexeu = true;
-    }
-  });
-  if(mexeu) enviarFotosPendentes();
-  return mexeu;
+  const p = DB.products.find(x=>x.photo && x.photo.startsWith('data:'));
+  if(!p) return false;
+  guardarFotoPendente(p.id, p.photo);
+  p.photo = '';
+  p.photoPendente = true;
+  enviarFotosPendentes();
+  return true;
 }
 
 /* Chame quando o sistema for dizer "pronto, salvo". Se a gravação falhou,
@@ -428,12 +476,22 @@ function exigirGravacao(oQue){
    para onde voltar.
    ========================================================= */
 const CHAVE_COPIAS = 'estiloCiaDB_copias';
-const MAX_COPIAS = 5;
+/* Três cópias bastam para voltar atrás, e três cabem no aparelho. Cinco
+   cópias de um banco grande é o que não cabia. */
+const MAX_COPIAS = 3;
 
+/* A cópia guarda o CADASTRO, não as imagens. Uma cópia com as fotos dentro
+   chega a alguns megabytes, e são cinco: eram elas que enchiam o aparelho
+   e faziam a venda não caber. As fotos moram na nuvem, e a cópia guarda o
+   endereço delas. */
+function semAsFotos(banco){
+  return JSON.stringify(banco, (chave, valor)=>
+    chave === 'photo' && typeof valor === 'string' && valor.indexOf('data:') === 0 ? '' : valor);
+}
 function guardarCopiaDeSeguranca(motivo, bancoTexto){
   try{
-    const texto = bancoTexto || JSON.stringify(DB);
     const banco = bancoTexto ? JSON.parse(bancoTexto) : DB;
+    const texto = semAsFotos(banco);
     const produtos = (banco.products||[]).length;
     const vendas = (banco.sales||[]).length;
     if(!produtos && !vendas) return;      // nada que valha a pena guardar
@@ -551,11 +609,22 @@ function atualizaAvisoDeNuvem(){
   /* Se a tela de Configurações está aberta, ela mostra o estado por extenso. */
   const painel = document.getElementById('estadoDaNuvem');
   if(!painel) return;
+  /* Foto parada na fila é dinheiro parado: a loja paga o Supabase para
+     guardá-las e elas estão ocupando o aparelho. Dizer quantas são, e
+     por quê, é o que permite resolver. */
+  const naFila = fotosPendentes.size;
+  const recadoDasFotos = naFila
+    ? `<div class="aviso-codigo" style="margin-top:10px"><strong>${naFila} foto(s) esperando para subir.</strong>
+        Elas estão guardadas neste aparelho e sobem sozinhas assim que a pasta
+        <code>${escapeHtml(configNuvem().bucket)}</code> existir no Supabase e estiver pública.
+        Enquanto isso, ocupam espaço aqui.</div>`
+    : '';
   if(est.ok){
     painel.className = 'estado-nuvem ok';
-    painel.textContent = est.pendente
+    painel.innerHTML = (est.pendente
       ? '⏳ Salvando na nuvem…'
-      : '✅ Ligado à nuvem, tudo salvo. O que é feito aqui vai para lá na hora e chega nos outros aparelhos.';
+      : '✅ Ligado à nuvem, tudo salvo. O que é feito aqui vai para lá na hora e chega nos outros aparelhos.')
+      + recadoDasFotos;
     return;
   }
   painel.className = 'estado-nuvem ruim';
@@ -564,7 +633,8 @@ function atualizaAvisoDeNuvem(){
       : '⚠️ <strong>Sem ligação com a nuvem.</strong> ') +
     'O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar. ' +
     'Nada é enviado enquanto isso, para não gravar por cima do que está lá.' +
-    (est.porque ? '<br><span style="font-size:12px">' + escapeHtml(est.porque) + '</span>' : '');
+    (est.porque ? '<br><span style="font-size:12px">' + escapeHtml(est.porque) + '</span>' : '')
+    + recadoDasFotos;
 }
 
 /* ---------- Supabase sync ---------- */
@@ -847,10 +917,40 @@ function ligarGatilhosDeEnvio(){
    aparelho não enche, e cada venda deixa de reenviar todas as fotos.
    ========================================================= */
 
-/* Fotos que ainda não subiram (sem internet, ou vindas do formato antigo).
-   Ficam aqui na memória e são reenviadas sozinhas. */
+/* Fotos que ainda não subiram (sem internet, ou porque a pasta no Supabase
+   não existe). Ficavam SÓ NA MEMÓRIA: bastava fechar o sistema e elas
+   sumiam para sempre — foi assim que as peças desta loja ficaram sem foto,
+   com a pasta do Supabase ainda por criar. Agora cada foto pendente é
+   guardada no aparelho, numa chave própria, e continua lá depois de
+   fechar. Chave própria também importa por outro motivo: assim ela não
+   engorda o banco que é sincronizado a cada venda. */
 const fotosPendentes = new Map();
 let enviandoFotos = false;
+const PREFIXO_FOTO = 'estiloCiaFoto_';
+
+function guardarFotoPendente(pid, dataUrl){
+  fotosPendentes.set(pid, dataUrl);
+  try{ localStorage.setItem(PREFIXO_FOTO + pid, dataUrl); }
+  catch(e){ /* aparelho cheio: fica na memória desta sessão, e avisamos */ }
+}
+function esquecerFotoPendente(pid){
+  fotosPendentes.delete(pid);
+  try{ localStorage.removeItem(PREFIXO_FOTO + pid); }catch(e){}
+}
+function carregarFotosPendentes(){
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      if(k.indexOf(PREFIXO_FOTO) === 0){
+        const valor = localStorage.getItem(k);
+        if(valor) fotosPendentes.set(k.slice(PREFIXO_FOTO.length), valor);
+      }
+    });
+  }catch(e){}
+}
+function chavesDeFotosPendentes(){
+  try{ return Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }
+  catch(e){ return []; }
+}
 
 function urlDaFoto(caminho){
   const c = configNuvem();
@@ -888,11 +988,11 @@ async function enviarFotosPendentes(){
   try{
     for(const [pid, dataUrl] of [...fotosPendentes]){
       const prod = DB.products.find(x=>x.id===pid);
-      if(!prod){ fotosPendentes.delete(pid); continue; }
+      if(!prod){ esquecerFotoPendente(pid); continue; }
       try{
         prod.photo = await subirFoto(dataUrl, pid);
         delete prod.photoPendente;
-        fotosPendentes.delete(pid);
+        esquecerFotoPendente(pid);
         saveDB();
         if(currentRoute==='produtos') renderProdutosTable();
       }catch(e){
@@ -905,8 +1005,9 @@ async function enviarFotosPendentes(){
 /* Fotos do formato antigo (embutidas no banco) sobem para a nuvem sozinhas
    na primeira vez que o sistema abre com internet, liberando o espaço. */
 function migrarFotosAntigas(){
+  carregarFotosPendentes();          // o que ficou de sessões anteriores
   DB.products.forEach(p=>{
-    if(p.photo && p.photo.startsWith('data:')) fotosPendentes.set(p.id, p.photo);
+    if(p.photo && p.photo.startsWith('data:')) guardarFotoPendente(p.id, p.photo);
   });
   if(fotosPendentes.size) enviarFotosPendentes();
 }
@@ -1370,7 +1471,7 @@ function openProductModal(id){
       }catch(e){
         /* Sem internet agora: a foto fica na fila e sobe sozinha depois.
            A peça pode ser salva normalmente. */
-        fotosPendentes.set(p.id, dataUrl);
+        guardarFotoPendente(p.id, dataUrl);
         overlay.querySelector('#f_photo').value = '';
         overlay.dataset.fotoPendente = '1';
         if(e.motivo === 'bucket'){
@@ -1649,34 +1750,111 @@ async function testarNuvem(){
   if(!box) return;
   box.innerHTML = '<p class="text-muted">Testando...</p>';
   const linhas = [];
-  const testar = async (rotulo, url)=>{
+  const anotar = (rotulo, status, ok, corpo)=>linhas.push({ rotulo, status, ok, corpo });
+  const tentar = async (rotulo, url, opcoes)=>{
     try{
-      const res = await fetch(url, { headers: cabecalhosNuvem() });
+      const res = await fetch(url, opcoes || { headers: cabecalhosNuvem() });
       let corpo = '';
-      try{ corpo = (await res.text()).slice(0,120); }catch(e){}
-      linhas.push({ rotulo, status: res.status, ok: res.ok, corpo });
+      try{ corpo = (await res.text()).slice(0,160); }catch(e){}
+      anotar(rotulo, res.status, res.ok, corpo);
+      return res;
     }catch(err){
-      linhas.push({ rotulo, status: 0, ok:false, corpo: String(err && err.message || err) });
+      anotar(rotulo, 0, false, String(err && err.message || err));
+      return null;
     }
   };
   const cfg = configNuvem();
-  await testar('Ler a tabela da loja', `${cfg.url}/rest/v1/${cfg.tabela}?select=id&limit=1`);
-  await testar('Listar as tabelas', `${cfg.url}/rest/v1/`);
 
-  const leitura = linhas[0];
-  box.innerHTML = `<div class="${leitura.ok ? 'pdf-pronto' : 'aviso-codigo'}">
-      <strong>${leitura.ok ? 'A nuvem está respondendo.' : 'A nuvem NÃO está respondendo à leitura.'}</strong>
-      ${leitura.ok ? '' : '<br>' + escapeHtml(explicarErroDaNuvem({status:leitura.status}))}
+  await tentar('1. Ler a tabela da loja', `${cfg.url}/rest/v1/${cfg.tabela}?select=id&limit=1`);
+
+  /* GRAVAR é o teste que faltava — e é o que decide se o trabalho da loja
+     está indo para a nuvem. Uma chave pode ler e não poder escrever (é o
+     padrão do Supabase até alguém liberar), e o diagnóstico antigo dava
+     "está respondendo" em verde nesse caso, que é a pior resposta
+     possível. A gravação é feita numa linha de teste, chamada _teste, que
+     não encosta nos dados da loja e é apagada logo depois. */
+  await tentar('2. GRAVAR na tabela', `${cfg.url}/rest/v1/${cfg.tabela}`, {
+    method:'POST',
+    headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
+              'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ id:'_teste', data:{ teste:true }, updated_at: todayISO() })
+  });
+  /* Limpa a linha de teste. Se não der, não tem problema: ela é minúscula
+     e não atrapalha nada. */
+  await fetch(`${cfg.url}/rest/v1/${cfg.tabela}?id=eq._teste`,
+              { method:'DELETE', headers: cabecalhosNuvem() }).catch(()=>{});
+
+  await tentar('3. Pasta das fotos', `${cfg.url}/storage/v1/object/list/${cfg.bucket}`, {
+    method:'POST',
+    headers: cabecalhosNuvem({ 'Content-Type':'application/json' }),
+    body: JSON.stringify({ prefix:'', limit:1 })
+  });
+
+  const leitura = linhas[0], gravacao = linhas[1], fotos = linhas[2];
+  const tudoBem = leitura.ok && gravacao.ok;
+
+  let recado, comoResolver = '';
+  if(tudoBem){
+    recado = 'A nuvem está lendo e GRAVANDO. O trabalho da loja está sendo salvo.';
+  } else if(!leitura.ok && (leitura.status === 404 || /does not exist|not find/i.test(leitura.corpo||''))){
+    recado = 'A tabela "' + cfg.tabela + '" não existe neste projeto do Supabase.';
+    comoResolver = 'Nada está sendo salvo na nuvem. Copie o SQL que está logo abaixo, cole no SQL Editor do Supabase e clique em Run. Isso cria a tabela e libera o acesso.';
+  } else if(!leitura.ok){
+    recado = 'A nuvem não deixou nem LER (' + leitura.status + ').';
+    comoResolver = explicarErroDaNuvem({ status: leitura.status });
+  } else {
+    recado = 'A nuvem deixa ler, mas NÃO deixa gravar (' + gravacao.status + ').';
+    comoResolver = 'É por isso que o trabalho fica só no aparelho. As permissões da tabela precisam liberar gravação para a chave publicável — o SQL abaixo faz exatamente isso; rode-o de novo no SQL Editor do Supabase.';
+  }
+
+  ultimoDiagnostico = [
+    'DIAGNÓSTICO DA NUVEM — Estilo Fashion, versão ' + APP_VERSION,
+    'Projeto: ' + cfg.url.replace('https://','').split('.')[0] + ' · tabela: ' + cfg.tabela + ' · pasta de fotos: ' + cfg.bucket,
+    recado,
+    ...linhas.map(l=>l.rotulo + ' -> ' + (l.status || 'sem resposta') + (l.corpo ? ' | ' + l.corpo : '')),
+    'Fotos: ' + (fotos && fotos.ok ? 'pasta encontrada' : 'pasta não encontrada (' + (fotos ? fotos.status : '-') + ')')
+  ].join('\n');
+
+  box.innerHTML = `<div class="${tudoBem ? 'pdf-pronto' : 'aviso-codigo'}">
+      <strong>${escapeHtml(recado)}</strong>
+      ${comoResolver ? '<br>' + escapeHtml(comoResolver) : ''}
     </div>
     <div class="table-wrap" style="margin-top:10px"><table><thead><tr>
       <th>Teste</th><th>Resposta</th><th>Detalhe</th></tr></thead><tbody>
       ${linhas.map(l=>`<tr><td>${escapeHtml(l.rotulo)}</td>
-        <td><strong>${l.status || 'sem resposta'}</strong></td>
+        <td><strong>${l.ok ? '✅ ' : '❌ '}${l.status || 'sem resposta'}</strong></td>
         <td class="text-muted" style="font-size:11px">${escapeHtml(l.corpo || '-')}</td></tr>`).join('')}
     </tbody></table></div>
+    <button class="btn btn-sm" style="margin-top:10px" onclick="copiarDiagnostico()">📋 Copiar este diagnóstico</button>
     <p class="text-muted" style="font-size:12px;margin-top:8px">
       Projeto: <code>${escapeHtml(cfg.url.replace('https://','').split('.')[0])}</code> ·
       tabela <code>${escapeHtml(cfg.tabela)}</code></p>`;
+}
+
+/* O diagnóstico em texto puro, para o lojista colar numa conversa. Print de
+   tela se perde, chega cortado ou não chega — texto sempre chega. */
+let ultimoDiagnostico = '';
+function copiarDiagnostico(){
+  if(!ultimoDiagnostico){ toast('Rode o teste primeiro','warn'); return; }
+  const pronto = ()=>toast('Diagnóstico copiado. É só colar na conversa.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ultimoDiagnostico).then(pronto).catch(()=>caixaDeTexto());
+    return;
+  }
+  caixaDeTexto();
+  function caixaDeTexto(){
+    /* Sem permissão para a área de transferência (acontece no iPhone fora
+       do toque direto): mostra o texto para copiar à mão, em vez de dizer
+       que copiou sem ter copiado. */
+    const box = document.getElementById('diagnosticoNuvem');
+    const ta = document.createElement('textarea');
+    ta.readOnly = true; ta.rows = 8;
+    ta.style.cssText = 'width:100%;margin-top:10px;font-family:monospace;font-size:11px';
+    ta.value = ultimoDiagnostico;
+    box.appendChild(ta);
+    ta.focus(); ta.select();
+    toast('Selecione o texto acima e copie.','warn');
+  }
 }
 
 function pareceBancoDaLoja(v){
