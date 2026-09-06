@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "41";
+const APP_VERSION = "42";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -381,6 +381,8 @@ function gravarLocal(){
      depois de cada degrau. Antes só existia um degrau (tirar as fotos do
      banco), e ele nem tocava nas cópias de segurança, que são justamente o
      que mais ocupa o aparelho. */
+  /* Cada degrau precisa LIBERAR BYTES, não remanejá-los. É a diferença
+     entre a venda caber e o caixa parar com um aviso. */
   const degraus = [
     ['cópias de segurança antigas', ()=>{
       const copias = lerCopiasDeSeguranca();
@@ -388,15 +390,18 @@ function gravarLocal(){
       localStorage.setItem(CHAVE_COPIAS, JSON.stringify(copias.slice(0, 1)));
       return true;
     }],
-    ['fotos guardadas dentro do banco', ()=>liberarEspacoDeFotos()],
     ['todas as cópias de segurança', ()=>{
       if(!localStorage.getItem(CHAVE_COPIAS)) return false;
       localStorage.removeItem(CHAVE_COPIAS);
       return true;
     }],
-    /* Último degrau, e o único que perde alguma coisa: fotos que ainda não
-       subiram para a nuvem. Perder uma foto dói; perder a venda fecha o
-       caixa. O lojista é avisado do que foi descartado. */
+    /* Daqui para baixo alguma foto sai do aparelho. Perder uma foto dói;
+       perder a venda fecha o caixa. O lojista é avisado do que saiu. */
+    ['fotos guardadas dentro do banco', ()=>{
+      if(!tirarFotoDeDentroDoBanco(false)) return false;
+      fotosDescartadas++;
+      return true;
+    }],
     ['fotos que ainda não subiram', ()=>{
       const chaves = chavesDeFotosPendentes();
       if(!chaves.length) return false;
@@ -405,6 +410,21 @@ function gravarLocal(){
       localStorage.removeItem(chave);
       fotosDescartadas++;
       return true;
+    }],
+    /* Se nem assim couber, o que sobrou de grande no aparelho é lixo de
+       versões antigas do sistema. Nada aqui pertence ao cadastro da loja,
+       que mora em estiloCiaDB. */
+    ['sobras de versões antigas', ()=>{
+      let mexeu = false;
+      try{
+        Object.keys(localStorage).forEach(k=>{
+          if(k === STORAGE_KEY || k === LOCAL_TS_KEY || k === SESSION_KEY) return;
+          if(k === CHAVE_COPIAS || k === CHAVE_NUVEM) return;
+          if(k.indexOf(PREFIXO_FOTO) === 0) return;
+          localStorage.removeItem(k); mexeu = true;
+        });
+      }catch(e){}
+      return mexeu;
     }],
   ];
 
@@ -444,26 +464,39 @@ function ehErroDeEspaco(err){
 }
 
 /* Tira do banco a foto que está embutida em texto (as antigas, em base64)
-   e a guarda numa chave própria do aparelho, na fila para subir. A foto
-   não some da peça e não some do aparelho — antes ela ia só para a
-   memória, e fechar o sistema apagava tudo. */
-function liberarEspacoDeFotos(){
-  const p = DB.products.find(x=>x.photo && x.photo.startsWith('data:'));
+   e a põe na fila para subir.
+
+   `guardando` decide onde ela fica. Em situação normal, guardada numa
+   chave própria do aparelho, para sobreviver a fechar o sistema. Mas
+   quando o aparelho está CHEIO isso não serve de nada: sair de dentro do
+   banco e entrar noutra chave do mesmo armazenamento são os mesmos bytes
+   no mesmo lugar — era um degrau que não liberava um byte sequer, e por
+   isso a venda continuava sem caber. Nessa hora a foto fica só na memória
+   e sobe se der; a venda vem antes. */
+function tirarFotoDeDentroDoBanco(guardando){
+  const p = DB.products.find(x=>x.photo && x.photo.indexOf('data:') === 0);
   if(!p) return false;
-  guardarFotoPendente(p.id, p.photo);
+  if(guardando) guardarFotoPendente(p.id, p.photo);
+  else fotosPendentes.set(p.id, p.photo);
   p.photo = '';
   p.photoPendente = true;
   enviarFotosPendentes();
   return true;
 }
+function liberarEspacoDeFotos(){ return tirarFotoDeDentroDoBanco(true); }
 
 /* Chame quando o sistema for dizer "pronto, salvo". Se a gravação falhou,
    o usuário precisa saber na hora, e não descobrir ao recarregar a página. */
 function exigirGravacao(oQue){
   if(saveDB()) return true;
+  /* Mandar "apagar fotos de peças antigas em Produtos" não resolvia nada:
+     apagar a foto de uma peça não devolve espaço se ela já saiu do banco.
+     O caminho que funciona é o botão de liberar espaço em Configurações,
+     e é para lá que o aviso aponta agora. */
   alert('ATENÇÃO: não foi possível salvar ' + oQue + '.\n\n'
-      + 'O armazenamento deste aparelho está cheio. Anote esta operação, '
-      + 'libere espaço (apague fotos de peças antigas em Produtos) e refaça.\n\n'
+      + 'O armazenamento deste aparelho está cheio, e o sistema já apagou tudo o que podia sozinho.\n\n'
+      + 'Vá em Configurações > Espaço deste aparelho e toque em "Liberar espaço agora". '
+      + 'Depois refaça esta operação.\n\n'
       + 'Nada foi perdido do que já estava salvo.');
   return false;
 }
@@ -1842,6 +1875,83 @@ async function testarNuvem(){
       tabela <code>${escapeHtml(cfg.tabela)}</code><br>
       <a href="${escapeHtml(cfg.url)}/rest/v1/" target="_blank" rel="noopener">Abrir o endereço da nuvem no navegador</a>
       — se esta página não abrir, o projeto do Supabase não está no ar, e nenhum ajuste no sistema resolve isso.</p>`;
+}
+
+/* =========================================================
+   ESPAÇO DO APARELHO
+   O navegador dá alguns megabytes ao sistema e não avisa quando estão
+   acabando — avisa quando acabaram, no meio de uma venda. Esta tela
+   mostra o que está ocupando e dá o botão para resolver, em vez de
+   deixar o lojista adivinhando o que apagar.
+   ========================================================= */
+function tamanhoNoAparelho(chave){
+  try{ const v = localStorage.getItem(chave); return v ? v.length : 0; }
+  catch(e){ return 0; }
+}
+function medirEspacoDoAparelho(){
+  let cadastro = 0, copias = 0, fotos = 0, resto = 0, nFotos = 0;
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      const n = tamanhoNoAparelho(k);
+      if(k === STORAGE_KEY || k === LOCAL_TS_KEY) cadastro += n;
+      else if(k === CHAVE_COPIAS) copias += n;
+      else if(k.indexOf(PREFIXO_FOTO) === 0){ fotos += n; nFotos++; }
+      else resto += n;
+    });
+  }catch(e){}
+  return { cadastro, copias, fotos, resto, nFotos, total: cadastro + copias + fotos + resto };
+}
+function emMB(bytes){
+  const mb = bytes / (1024*1024);
+  return (mb < 0.1 ? (bytes/1024).toFixed(0) + ' KB' : mb.toFixed(1) + ' MB');
+}
+function renderEspacoDoAparelho(){
+  const box = document.getElementById('espacoDoAparelho');
+  if(!box) return;
+  const m = medirEspacoDoAparelho();
+  /* O limite do navegador costuma ficar em torno de 5 MB. Não dá para
+     perguntar o número exato, então mostramos o que é sabido — o quanto
+     está ocupado — e deixamos claro que perto de 5 MB é hora de limpar. */
+  const apertado = m.total > 3.5 * 1024 * 1024;
+  box.innerHTML = `
+    <div class="${apertado ? 'aviso-codigo' : 'pdf-pronto'}">
+      <strong>${emMB(m.total)} ocupados neste aparelho.</strong>
+      ${apertado ? 'Está perto do limite do navegador (cerca de 5 MB). Libere espaço antes que uma venda não caiba.'
+                 : 'Espaço tranquilo.'}
+    </div>
+    <div class="table-wrap" style="margin-top:10px"><table><tbody>
+      <tr><td>Cadastro da loja (peças, vendas, clientes)</td><td><strong>${emMB(m.cadastro)}</strong></td></tr>
+      <tr><td>Cópias de segurança</td><td><strong>${emMB(m.copias)}</strong></td></tr>
+      <tr><td>Fotos esperando para subir <span class="text-muted">(${m.nFotos})</span></td><td><strong>${emMB(m.fotos)}</strong></td></tr>
+      <tr><td>Outros</td><td><strong>${emMB(m.resto)}</strong></td></tr>
+    </tbody></table></div>`;
+}
+function liberarEspacoAgora(){
+  const m = medirEspacoDoAparelho();
+  const naFila = m.nFotos;
+  if(!m.copias && !naFila && !m.resto){
+    toast('Não há o que liberar: só o cadastro da loja está ocupando espaço.','warn');
+    return;
+  }
+  if(!confirm('Liberar ' + emMB(m.copias + m.fotos + m.resto) + ' neste aparelho?\n\n' +
+              '· As cópias de segurança guardadas aqui serão apagadas.\n' +
+              (naFila ? '· ' + naFila + ' foto(s) que ainda NÃO subiram para a nuvem serão perdidas.\n' : '') +
+              '\nO cadastro da loja — peças, vendas, clientes, estoque — não é tocado.')) return;
+  try{
+    localStorage.removeItem(CHAVE_COPIAS);
+    chavesDeFotosPendentes().forEach(k=>{
+      fotosPendentes.delete(k.slice(PREFIXO_FOTO.length));
+      localStorage.removeItem(k);
+    });
+    Object.keys(localStorage).forEach(k=>{
+      if(k === STORAGE_KEY || k === LOCAL_TS_KEY || k === SESSION_KEY) return;
+      if(k === CHAVE_NUVEM) return;
+      localStorage.removeItem(k);
+    });
+  }catch(e){ console.error('Erro ao liberar espaço:', e); }
+  renderEspacoDoAparelho();
+  atualizaAvisoDeNuvem();
+  toast('Espaço liberado. Agora dá para vender normalmente.');
 }
 
 /* O diagnóstico em texto puro, para o lojista colar numa conversa. Print de
@@ -4063,6 +4173,18 @@ function renderConfig(el){
       <button class="btn btn-sm" style="margin-top:8px" onclick="copiarSqlDaTabela()">Copiar SQL</button>
     </div>
 
+    <div class="panel">
+      <h3>💾 Espaço deste aparelho</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        O navegador dá um espaço limitado para o sistema. Quando ele enche, a venda não consegue
+        ser salva — e o que enche são as fotos que ainda não conseguiram subir para a nuvem.</p>
+      <div id="espacoDoAparelho"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn" onclick="renderEspacoDoAparelho()">Recalcular</button>
+        <button class="btn btn-danger" onclick="liberarEspacoAgora()">🧹 Liberar espaço agora</button>
+      </div>
+    </div>
+
     <div class="panel" style="border-left:4px solid var(--warning)">
       <h3>🔎 Procurar dados perdidos no Supabase</h3>
       <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
@@ -4110,6 +4232,7 @@ function renderConfig(el){
     DB.config.heroPhrase = el.querySelector('#cfg_phrase').value.trim();
     saveDB(); toast('Configurações da loja virtual salvas');
   });
+  renderEspacoDoAparelho();
   el.querySelector('#importFile').addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
