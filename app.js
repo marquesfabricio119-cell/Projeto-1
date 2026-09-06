@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "43";
+const APP_VERSION = "44";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -1714,14 +1714,20 @@ function openProductModal(id){
 
    Pode ser rodado quantas vezes quiser: nada aqui apaga dado nenhum, e as
    permissões são refeitas em vez de dar erro de "já existe". */
-const SQL_CRIAR_TABELA = `-- ============================================
--- ESTILO FASHION — instalação da nuvem
--- Cole tudo no SQL Editor do Supabase e clique em RUN.
--- Pode rodar de novo a qualquer momento, sem perigo.
--- ============================================
+/* SEM UM COMENTÁRIO SEQUER, e isso é de propósito.
 
--- 1) A tabela onde a loja inteira fica guardada
-create table if not exists public.TABELA (
+   A loja colou este SQL no Supabase e recebeu "erro de sintaxe próximo a
+   ESTILO" — a primeira linha, que era o comentário `-- ESTILO FASHION`,
+   chegou lá sem os dois tracinhos e virou comando. O tradutor automático
+   do navegador estava ligado na página do Supabase e reescreveu o texto
+   dentro do editor (dava para ver `create policy` virado em `criar
+   política`).
+
+   Não dá para impedir o tradutor de fora, mas dá para tirar dele o que
+   estragar: sem comentários, toda linha é comando de verdade, e o texto é
+   o mais curto possível. A explicação de cada parte fica na tela do
+   sistema, fora do SQL. */
+const SQL_CRIAR_TABELA = `create table if not exists public.TABELA (
   id text primary key,
   data jsonb not null,
   updated_at timestamptz not null default now()
@@ -1729,7 +1735,6 @@ create table if not exists public.TABELA (
 
 alter table public.TABELA enable row level security;
 
--- 2) Permissões da tabela. A loja usa a chave publicável, que entra como "anon".
 drop policy if exists "loja le" on public.TABELA;
 create policy "loja le" on public.TABELA
   for select to anon using (true);
@@ -1746,12 +1751,10 @@ drop policy if exists "loja apaga" on public.TABELA;
 create policy "loja apaga" on public.TABELA
   for delete to anon using (true);
 
--- 3) A pasta das fotos das peças, pública para a loja virtual poder mostrá-las
 insert into storage.buckets (id, name, public)
 values ('BUCKET', 'BUCKET', true)
 on conflict (id) do update set public = true;
 
--- 4) Permissões da pasta das fotos
 drop policy if exists "fotos leitura" on storage.objects;
 create policy "fotos leitura" on storage.objects
   for select to anon using (bucket_id = 'BUCKET');
@@ -1766,8 +1769,7 @@ create policy "fotos troca" on storage.objects
 
 drop policy if exists "fotos remocao" on storage.objects;
 create policy "fotos remocao" on storage.objects
-  for delete to anon using (bucket_id = 'BUCKET');
-`;
+  for delete to anon using (bucket_id = 'BUCKET');`;
 
 function sqlDaTabela(){
   const c = configNuvem();
@@ -4244,10 +4246,19 @@ function renderConfig(el){
       <div id="resultadoConexao" style="margin-top:12px"></div>
       <div id="diagnosticoNuvem" style="margin-top:12px"></div>
 
-      <h4 style="margin:18px 0 8px;font-size:13px">SQL para criar a tabela no projeto novo</h4>
+      <h4 style="margin:18px 0 8px;font-size:13px">Instalação da nuvem (um comando só)</h4>
+      <div class="aviso-codigo" style="margin-bottom:10px">
+        <strong>Antes de colar, DESLIGUE a tradução automática da página do Supabase.</strong>
+        Se o navegador estiver traduzindo, ele reescreve o texto dentro do editor
+        (<code>create policy</code> vira <code>criar política</code>) e o comando não roda.
+        No Chrome, toque no ícone de tradução na barra de endereço e escolha
+        "Mostrar sempre no idioma original"; no iPhone, no menu <strong>aA</strong> →
+        <strong>Ver original</strong>.
+      </div>
       <p class="text-muted" style="font-size:12px;margin-bottom:8px">
-        No Supabase: SQL Editor → cole → Run. Cria a tabela e libera a leitura e a gravação
-        para a chave publicável, que é a que o sistema usa.</p>
+        No Supabase: <strong>SQL Editor → New query → colar → Run</strong>. Este comando cria a
+        tabela da loja, a pasta das fotos e libera as duas para a chave publicável, que é a que o
+        sistema usa. Pode ser rodado de novo quando quiser: não apaga nada.</p>
       <textarea id="sqlTabela" rows="7" readonly
         style="width:100%;font-family:monospace;font-size:11px">${escapeHtml(sqlDaTabela())}</textarea>
       <button class="btn btn-sm" style="margin-top:8px" onclick="copiarSqlDaTabela()">Copiar SQL</button>
