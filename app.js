@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "42";
+const APP_VERSION = "43";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -684,7 +684,7 @@ function explicarErroDaNuvem(erro){
   if(erro.status === 401 || erro.status === 403)
     return 'A nuvem recusou a chave de acesso (' + erro.status + '). A chave pode ter sido trocada ou as permissões da tabela mudaram, no painel do Supabase.';
   if(erro.status === 404)
-    return 'A nuvem respondeu, mas não encontrou a tabela "' + configNuvem().tabela + '" (404). O nome da tabela pode ter mudado.';
+    return 'A nuvem respondeu, mas não encontrou o que foi pedido (404) — a tabela "' + configNuvem().tabela + '" ou a pasta "' + configNuvem().bucket + '". Rode o SQL de instalação em Configurações: ele cria as duas.';
   if(erro.status >= 500)
     return 'O servidor da nuvem respondeu com erro ' + erro.status + '. Projetos gratuitos do Supabase são pausados após alguns dias sem uso — confira no painel se o projeto precisa ser reativado.';
   if(erro.status === 0)
@@ -903,6 +903,14 @@ async function cloudPush(){
     ultimoErroNuvem = null;
     falhouAoEnviar = false;
     ultimoCarimboDaNuvem = carimboNovo;
+    /* O carimbo local passa a valer o mesmo do que acabou de subir. Sem
+       isto, o carimbo da nuvem ficava sempre alguns décimos à FRENTE do
+       local (o envio acontece depois da gravação), e toda leitura seguinte
+       achava que a nuvem estava mais nova e trocava o banco inteiro por
+       uma cópia igual — desfazendo, no caminho, o que tivesse acabado de
+       mudar aqui. Foi assim que o endereço de uma foto recém-enviada
+       sumia. */
+    try{ localStorage.setItem(LOCAL_TS_KEY, String(new Date(carimboNovo).getTime())); }catch(e){}
     horaDoUltimoEnvioOk = Date.now();
     temPendencia = false;
     tentativasDeEnvio = 0;
@@ -934,6 +942,11 @@ async function sincronizarAgora(){
     tentativasDeEnvio = 0;
     agendarEnvio(200);
   }
+  /* As fotos entram no mesmo laço insistente do banco. Antes elas só
+     tentavam subir quando alguém cadastrava uma peça — se a nuvem
+     estivesse fora naquele instante, a foto ficava parada no aparelho
+     esperando o próximo cadastro, que podia não vir nunca. */
+  if(fotosPendentes.size) enviarFotosPendentes();
   /* Não puxa no meio de um cadastro: trocar o banco embaixo de um
      formulário aberto seria apagar o que a pessoa está digitando. */
   if(temFormularioAberto()) return;
@@ -965,6 +978,10 @@ function ligarGatilhosDeEnvio(){
    engorda o banco que é sincronizado a cada venda. */
 const fotosPendentes = new Map();
 let enviandoFotos = false;
+/* Por que a última foto não subiu. Sem guardar isso, o sistema só sabia
+   dizer "não deu" — e o lojista não tinha como saber se faltava criar a
+   pasta, se faltava permissão, ou se era a internet. */
+let ultimoErroFoto = null;
 const PREFIXO_FOTO = 'estiloCiaFoto_';
 
 function guardarFotoPendente(pid, dataUrl){
@@ -1014,6 +1031,8 @@ async function subirFoto(dataUrl, nomeBase){
     const err = new Error('Storage respondeu ' + res.status);
     err.motivo = (res.status===404 || res.status===400) ? 'bucket'
                : (res.status===401 || res.status===403) ? 'permissao' : 'rede';
+    err.status = res.status;
+    ultimoErroFoto = { status: res.status };
     throw err;
   }
   return urlDaFoto(caminho);
@@ -1030,12 +1049,14 @@ async function enviarFotosPendentes(){
       if(!prod){ esquecerFotoPendente(pid); continue; }
       try{
         prod.photo = await subirFoto(dataUrl, pid);
+        ultimoErroFoto = null;
         delete prod.photoPendente;
         esquecerFotoPendente(pid);
         saveDB();
         if(currentRoute==='produtos') renderProdutosTable();
       }catch(e){
-        break; // sem internet: para aqui e tenta de novo mais tarde
+        if(!ultimoErroFoto) ultimoErroFoto = { status: e && e.status || 0 };
+        break; // não deu agora: para aqui e tenta de novo mais tarde
       }
     }
   } finally { enviandoFotos = false; }
@@ -1684,7 +1705,22 @@ function openProductModal(id){
 /* O SQL que cria a tabela no projeto novo. Fica na tela para o lojista
    copiar e colar no Supabase — sem isso ele dependeria de mim para uma
    coisa que leva um minuto. */
-const SQL_CRIAR_TABELA = `-- Cole no SQL Editor do Supabase e clique em Run
+/* A INSTALAÇÃO INTEIRA NUM SQL SÓ.
+   Antes isto criava só a tabela, e a pasta das fotos ficava para o lojista
+   criar à mão numa outra tela do Supabase — que é exatamente o passo que
+   ficou por fazer e deixou 74 fotos presas no aparelho. Agora um comando
+   monta tudo: a tabela, as permissões dela, a pasta das fotos e as
+   permissões da pasta.
+
+   Pode ser rodado quantas vezes quiser: nada aqui apaga dado nenhum, e as
+   permissões são refeitas em vez de dar erro de "já existe". */
+const SQL_CRIAR_TABELA = `-- ============================================
+-- ESTILO FASHION — instalação da nuvem
+-- Cole tudo no SQL Editor do Supabase e clique em RUN.
+-- Pode rodar de novo a qualquer momento, sem perigo.
+-- ============================================
+
+-- 1) A tabela onde a loja inteira fica guardada
 create table if not exists public.TABELA (
   id text primary key,
   data jsonb not null,
@@ -1693,16 +1729,49 @@ create table if not exists public.TABELA (
 
 alter table public.TABELA enable row level security;
 
--- A loja usa a chave publicável, que entra como "anon".
+-- 2) Permissões da tabela. A loja usa a chave publicável, que entra como "anon".
+drop policy if exists "loja le" on public.TABELA;
 create policy "loja le" on public.TABELA
   for select to anon using (true);
+
+drop policy if exists "loja grava" on public.TABELA;
 create policy "loja grava" on public.TABELA
   for insert to anon with check (true);
+
+drop policy if exists "loja atualiza" on public.TABELA;
 create policy "loja atualiza" on public.TABELA
-  for update to anon using (true) with check (true);`;
+  for update to anon using (true) with check (true);
+
+drop policy if exists "loja apaga" on public.TABELA;
+create policy "loja apaga" on public.TABELA
+  for delete to anon using (true);
+
+-- 3) A pasta das fotos das peças, pública para a loja virtual poder mostrá-las
+insert into storage.buckets (id, name, public)
+values ('BUCKET', 'BUCKET', true)
+on conflict (id) do update set public = true;
+
+-- 4) Permissões da pasta das fotos
+drop policy if exists "fotos leitura" on storage.objects;
+create policy "fotos leitura" on storage.objects
+  for select to anon using (bucket_id = 'BUCKET');
+
+drop policy if exists "fotos envio" on storage.objects;
+create policy "fotos envio" on storage.objects
+  for insert to anon with check (bucket_id = 'BUCKET');
+
+drop policy if exists "fotos troca" on storage.objects;
+create policy "fotos troca" on storage.objects
+  for update to anon using (bucket_id = 'BUCKET') with check (bucket_id = 'BUCKET');
+
+drop policy if exists "fotos remocao" on storage.objects;
+create policy "fotos remocao" on storage.objects
+  for delete to anon using (bucket_id = 'BUCKET');
+`;
 
 function sqlDaTabela(){
-  return SQL_CRIAR_TABELA.replaceAll('TABELA', configNuvem().tabela);
+  const c = configNuvem();
+  return SQL_CRIAR_TABELA.replaceAll('TABELA', c.tabela).replaceAll('BUCKET', c.bucket);
 }
 
 function copiarSqlDaTabela(){
@@ -1823,18 +1892,36 @@ async function testarNuvem(){
   await fetch(`${cfg.url}/rest/v1/${cfg.tabela}?id=eq._teste`,
               { method:'DELETE', headers: cabecalhosNuvem() }).catch(()=>{});
 
-  await tentar('3. Pasta das fotos', `${cfg.url}/storage/v1/object/list/${cfg.bucket}`, {
-    method:'POST',
-    headers: cabecalhosNuvem({ 'Content-Type':'application/json' }),
-    body: JSON.stringify({ prefix:'', limit:1 })
-  });
+  /* Enviar uma foto de mentira é o único jeito de saber que a pasta existe
+     E aceita envio. Listar a pasta só provava que ela existe — e foi
+     assim que 74 fotos ficaram presas no aparelho com o teste em verde. */
+  const pontinho = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  try{
+    const bin = await (await fetch(pontinho)).blob();
+    const res = await fetch(`${cfg.url}/storage/v1/object/${cfg.bucket}/_teste.gif`, {
+      method:'POST',
+      headers: cabecalhosNuvem({ 'Content-Type':'image/gif', 'x-upsert':'true' }),
+      body: bin
+    });
+    let corpo = ''; try{ corpo = (await res.text()).slice(0,160); }catch(e){}
+    anotar('3. ENVIAR foto para a pasta', res.status, res.ok, corpo);
+    if(res.ok){
+      await fetch(`${cfg.url}/storage/v1/object/${cfg.bucket}/_teste.gif`,
+                  { method:'DELETE', headers: cabecalhosNuvem() }).catch(()=>{});
+    }
+  }catch(err){
+    anotar('3. ENVIAR foto para a pasta', 0, false, String(err && err.message || err));
+  }
 
   const leitura = linhas[0], gravacao = linhas[1], fotos = linhas[2];
-  const tudoBem = leitura.ok && gravacao.ok;
+  const tudoBem = leitura.ok && gravacao.ok && fotos.ok;
 
   let recado, comoResolver = '';
   if(tudoBem){
-    recado = 'A nuvem está lendo e GRAVANDO. O trabalho da loja está sendo salvo.';
+    recado = 'Instalação completa: a nuvem lê, grava e recebe fotos. Nada fica preso neste aparelho.';
+  } else if(leitura.ok && gravacao.ok && !fotos.ok){
+    recado = 'A tabela está certa, mas a pasta das fotos não aceita envio (' + fotos.status + ').';
+    comoResolver = 'As fotos ficam presas no aparelho enquanto isso. Copie o SQL de instalação logo abaixo e rode no SQL Editor do Supabase: ele cria a pasta e libera o envio.';
   } else if(!leitura.ok && (leitura.status === 404 || /does not exist|not find/i.test(leitura.corpo||''))){
     recado = 'A tabela "' + cfg.tabela + '" não existe neste projeto do Supabase.';
     comoResolver = 'Nada está sendo salvo na nuvem. Copie o SQL que está logo abaixo, cole no SQL Editor do Supabase e clique em Run. Isso cria a tabela e libera o acesso.';
@@ -1856,7 +1943,7 @@ async function testarNuvem(){
     'Projeto: ' + cfg.url.replace('https://','').split('.')[0] + ' · tabela: ' + cfg.tabela + ' · pasta de fotos: ' + cfg.bucket,
     recado,
     ...linhas.map(l=>l.rotulo + ' -> ' + (l.status || 'sem resposta') + (l.corpo ? ' | ' + l.corpo : '')),
-    'Fotos: ' + (fotos && fotos.ok ? 'pasta encontrada' : 'pasta não encontrada (' + (fotos ? fotos.status : '-') + ')')
+    'Fotos esperando no aparelho: ' + fotosPendentes.size
   ].join('\n');
 
   box.innerHTML = `<div class="${tudoBem ? 'pdf-pronto' : 'aviso-codigo'}">
@@ -1916,8 +2003,10 @@ function renderEspacoDoAparelho(){
   box.innerHTML = `
     <div class="${apertado ? 'aviso-codigo' : 'pdf-pronto'}">
       <strong>${emMB(m.total)} ocupados neste aparelho.</strong>
-      ${apertado ? 'Está perto do limite do navegador (cerca de 5 MB). Libere espaço antes que uma venda não caiba.'
-                 : 'Espaço tranquilo.'}
+      ${m.nFotos
+        ? `${m.nFotos} foto(s) ainda não subiram — é isso que ocupa lugar. Toque em "Mandar as fotos para a nuvem agora".`
+        : 'Só a cópia de trabalho da loja. As fotos estão todas na nuvem.'}
+      ${apertado ? '<br>Está perto do limite do navegador (cerca de 5 MB).' : ''}
     </div>
     <div class="table-wrap" style="margin-top:10px"><table><tbody>
       <tr><td>Cadastro da loja (peças, vendas, clientes)</td><td><strong>${emMB(m.cadastro)}</strong></td></tr>
@@ -1926,32 +2015,23 @@ function renderEspacoDoAparelho(){
       <tr><td>Outros</td><td><strong>${emMB(m.resto)}</strong></td></tr>
     </tbody></table></div>`;
 }
-function liberarEspacoAgora(){
-  const m = medirEspacoDoAparelho();
-  const naFila = m.nFotos;
-  if(!m.copias && !naFila && !m.resto){
-    toast('Não há o que liberar: só o cadastro da loja está ocupando espaço.','warn');
+/* O botão deixou de ser "apague suas fotos para caber". Com a nuvem de pé,
+   o que resolve é MANDAR as fotos para lá — e o espaço se resolve sozinho,
+   sem ninguém ter de escolher entre a foto e a venda. */
+async function forcarEnvioDasFotos(){
+  if(!fotosPendentes.size){
+    toast('Não há foto esperando: está tudo na nuvem.');
+    renderEspacoDoAparelho();
     return;
   }
-  if(!confirm('Liberar ' + emMB(m.copias + m.fotos + m.resto) + ' neste aparelho?\n\n' +
-              '· As cópias de segurança guardadas aqui serão apagadas.\n' +
-              (naFila ? '· ' + naFila + ' foto(s) que ainda NÃO subiram para a nuvem serão perdidas.\n' : '') +
-              '\nO cadastro da loja — peças, vendas, clientes, estoque — não é tocado.')) return;
-  try{
-    localStorage.removeItem(CHAVE_COPIAS);
-    chavesDeFotosPendentes().forEach(k=>{
-      fotosPendentes.delete(k.slice(PREFIXO_FOTO.length));
-      localStorage.removeItem(k);
-    });
-    Object.keys(localStorage).forEach(k=>{
-      if(k === STORAGE_KEY || k === LOCAL_TS_KEY || k === SESSION_KEY) return;
-      if(k === CHAVE_NUVEM) return;
-      localStorage.removeItem(k);
-    });
-  }catch(e){ console.error('Erro ao liberar espaço:', e); }
+  const antes = fotosPendentes.size;
+  toast('Enviando ' + antes + ' foto(s) para a nuvem...');
+  await enviarFotosPendentes();
   renderEspacoDoAparelho();
-  atualizaAvisoDeNuvem();
-  toast('Espaço liberado. Agora dá para vender normalmente.');
+  const restam = fotosPendentes.size;
+  if(!restam){ toast(antes + ' foto(s) enviadas. O espaço do aparelho foi liberado.'); return; }
+  const motivo = explicarErroDaNuvem(ultimoErroFoto) || 'a nuvem não aceitou.';
+  toast('Subiram ' + (antes - restam) + ' de ' + antes + '. As outras continuam guardadas aqui: ' + motivo, 'warn');
 }
 
 /* O diagnóstico em texto puro, para o lojista colar numa conversa. Print de
@@ -4176,12 +4256,13 @@ function renderConfig(el){
     <div class="panel">
       <h3>💾 Espaço deste aparelho</h3>
       <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
-        O navegador dá um espaço limitado para o sistema. Quando ele enche, a venda não consegue
-        ser salva — e o que enche são as fotos que ainda não conseguiram subir para a nuvem.</p>
+        Aqui não fica nada de definitivo: o lugar dos dados é o Supabase. O que estiver neste
+        aparelho é cópia de trabalho, e as fotos que ainda não subiram vão embora sozinhas
+        assim que a nuvem aceitar. Nada aqui precisa ser apagado à mão.</p>
       <div id="espacoDoAparelho"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn" onclick="renderEspacoDoAparelho()">Recalcular</button>
-        <button class="btn btn-danger" onclick="liberarEspacoAgora()">🧹 Liberar espaço agora</button>
+        <button class="btn" onclick="forcarEnvioDasFotos()">☁️ Mandar as fotos para a nuvem agora</button>
       </div>
     </div>
 
