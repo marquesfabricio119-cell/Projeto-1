@@ -69,11 +69,11 @@ function cartaoResultado(a){
       <p class="tiny" style="margin-bottom:18px">Enviada em ${fmtDate(a.criadoEm)} · esta é a primeira leitura automática das suas respostas. O protocolo final vem depois da minha análise.</p>
 
       <div class="perfil">
-        <div class="perfil-item"><span>Tipo de pele</span><strong>${esc(r.tipoPele || '—')}</strong></div>
-        <div class="perfil-item"><span>Sensibilidade</span><strong>${esc(r.sensibilidade || '—')}</strong></div>
-        <div class="perfil-item"><span>Barreira cutânea</span><strong>${esc(r.barreira || '—')}</strong></div>
-        <div class="perfil-item"><span>Fotoproteção</span><strong>${esc(r.fotoprotecao || '—')}</strong></div>
-        <div class="perfil-item"><span>Sua rotina hoje</span><strong>${esc(r.rotina || '—')}</strong></div>
+        <div class="perfil-item" data-revelar data-atraso="0"><span>Tipo de pele</span><strong>${esc(r.tipoPele || '—')}</strong></div>
+        <div class="perfil-item" data-revelar data-atraso="1"><span>Sensibilidade</span><strong>${esc(r.sensibilidade || '—')}</strong></div>
+        <div class="perfil-item" data-revelar data-atraso="2"><span>Barreira cutânea</span><strong>${esc(r.barreira || '—')}</strong></div>
+        <div class="perfil-item" data-revelar data-atraso="3"><span>Fotoproteção</span><strong>${esc(r.fotoprotecao || '—')}</strong></div>
+        <div class="perfil-item" data-revelar data-atraso="4"><span>Sua rotina hoje</span><strong>${esc(r.rotina || '—')}</strong></div>
       </div>
 
       <h4 style="font-family:var(--sans);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--nude-esc);margin:20px 0 10px">Prioridades do seu tratamento</h4>
@@ -81,9 +81,9 @@ function cartaoResultado(a){
 
       <h4 style="font-family:var(--sans);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--nude-esc);margin:22px 0 10px">Esqueleto da sua rotina</h4>
       <div class="rotina-2">
-        <div class="bloco"><h4>☀️ Manhã</h4>
+        <div class="bloco" data-revelar><h4>☀️ Manhã</h4>
           <ul class="lista-check">${(r.sugestao?.manha || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
-        <div class="bloco"><h4>🌙 Noite</h4>
+        <div class="bloco" data-revelar data-atraso="2"><h4>🌙 Noite</h4>
           <ul class="lista-check">${(r.sugestao?.noite || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
       </div>
 
@@ -150,12 +150,14 @@ function telaPainel(o){
     ${a ? cartaoResultado(a) : ''}`;
 
   $('#btnSair').addEventListener('click', () => { clearSession(); telaLogin(); });
+  ativarRevelacao();
 }
 
 (async function(){
   await initDB();
   montarHeader('area');
   montarFooter();
+  ativarCabecalhoDinamico();
   const o = pedidoDaSessao();
   if(o) telaPainel(o); else telaLogin();
 })();

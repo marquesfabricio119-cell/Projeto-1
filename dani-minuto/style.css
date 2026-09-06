@@ -94,6 +94,31 @@ h1,h2,h3,h4,.display{
 .nav .nav-cta,.nav .nav-cta.on{background:var(--obsidiana);color:var(--aurora);padding:10px 18px}
 .nav .nav-cta:hover{background:var(--carmim);color:#fff}
 
+/* estado ao rolar: o cabeçalho descola da página.
+   Só a sombra muda — mexer na altura empurraria o conteúdo todo. */
+.site-header{transition:box-shadow .3s}
+.site-header.rolado{box-shadow:0 10px 30px -22px rgba(26,15,15,.5)}
+
+/* cabeçalho enxuto dos fluxos de foco */
+.header-foco{justify-content:space-between}
+.header-foco .voltar-area{font-size:13.5px;color:var(--tinta-2);text-decoration:none;
+  padding:9px 15px;border-radius:99px;transition:color .18s,background .18s}
+.header-foco .voltar-area:hover{color:var(--carmim);background:var(--lav-carmim)}
+
+/* revelação ao rolar — só entra em cena se o JS carregou */
+.js [data-revelar]{opacity:0;transform:translateY(20px);
+  transition:opacity .7s cubic-bezier(.22,.8,.28,1),transform .7s cubic-bezier(.22,.8,.28,1)}
+[data-revelar]{transition:opacity .7s cubic-bezier(.22,.8,.28,1),transform .7s cubic-bezier(.22,.8,.28,1)}
+.js [data-revelar].visivel{opacity:1;transform:none}
+[data-revelar][data-atraso="1"]{transition-delay:.08s}
+[data-revelar][data-atraso="2"]{transition-delay:.16s}
+[data-revelar][data-atraso="3"]{transition-delay:.24s}
+[data-revelar][data-atraso="4"]{transition-delay:.32s}
+[data-revelar][data-atraso="5"]{transition-delay:.4s}
+@media (prefers-reduced-motion:reduce){
+  .js [data-revelar]{opacity:1;transform:none;transition:none}
+}
+
 /* ---------------- botões ---------------- */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
@@ -229,42 +254,159 @@ textarea{min-height:100px;resize:vertical}
 .linha-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .erro-msg{color:var(--carmim);font-size:13.5px;margin-top:8px;min-height:18px}
 
-/* opções do quiz — sem caixa dura: lavagem e sombra interna */
-.opcoes{display:grid;gap:11px}
+/* =========================================================
+   QUIZ DA ANAMNESE — uma pergunta por tela
+   Interação: clicar responde e avança; teclado 1-9 seleciona,
+   Enter continua, Backspace volta. Movimento sempre curto e
+   com direção (avança para a esquerda, volta para a direita).
+   ========================================================= */
+
+/* --- barra de progresso fixa no topo --- */
+.quiz-topo{position:sticky;top:0;z-index:30;background:var(--aurora);padding:18px 0 16px}
+.quiz-meta{display:flex;justify-content:space-between;align-items:center;gap:16px;
+  font-size:12.5px;color:var(--tinta-2);margin-bottom:12px}
+.quiz-meta b{font-weight:500;color:var(--obsidiana)}
+.quiz-sair{background:none;border:0;font:inherit;font-size:12.5px;color:var(--tinta-3);
+  cursor:pointer;padding:4px 8px;border-radius:99px;transition:color .18s,background .18s}
+.quiz-sair:hover{color:var(--carmim);background:var(--lav-carmim)}
+
+.progresso{height:4px;background:var(--areia);border-radius:99px;overflow:hidden}
+.progresso i{display:block;height:100%;border-radius:99px;width:0;
+  transition:width .55s cubic-bezier(.22,.8,.28,1);
+  background:linear-gradient(90deg,var(--ameixa),var(--carmim) 60%,var(--brasa))}
+
+/* pontinhos dos 6 blocos */
+.blocos{display:flex;gap:7px;margin-top:12px}
+.blocos i{flex:1;height:3px;border-radius:99px;background:var(--areia);transition:background .4s}
+.blocos i.feito{background:var(--carmim)}
+.blocos i.atual{background:linear-gradient(90deg,var(--carmim),var(--areia))}
+
+/* --- palco: uma pergunta por vez --- */
+.palco{position:relative;min-height:clamp(400px,56vh,560px);display:flex;flex-direction:column;
+  justify-content:center;padding:clamp(20px,4vh,44px) 0}
+.tela{display:flex;flex-direction:column;gap:26px}
+@keyframes entra-esq{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes entra-dir{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes sobe-suave{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.tela.avanca{animation:entra-esq .42s cubic-bezier(.22,.8,.28,1) both}
+.tela.volta{animation:entra-dir .42s cubic-bezier(.22,.8,.28,1) both}
+
+.q-etapa{font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ameixa)}
+.q-titulo{font-family:var(--display);font-weight:300;font-size:clamp(27px,4.4vw,44px);
+  line-height:1.14;letter-spacing:-.018em;text-wrap:balance;max-width:19ch}
+.q-ajuda{font-size:15.5px;color:var(--tinta-2);max-width:46ch;margin-top:-14px}
+.q-obrig{color:var(--carmim)}
+
+/* --- opções ---
+   A forma base serve para qualquer escolha do site (consentimento no
+   checkout, ajustes no painel). Dentro de .opcoes, no quiz, o controle
+   nativo dá lugar à tecla de atalho. */
 .opcao{
-  display:flex;align-items:flex-start;gap:14px;cursor:pointer;
-  background:var(--aurora);border-radius:var(--raio-sm);padding:16px 18px;
-  font-size:15px;transition:background .18s,box-shadow .18s;
-  box-shadow:inset 0 0 0 1px transparent;
+  display:flex;align-items:flex-start;gap:14px;cursor:pointer;position:relative;
+  background:var(--papel);border-radius:16px;padding:18px 20px;font-size:15px;
+  box-shadow:0 1px 2px rgba(26,15,15,.05);
+  transition:transform .18s cubic-bezier(.22,.8,.28,1),box-shadow .18s,background .18s;
 }
-.opcao:hover{background:var(--lav-carmim)}
-.opcao input{width:auto;flex:0 0 auto;margin-top:4px;accent-color:var(--carmim);box-shadow:none}
+.opcao input{width:auto;flex:0 0 auto;margin-top:3px;accent-color:var(--carmim);box-shadow:none}
+.opcao:hover{box-shadow:0 8px 22px -14px rgba(26,15,15,.26)}
+
+.opcoes{display:grid;gap:11px;max-width:640px}
+.opcoes .opcao{align-items:center;gap:16px;padding:19px 22px;font-size:16.5px}
+.opcoes .opcao:hover{transform:translateX(4px);box-shadow:0 8px 22px -12px rgba(26,15,15,.28)}
+.opcoes .opcao input{position:absolute;opacity:0;pointer-events:none}
+/* a tecla de atalho faz parte da interface, não é enfeite */
+.opcao .tecla{
+  flex:0 0 30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--aurora);color:var(--tinta-3);font-size:13px;font-weight:500;
+  transition:background .18s,color .18s,transform .18s;
+}
+.opcao .rotulo{flex:1;line-height:1.35}
+.opcao .op-desc{display:block;font-size:13.5px;color:var(--tinta-3);margin-top:4px}
 .opcao.marcada{background:var(--lav-carmim);box-shadow:inset 0 0 0 1.5px var(--carmim)}
-.opcao .op-desc{display:block;font-size:13px;color:var(--tinta-3);margin-top:3px}
+.opcao.marcada .tecla{background:var(--carmim);color:#fff}
+.opcao.confirmada{animation:pulso .38s ease}
+@keyframes pulso{0%{transform:scale(1)}45%{transform:scale(1.015)}100%{transform:scale(1)}}
 
-.escala{display:flex;gap:7px;flex-wrap:wrap}
+/* multipla escolha */
+.contador{font-size:13px;color:var(--tinta-3)}
+.contador.cheio{color:var(--carmim)}
+
+/* escala 0–10 */
+.escala{display:flex;gap:6px;flex-wrap:wrap;max-width:640px}
 .escala button{
-  flex:1 1 40px;min-width:40px;padding:13px 0;border-radius:var(--raio-sm);
-  border:0;background:var(--aurora);cursor:pointer;box-shadow:inset 0 0 0 1px var(--areia);
-  font-family:var(--sans);font-weight:500;font-size:15px;color:var(--tinta-2);transition:.18s;
+  flex:1 1 44px;min-width:44px;padding:16px 0;border-radius:13px;border:0;
+  background:var(--papel);cursor:pointer;box-shadow:0 1px 2px rgba(26,15,15,.05);
+  font-family:var(--sans);font-weight:500;font-size:16px;color:var(--tinta-2);
+  transition:transform .16s,background .16s,color .16s;
 }
-.escala button:hover{background:var(--lav-carmim)}
-.escala button.on{background:var(--carmim);color:#fff;box-shadow:none}
+.escala button:hover{transform:translateY(-3px);background:var(--lav-carmim)}
+.escala button.on{background:var(--carmim);color:#fff}
+.escala-pontas{display:flex;justify-content:space-between;font-size:12.5px;
+  color:var(--tinta-3);max-width:640px;margin-top:-14px}
 
-/* ---------------- quiz ---------------- */
-.quiz-topo{position:sticky;top:0;z-index:30;background:var(--aurora);padding:16px 0 14px}
-.progresso{height:5px;background:var(--areia);border-radius:99px;overflow:hidden;margin-top:12px}
-.progresso i{display:block;height:100%;border-radius:99px;width:0;transition:width .4s ease;
-  background:linear-gradient(90deg,var(--ameixa),var(--carmim),var(--brasa))}
-.quiz-meta{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;
-  color:var(--tinta-2);gap:14px}
-.pergunta{margin-bottom:34px;padding-bottom:30px;box-shadow:inset 0 -1px 0 var(--areia)}
-.pergunta:last-child{box-shadow:none;margin-bottom:6px;padding-bottom:0}
-.pergunta h3{font-family:var(--sans);font-size:17px;font-weight:600;margin-bottom:7px;
-  line-height:1.45;letter-spacing:0}
-.pergunta .ajuda{font-size:13.5px;color:var(--tinta-3);margin-bottom:16px}
-.quiz-nav{display:flex;gap:12px;justify-content:space-between;margin-top:30px;flex-wrap:wrap}
-.etapa-nome{font-size:clamp(24px,3.6vw,34px);margin-bottom:8px}
+/* texto livre */
+.q-texto{max-width:640px}
+.q-texto textarea{min-height:130px;font-size:16px;background:var(--papel);
+  box-shadow:0 1px 2px rgba(26,15,15,.05)}
+
+/* --- navegação --- */
+.quiz-nav{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.quiz-voltar{background:none;border:0;font:inherit;font-size:14.5px;color:var(--tinta-2);
+  cursor:pointer;padding:10px 4px;transition:color .18s}
+.quiz-voltar:hover{color:var(--carmim)}
+.quiz-dica{font-size:12.5px;color:var(--tinta-3);margin-left:auto}
+.quiz-dica kbd{font-family:var(--sans);font-size:11.5px;background:var(--areia);
+  color:var(--tinta-2);padding:2px 7px;border-radius:6px}
+
+/* --- abertura e passagem de bloco --- */
+.abertura{display:flex;flex-direction:column;gap:24px;align-items:flex-start;max-width:620px}
+.abertura h1{font-size:clamp(32px,5.4vw,54px)}
+.abertura .lead{font-size:18px;color:var(--tinta-2)}
+.marcos{display:flex;flex-direction:column;gap:14px;width:100%}
+.marco{display:flex;gap:16px;align-items:baseline;font-size:15.5px;color:var(--tinta-2);
+  padding-bottom:14px;box-shadow:inset 0 -1px 0 var(--areia)}
+.marco:last-child{box-shadow:none;padding-bottom:0}
+.marco b{font-family:var(--display);font-weight:300;font-size:19px;color:var(--carmim);
+  flex:0 0 30px}
+.animar-filhos > *{animation:sobe-suave .5s cubic-bezier(.22,.8,.28,1) both}
+.animar-filhos > *:nth-child(2){animation-delay:.07s}
+.animar-filhos > *:nth-child(3){animation-delay:.14s}
+.animar-filhos > *:nth-child(4){animation-delay:.21s}
+.animar-filhos > *:nth-child(5){animation-delay:.28s}
+
+.passagem{display:flex;flex-direction:column;gap:18px;align-items:flex-start}
+.passagem .num{font-family:var(--display);font-weight:300;font-size:clamp(56px,10vw,96px);
+  line-height:.9;color:var(--carmim)}
+.passagem h2{font-size:clamp(28px,4.6vw,44px)}
+.passagem p{font-size:17px;color:var(--tinta-2);max-width:44ch}
+
+/* --- revisão --- */
+.revisao-grupo{margin-bottom:30px}
+.revisao-grupo h4{font-family:var(--sans);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ameixa);margin-bottom:14px;font-weight:600}
+.rev-linha{display:grid;grid-template-columns:1fr auto;gap:10px 22px;align-items:start;
+  padding:13px 0;box-shadow:inset 0 -1px 0 var(--areia);font-size:14.5px}
+.rev-linha:last-child{box-shadow:none}
+.rev-linha dt{color:var(--tinta-2)}
+.rev-linha dd{font-weight:500;text-align:right}
+.rev-editar{background:none;border:0;font:inherit;font-size:12.5px;color:var(--carmim);
+  cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
+
+/* --- enviando --- */
+.enviando{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding:40px 0}
+.girando{width:64px;height:44px;animation:respira 2.6s ease-in-out infinite}
+@keyframes respira{0%,100%{opacity:.55;transform:scale(.96)}50%{opacity:1;transform:scale(1)}}
+
+@media (max-width:620px){
+  .quiz-dica{display:none}
+  .opcao{padding:17px 18px;font-size:16px}
+  .rev-linha{grid-template-columns:1fr;gap:2px}
+  .rev-linha dd{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){
+  .tela.avanca,.tela.volta,.animar-filhos > *,.opcao.confirmada,.girando{animation:none}
+  .opcao:hover,.escala button:hover{transform:none}
+}
 
 /* ---------------- resultado ---------------- */
 .perfil{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:14px;margin-bottom:24px}

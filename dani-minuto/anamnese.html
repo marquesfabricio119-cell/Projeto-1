@@ -3,273 +3,347 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Anamnese de pele — o quiz guiado da sua consultoria de skin care.">
+<meta name="description" content="Anamnese de pele — o quiz guiado da sua consultoria com Dani Minuto.">
 <meta name="robots" content="noindex">
-<title>Anamnese da sua pele</title>
+<title>Anamnese da sua pele — Dani Minuto</title>
 <link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
 <header class="site-header" id="siteHeader"></header>
 
-<main class="secao" style="padding-top:24px">
+<main class="secao" style="padding-top:8px">
   <div class="wrap-sm" id="conteudo"></div>
 </main>
 
 <footer class="site-footer" id="siteFooter"></footer>
 
-<script src="app.js?v=1"></script>
-<script src="quiz.js?v=1"></script>
+<script src="app.js?v=2"></script>
+<script src="quiz.js?v=2"></script>
 <script>
+/* =========================================================
+   Quiz da anamnese — uma pergunta por tela.
+   A fila de perguntas é recalculada a cada resposta, porque
+   perguntas condicionais entram e saem conforme o que a
+   cliente responde.
+   ========================================================= */
+
 let PEDIDO = null;
 let respostas = {};
-let etapaAtual = 0;
+let posicao = 0;                 // índice na fila de perguntas
+let etapasVistas = new Set();    // blocos que já tiveram tela de passagem
+let fase = 'abertura';           // abertura · passagem · pergunta · revisao · enviando
+let direcao = 'avanca';
 let draftKey = '';
+
+/* ---------------- fila de perguntas ---------------- */
+function fila(){
+  const lista = [];
+  QUIZ_ETAPAS.forEach((etapa, iEtapa) => {
+    perguntasVisiveis(etapa, respostas).forEach(pergunta => {
+      lista.push({ etapa, iEtapa, pergunta });
+    });
+  });
+  return lista;
+}
+function atual(){ return fila()[posicao] || null; }
+function total(){ return fila().length; }
 
 /* ---------------- rascunho ---------------- */
 function salvarRascunho(){
-  try{ localStorage.setItem(draftKey, JSON.stringify({ respostas, etapaAtual })); }catch(e){}
+  try{
+    localStorage.setItem(draftKey, JSON.stringify({
+      respostas, posicao, fase, etapasVistas: [...etapasVistas]
+    }));
+  }catch(e){}
 }
 function carregarRascunho(){
   try{
     const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
-    if(d && d.respostas){
-      respostas = d.respostas;
-      etapaAtual = Math.min(Number(d.etapaAtual) || 0, QUIZ_ETAPAS.length - 1);
-      return true;
-    }
-  }catch(e){}
-  return false;
+    if(!d || !d.respostas) return false;
+    respostas = d.respostas;
+    etapasVistas = new Set(d.etapasVistas || []);
+    posicao = Math.min(Number(d.posicao) || 0, Math.max(0, fila().length - 1));
+    fase = d.fase === 'abertura' ? 'abertura' : 'pergunta';
+    return Object.keys(respostas).length > 0;
+  }catch(e){ return false; }
 }
 function limparRascunho(){ localStorage.removeItem(draftKey); }
 
-/* ---------------- render de uma pergunta ---------------- */
-function renderPergunta(p){
-  const val = respostas[p.id];
-  let campo = '';
-
-  if(p.tipo === 'unica'){
-    campo = `<div class="opcoes">` + p.opcoes.map(o => `
-      <label class="opcao ${val === o.v ? 'marcada' : ''}">
-        <input type="radio" name="${esc(p.id)}" value="${esc(o.v)}" ${val === o.v ? 'checked' : ''}>
-        <span>${esc(o.label)}${o.desc ? `<span class="op-desc">${esc(o.desc)}</span>` : ''}</span>
-      </label>`).join('') + `</div>`;
-
-  }else if(p.tipo === 'multipla'){
-    const arr = Array.isArray(val) ? val : [];
-    campo = `<div class="opcoes">` + p.opcoes.map(o => `
-      <label class="opcao ${arr.includes(o.v) ? 'marcada' : ''}">
-        <input type="checkbox" name="${esc(p.id)}" value="${esc(o.v)}" ${arr.includes(o.v) ? 'checked' : ''}>
-        <span>${esc(o.label)}</span>
-      </label>`).join('') + `</div>`;
-
-  }else if(p.tipo === 'escala'){
-    campo = `<div class="escala">` + Array.from({ length: 11 }, (_, i) => `
-      <button type="button" data-escala="${esc(p.id)}" data-valor="${i}"
-        class="${String(val) === String(i) ? 'on' : ''}">${i}</button>`).join('') + `</div>`;
-
-  }else if(p.tipo === 'textarea'){
-    campo = `<textarea name="${esc(p.id)}" placeholder="${esc(p.placeholder || '')}">${esc(val || '')}</textarea>`;
-
-  }else if(p.tipo === 'numero'){
-    campo = `<input type="number" name="${esc(p.id)}" value="${esc(val ?? '')}" placeholder="${esc(p.placeholder || '')}">`;
-
-  }else{
-    campo = `<input type="text" name="${esc(p.id)}" value="${esc(val ?? '')}" placeholder="${esc(p.placeholder || '')}">`;
-  }
+/* ---------------- barra de progresso ---------------- */
+function barra(){
+  const f = fila();
+  const item = f[posicao];
+  const respondidas = f.filter(x => temResposta(x.pergunta.id)).length;
+  const pct = fase === 'revisao' ? 100 : Math.round((respondidas / Math.max(f.length, 1)) * 100);
+  const iEtapa = item ? item.iEtapa : QUIZ_ETAPAS.length - 1;
 
   return `
-    <div class="pergunta" data-pergunta="${esc(p.id)}">
-      <h3>${esc(p.label)}${p.obrigatoria ? ' <span style="color:var(--nude)">*</span>' : ''}</h3>
-      ${p.ajuda ? `<p class="ajuda">${esc(p.ajuda)}</p>` : ''}
-      ${campo}
-      <div class="erro-msg" data-erro="${esc(p.id)}"></div>
-    </div>`;
-}
-
-/* ---------------- render da etapa ---------------- */
-function idsVisiveis(){
-  return perguntasVisiveis(QUIZ_ETAPAS[etapaAtual], respostas).map(p => p.id).join('|');
-}
-
-function renderEtapa(irAoTopo = true){
-  const etapa = QUIZ_ETAPAS[etapaAtual];
-  const visiveis = perguntasVisiveis(etapa, respostas);
-  const pct = Math.round((etapaAtual / QUIZ_ETAPAS.length) * 100);
-
-  $('#conteudo').innerHTML = `
     <div class="quiz-topo">
       <div class="quiz-meta">
-        <span>Bloco ${etapaAtual + 1} de ${QUIZ_ETAPAS.length}</span>
-        <span>${esc(PEDIDO.codigo)} · salvo automaticamente</span>
+        <span><b>${fase === 'revisao' ? 'Revisão final' : esc(QUIZ_ETAPAS[iEtapa].titulo)}</b>
+          · bloco ${iEtapa + 1} de ${QUIZ_ETAPAS.length}</span>
+        <button class="quiz-sair" id="btnSairQuiz">Salvar e sair</button>
       </div>
       <div class="progresso"><i style="width:${pct}%"></i></div>
-    </div>
-
-    <div style="margin:26px 0 20px">
-      <h2 class="etapa-nome">${esc(etapa.titulo)}</h2>
-      <p class="muted">${esc(etapa.desc || '')}</p>
-    </div>
-
-    <div class="painel">
-      ${visiveis.map(renderPergunta).join('')}
-    </div>
-
-    <div class="quiz-nav">
-      <button class="btn btn-ghost" id="btnVoltar">${etapaAtual === 0 ? 'Sair' : 'Voltar'}</button>
-      <button class="btn btn-primary" id="btnAvancar">
-        ${etapaAtual === QUIZ_ETAPAS.length - 1 ? 'Revisar e enviar' : 'Continuar'}
-      </button>
+      <div class="blocos">
+        ${QUIZ_ETAPAS.map((_, i) => `<i class="${i < iEtapa ? 'feito' : i === iEtapa ? 'atual' : ''}"></i>`).join('')}
+      </div>
     </div>`;
-
-  ligarEventos();
-  if(irAoTopo) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function ligarEventos(){
-  const visiveisAntes = idsVisiveis();
+function temResposta(id){
+  const v = respostas[id];
+  return !(v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length));
+}
 
-  // rádios e checkboxes
-  $$('.opcao input').forEach(input => {
-    input.addEventListener('change', () => {
-      const nome = input.name;
-      const p = perguntaPorId(nome);
-      if(p.tipo === 'unica'){
-        respostas[nome] = input.value;
-      }else{
-        const marcados = $$(`.opcao input[name="${CSS.escape(nome)}"]:checked`).map(i => i.value);
-        if(p.max && marcados.length > p.max){
-          input.checked = false;
-          toast(`Escolha até ${p.max} opções — desmarque uma antes.`, 'erro');
-          return;
-        }
-        respostas[nome] = marcados;
-      }
-      // repinta marcação
-      $$(`.opcao input[name="${CSS.escape(nome)}"]`).forEach(i =>
-        i.closest('.opcao').classList.toggle('marcada', i.checked));
-      const erro = $(`[data-erro="${CSS.escape(nome)}"]`);
-      if(erro) erro.textContent = '';
-      salvarRascunho();
-      // se a resposta liberou ou escondeu uma pergunta condicional, redesenha sem tirar a
-      // cliente do lugar onde ela estava
-      if(idsVisiveis() !== visiveisAntes){
-        const y = window.scrollY;
-        renderEtapa(false);
-        window.scrollTo({ top: y });
-      }
+/* ---------------- telas ---------------- */
+function telaAbertura(retomando){
+  $('#conteudo').innerHTML = `
+    <div class="palco">
+      <div class="tela abertura animar-filhos">
+        <span class="eyebrow">Anamnese de pele</span>
+        <h1>${retomando ? 'Vamos continuar de onde você parou' : 'Vamos conhecer a sua pele'}</h1>
+        <p class="lead">${retomando
+          ? 'Suas respostas estão salvas. Dá para revisar tudo antes de enviar.'
+          : 'São seis blocos de perguntas simples. Você responde no seu ritmo — e pode parar e voltar quando quiser.'}</p>
+        <div class="marcos">
+          ${QUIZ_ETAPAS.map((e, i) => `<div class="marco"><b>${String(i + 1).padStart(2, '0')}</b><span>${esc(e.titulo)}</span></div>`).join('')}
+        </div>
+        <button class="btn btn-primary btn-wide" id="btnComecar">
+          ${retomando ? 'Continuar' : 'Começar'} <span aria-hidden="true">→</span>
+        </button>
+        <p class="tiny">Leva cerca de 6 minutos. Nada é enviado até você revisar no final.</p>
+      </div>
+    </div>`;
+  $('#btnComecar').addEventListener('click', () => { fase = 'pergunta'; irPara(posicao, 'avanca'); });
+}
+
+function telaPassagem(item){
+  $('#conteudo').innerHTML = barra() + `
+    <div class="palco">
+      <div class="tela passagem ${direcao} animar-filhos">
+        <span class="num">${String(item.iEtapa + 1).padStart(2, '0')}</span>
+        <h2>${esc(item.etapa.titulo)}</h2>
+        <p>${esc(item.etapa.desc || '')}</p>
+        <button class="btn btn-primary" id="btnSeguir">Seguir <span aria-hidden="true">→</span></button>
+      </div>
+    </div>`;
+  ligarSair();
+  $('#btnSeguir').addEventListener('click', () => { fase = 'pergunta'; desenhar(); });
+}
+
+function corpoPergunta(p){
+  const v = respostas[p.id];
+
+  if(p.tipo === 'unica' || p.tipo === 'multipla'){
+    const multi = p.tipo === 'multipla';
+    const arr = Array.isArray(v) ? v : (v !== undefined ? [v] : []);
+    const opcoes = p.opcoes.map((o, i) => `
+      <label class="opcao ${arr.includes(o.v) ? 'marcada' : ''}" data-valor="${esc(o.v)}">
+        <input type="${multi ? 'checkbox' : 'radio'}" name="${esc(p.id)}" value="${esc(o.v)}" ${arr.includes(o.v) ? 'checked' : ''}>
+        <span class="tecla" aria-hidden="true">${i < 9 ? i + 1 : '·'}</span>
+        <span class="rotulo">${esc(o.label)}${o.desc ? `<span class="op-desc">${esc(o.desc)}</span>` : ''}</span>
+      </label>`).join('');
+    const contador = multi
+      ? `<span class="contador ${p.max && arr.length >= p.max ? 'cheio' : ''}" id="contador">${arr.length}${p.max ? ' de ' + p.max : ''} selecionada${arr.length === 1 ? '' : 's'}</span>`
+      : '';
+    return `<div class="opcoes">${opcoes}</div>${contador}`;
+  }
+
+  if(p.tipo === 'escala'){
+    return `
+      <div class="escala">
+        ${Array.from({ length: 11 }, (_, i) => `
+          <button type="button" data-valor="${i}" class="${String(v) === String(i) ? 'on' : ''}">${i}</button>`).join('')}
+      </div>
+      <div class="escala-pontas"><span>0</span><span>10</span></div>`;
+  }
+
+  return `<div class="q-texto"><textarea id="campoTexto" placeholder="${esc(p.placeholder || '')}">${esc(v || '')}</textarea></div>`;
+}
+
+function telaPergunta(){
+  const item = atual();
+  if(!item){ fase = 'revisao'; return desenhar(); }
+  const p = item.pergunta;
+  const multi = p.tipo === 'multipla';
+  const livre = p.tipo === 'textarea' || p.tipo === 'texto' || p.tipo === 'numero';
+  const precisaBotao = multi || livre || p.tipo === 'escala';
+
+  $('#conteudo').innerHTML = barra() + `
+    <div class="palco">
+      <div class="tela ${direcao}" data-pergunta="${esc(p.id)}">
+        <span class="q-etapa">${esc(item.etapa.titulo)} · ${posicao + 1} de ${total()}</span>
+        <h2 class="q-titulo">${esc(p.label)}</h2>
+        ${p.ajuda ? `<p class="q-ajuda">${esc(p.ajuda)}</p>` : ''}
+        ${corpoPergunta(p)}
+        <div class="erro-msg" id="erroQ"></div>
+        <div class="quiz-nav">
+          ${posicao > 0 ? '<button class="quiz-voltar" id="btnVoltar">← Voltar</button>' : ''}
+          ${precisaBotao ? `<button class="btn btn-primary" id="btnSeguir">
+              ${p.obrigatoria ? 'Continuar' : (temResposta(p.id) ? 'Continuar' : 'Pular esta')} <span aria-hidden="true">→</span></button>` : ''}
+          <span class="quiz-dica">${p.tipo === 'unica'
+            ? 'toque na resposta ou use <kbd>1</kbd>–<kbd>9</kbd>'
+            : 'pressione <kbd>Enter</kbd> para continuar'}</span>
+        </div>
+      </div>
+    </div>`;
+
+  ligarSair();
+  ligarPergunta(p);
+}
+
+function ligarPergunta(p){
+  const multi = p.tipo === 'multipla';
+
+  $$('.opcao').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      escolher(p, el.dataset.valor, el);
     });
   });
 
-  // escala 0-10
-  $$('[data-escala]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.escala;
-      respostas[id] = Number(btn.dataset.valor);
-      $$(`[data-escala="${CSS.escape(id)}"]`).forEach(b => b.classList.toggle('on', b === btn));
-      const erro = $(`[data-erro="${CSS.escape(id)}"]`);
-      if(erro) erro.textContent = '';
+  $$('.escala button').forEach(b => {
+    b.addEventListener('click', () => {
+      respostas[p.id] = Number(b.dataset.valor);
+      $$('.escala button').forEach(x => x.classList.toggle('on', x === b));
       salvarRascunho();
+      setTimeout(() => avancar(), 260);
     });
   });
 
-  // texto livre
-  $$('textarea[name], input[type="text"][name], input[type="number"][name]').forEach(el => {
-    el.addEventListener('input', () => {
-      respostas[el.name] = el.value;
-      salvarRascunho();
-    });
-  });
+  const txt = $('#campoTexto');
+  if(txt){
+    txt.addEventListener('input', () => { respostas[p.id] = txt.value; salvarRascunho(); });
+    setTimeout(() => txt.focus(), 120);
+  }
 
-  $('#btnVoltar').addEventListener('click', () => {
-    if(etapaAtual === 0){ location.href = 'area.html'; return; }
-    etapaAtual--; salvarRascunho(); renderEtapa();
-  });
-  $('#btnAvancar').addEventListener('click', avancar);
+  const seguir = $('#btnSeguir');
+  if(seguir) seguir.addEventListener('click', avancar);
+  const voltar = $('#btnVoltar');
+  if(voltar) voltar.addEventListener('click', () => irPara(posicao - 1, 'volta'));
+}
+
+function escolher(p, valor, el){
+  if(p.tipo === 'unica'){
+    respostas[p.id] = valor;
+    $$('.opcao').forEach(x => x.classList.toggle('marcada', x === el));
+    el.classList.add('confirmada');
+    salvarRascunho();
+    setTimeout(() => avancar(), 300);          // responder já avança
+    return;
+  }
+  // múltipla escolha
+  const arr = Array.isArray(respostas[p.id]) ? [...respostas[p.id]] : [];
+  const i = arr.indexOf(valor);
+  if(i >= 0) arr.splice(i, 1);
+  else{
+    if(p.max && arr.length >= p.max){
+      toast(`Escolha até ${p.max} — desmarque uma antes.`, 'erro');
+      return;
+    }
+    arr.push(valor);
+  }
+  respostas[p.id] = arr;
+  el.classList.toggle('marcada', arr.includes(valor));
+  const c = $('#contador');
+  if(c){
+    c.textContent = `${arr.length}${p.max ? ' de ' + p.max : ''} selecionada${arr.length === 1 ? '' : 's'}`;
+    c.classList.toggle('cheio', !!p.max && arr.length >= p.max);
+  }
+  const erro = $('#erroQ');
+  if(erro) erro.textContent = '';
+  salvarRascunho();
 }
 
 function avancar(){
-  const etapa = QUIZ_ETAPAS[etapaAtual];
-  const visiveis = perguntasVisiveis(etapa, respostas);
-  let primeiroErro = null;
-
-  visiveis.forEach(p => {
-    const v = respostas[p.id];
-    const vazio = v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
-    const box = $(`[data-erro="${CSS.escape(p.id)}"]`);
-    if(p.obrigatoria && vazio){
-      if(box) box.textContent = 'Preciso dessa resposta para montar seu protocolo.';
-      if(!primeiroErro) primeiroErro = p.id;
-    }else if(box){
-      box.textContent = '';
-    }
-  });
-
-  if(primeiroErro){
-    $(`[data-pergunta="${CSS.escape(primeiroErro)}"]`).scrollIntoView({ block:'center', behavior:'smooth' });
+  const item = atual();
+  if(!item) return;
+  const p = item.pergunta;
+  if(p.obrigatoria && !temResposta(p.id)){
+    const erro = $('#erroQ');
+    if(erro) erro.textContent = 'Preciso dessa resposta para montar o seu protocolo.';
     return;
   }
-
   salvarRascunho();
-  if(etapaAtual < QUIZ_ETAPAS.length - 1){ etapaAtual++; renderEtapa(); }
-  else telaRevisao();
+  irPara(posicao + 1, 'avanca');
+}
+
+/* Navega respeitando a fila recalculada e mostra a passagem de bloco
+   quando a cliente entra num bloco novo. */
+function irPara(nova, dir){
+  direcao = dir;
+  const f = fila();
+  if(nova >= f.length){ fase = 'revisao'; return desenhar(); }
+  posicao = Math.max(0, nova);
+  const item = f[posicao];
+  if(dir === 'avanca' && !etapasVistas.has(item.etapa.id)){
+    etapasVistas.add(item.etapa.id);
+    fase = 'passagem';
+  }else{
+    fase = 'pergunta';
+  }
+  salvarRascunho();
+  desenhar();
 }
 
 /* ---------------- revisão ---------------- */
-function blocosRespostas(resp){
-  return QUIZ_ETAPAS.map(e => {
-    const linhas = perguntasVisiveis(e, resp)
-      .filter(p => { const v = resp[p.id]; return !(v === undefined || v === '' || (Array.isArray(v) && !v.length)); })
-      .map(p => `<div class="resposta"><dt>${esc(p.label)}</dt><dd>${esc(respostaLegivel(p.id, resp[p.id]))}</dd></div>`)
-      .join('');
-    return linhas ? `<div class="resposta-grupo"><h4>${esc(e.titulo)}</h4><dl>${linhas}</dl></div>` : '';
-  }).join('');
-}
-
 function telaRevisao(){
-  $('#conteudo').innerHTML = `
-    <div class="quiz-topo">
-      <div class="quiz-meta"><span>Revisão final</span><span>${esc(PEDIDO.codigo)}</span></div>
-      <div class="progresso"><i style="width:100%"></i></div>
+  const grupos = QUIZ_ETAPAS.map(e => {
+    const linhas = perguntasVisiveis(e, respostas)
+      .filter(p => temResposta(p.id))
+      .map(p => `
+        <div class="rev-linha">
+          <dt>${esc(p.label)}<br><button class="rev-editar" data-editar="${esc(p.id)}">editar</button></dt>
+          <dd>${esc(respostaLegivel(p.id, respostas[p.id]))}</dd>
+        </div>`).join('');
+    return linhas ? `<div class="revisao-grupo"><h4>${esc(e.titulo)}</h4><dl>${linhas}</dl></div>` : '';
+  }).join('');
+
+  $('#conteudo').innerHTML = barra() + `
+    <div style="margin:30px 0 22px">
+      <span class="eyebrow">Último passo</span>
+      <h2 class="etapa-nome" style="margin-top:10px">Confere se está tudo certo</h2>
+      <p class="muted">Toque em “editar” para mudar qualquer resposta. Depois de enviar, é só me chamar no WhatsApp que a gente ajusta.</p>
     </div>
-
-    <div style="margin:26px 0 20px">
-      <h2 class="etapa-nome">Confere se está tudo certo</h2>
-      <p class="muted">Depois de enviar, se precisar corrigir alguma coisa é só me chamar no WhatsApp.</p>
-    </div>
-
-    <div class="painel">${blocosRespostas(respostas)}</div>
-
-    <div class="quiz-nav">
-      <button class="btn btn-ghost" id="btnCorrigir">Voltar e corrigir</button>
-      <button class="btn btn-primary" id="btnEnviar">Enviar minha anamnese</button>
+    <div class="painel">${grupos}</div>
+    <div class="quiz-nav" style="margin-top:26px">
+      <button class="quiz-voltar" id="btnVoltarRev">← Voltar à última pergunta</button>
+      <button class="btn btn-primary btn-wide" id="btnEnviar">Enviar minha anamnese</button>
     </div>`;
 
-  $('#btnCorrigir').addEventListener('click', () => { etapaAtual = 0; renderEtapa(); });
+  ligarSair();
+  $('#btnVoltarRev').addEventListener('click', () => { fase = 'pergunta'; irPara(total() - 1, 'volta'); });
   $('#btnEnviar').addEventListener('click', enviar);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $$('[data-editar]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.editar;
+    const i = fila().findIndex(x => x.pergunta.id === id);
+    if(i >= 0){ fase = 'pergunta'; posicao = i; direcao = 'volta'; desenhar(); }
+  }));
 }
 
 /* ---------------- envio ---------------- */
 async function enviar(){
-  const btn = $('#btnEnviar');
-  btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  fase = 'enviando';
+  $('#conteudo').innerHTML = `
+    <div class="palco">
+      <div class="enviando">
+        <svg class="girando" viewBox="0 0 96 64" aria-hidden="true">
+          <circle cx="36" cy="32" r="26" fill="none" stroke="#B83240" stroke-width="1.8"/>
+          <circle cx="60" cy="32" r="26" fill="none" stroke="#7A4E6A" stroke-width="1.8"/></svg>
+        <h2 class="etapa-nome">Guardando as suas respostas</h2>
+        <p class="muted">Só um instante.</p>
+      </div>
+    </div>`;
 
   const registro = {
-    id: uid(),
-    orderId: PEDIDO.id,
-    codigo: PEDIDO.codigo,
-    nome: PEDIDO.nome,
-    email: PEDIDO.email,
-    fone: PEDIDO.fone,
-    planoNome: PEDIDO.planoNome,
+    id: uid(), orderId: PEDIDO.id, codigo: PEDIDO.codigo,
+    nome: PEDIDO.nome, email: PEDIDO.email, fone: PEDIDO.fone, planoNome: PEDIDO.planoNome,
     respostas: structuredClone(respostas),
     resultado: calcularResultado(respostas),
-    criadoEm: new Date().toISOString(),
-    status: 'recebida',
-    notas: ''
+    criadoEm: new Date().toISOString(), status: 'recebida', notas: ''
   };
 
   const gravou = await salvarComMerge(db => {
@@ -282,36 +356,88 @@ async function enviar(){
 
   limparRascunho();
   toast(gravou ? 'Anamnese enviada' : 'Anamnese salva neste aparelho — me avise no WhatsApp.', gravou ? 'ok' : 'erro');
-  setTimeout(() => { location.href = 'area.html'; }, 900);
+  setTimeout(() => { location.href = 'area.html'; }, 700);
 }
 
 /* ---------------- já respondida ---------------- */
 function telaJaRespondida(a){
+  const grupos = QUIZ_ETAPAS.map(e => {
+    const linhas = perguntasVisiveis(e, a.respostas || {})
+      .filter(p => { const v = (a.respostas || {})[p.id]; return !(v === undefined || v === '' || (Array.isArray(v) && !v.length)); })
+      .map(p => `<div class="rev-linha"><dt>${esc(p.label)}</dt><dd>${esc(respostaLegivel(p.id, a.respostas[p.id]))}</dd></div>`).join('');
+    return linhas ? `<div class="revisao-grupo"><h4>${esc(e.titulo)}</h4><dl>${linhas}</dl></div>` : '';
+  }).join('');
+
   $('#conteudo').innerHTML = `
-    <div class="secao-head" style="margin-bottom:22px">
-      <h2>Sua anamnese já está comigo ✓</h2>
-      <p>Enviada em ${fmtDate(a.criadoEm)}. Estas foram as suas respostas.</p>
+    <div style="margin:34px 0 24px">
+      <span class="eyebrow">Recebida</span>
+      <h2 class="etapa-nome" style="margin-top:10px">Sua anamnese já está comigo</h2>
+      <p class="muted">Enviada em ${fmtDate(a.criadoEm)}. Estas foram as suas respostas.</p>
     </div>
-    <div class="painel">${blocosRespostas(a.respostas || {})}</div>
-    <div class="quiz-nav">
-      <a class="btn btn-ghost" href="area.html">Voltar para a minha área</a>
+    <div class="painel">${grupos}</div>
+    <div class="quiz-nav" style="margin-top:26px">
+      <a class="btn btn-ghost" href="area.html">← Minha área</a>
       <a class="btn btn-brasa" target="_blank" rel="noopener"
          href="${linkWhats(`Oi! Sou ${a.nome}, código ${a.codigo}. Preciso corrigir uma resposta da minha anamnese.`)}">Preciso corrigir algo</a>
     </div>`;
 }
 
+/* ---------------- render ---------------- */
+function desenhar(){
+  if(fase === 'passagem')      telaPassagem(atual());
+  else if(fase === 'revisao')  telaRevisao();
+  else                         telaPergunta();
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+}
+
+function ligarSair(){
+  const b = $('#btnSairQuiz');
+  if(b) b.addEventListener('click', () => {
+    salvarRascunho();
+    toast('Respostas salvas. É só voltar quando quiser.');
+    setTimeout(() => { location.href = 'area.html'; }, 700);
+  });
+}
+
+/* ---------------- teclado ---------------- */
+document.addEventListener('keydown', e => {
+  if(fase !== 'pergunta') return;
+  const alvo = e.target;
+  if(alvo && (alvo.tagName === 'TEXTAREA' || alvo.tagName === 'INPUT')){
+    if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) avancar();
+    return;
+  }
+  const item = atual();
+  if(!item) return;
+  const p = item.pergunta;
+
+  if(/^[1-9]$/.test(e.key)){
+    const el = $$('.opcao')[Number(e.key) - 1];
+    if(el){ e.preventDefault(); escolher(p, el.dataset.valor, el); }
+    const b = $$('.escala button')[Number(e.key)];
+    if(!el && b){ e.preventDefault(); b.click(); }
+  }else if(e.key === 'Enter'){
+    e.preventDefault(); avancar();
+  }else if(e.key === 'Backspace' || e.key === 'ArrowLeft'){
+    if(posicao > 0){ e.preventDefault(); irPara(posicao - 1, 'volta'); }
+  }else if(e.key === 'ArrowRight'){
+    e.preventDefault(); avancar();
+  }
+});
+
 /* ---------------- boot ---------------- */
 (async function(){
   await initDB();
-  montarHeader('area');
+  montarHeader('foco');
   montarFooter();
+  ativarCabecalhoDinamico();
 
   PEDIDO = pedidoDaSessao();
   if(!PEDIDO){
     $('#conteudo').innerHTML = `
-      <div class="painel center">
-        <h2 style="font-size:24px;margin-bottom:8px">Entre para fazer a anamnese</h2>
-        <p class="muted" style="margin-bottom:18px">Use o código de acesso que você recebeu ao contratar a consultoria.</p>
+      <div class="painel center" style="margin-top:40px">
+        <h2 class="etapa-nome">Entre para fazer a anamnese</h2>
+        <p class="muted" style="margin:10px 0 22px">Use o código de acesso que você recebeu ao contratar a consultoria.</p>
         <a class="btn btn-primary" href="area.html">Ir para a área da cliente</a>
       </div>`;
     return;
@@ -322,9 +448,8 @@ function telaJaRespondida(a){
   const enviada = anamnesePorPedido(PEDIDO.id);
   if(enviada){ telaJaRespondida(enviada); return; }
 
-  const tinhaRascunho = carregarRascunho();
-  renderEtapa();
-  if(tinhaRascunho) toast('Continuando de onde você parou');
+  const retomando = carregarRascunho();
+  telaAbertura(retomando);
 })();
 </script>
 </body>

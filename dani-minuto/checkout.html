@@ -202,6 +202,7 @@ async function gerar(){
   await initDB();
   montarHeader();
   montarFooter();
+  ativarCabecalhoDinamico();
 
   $('#plano').innerHTML = DB.settings.planos
     .map(p => `<option value="${esc(p.id)}">${esc(p.nome)} — ${money(p.preco)}</option>`).join('');

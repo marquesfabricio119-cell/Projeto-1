@@ -13,6 +13,10 @@ const SESSION_KEY    = "daniMinutoSessao";   // sessão da cliente
 const ADMIN_KEY      = "daniMinutoAdmin";    // sessão da Dani
 const DRAFT_KEY      = "daniMinutoRascunho";
 
+/* Só esconde o que vai ser revelado se o JS realmente carregou. Sem isso,
+   uma falha de script deixaria a página em branco. */
+document.documentElement.classList.add('js');
+
 /* ---------------------- utilidades ---------------------- */
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
@@ -296,6 +300,19 @@ function montarHeader(ativo){
   const el = $('#siteHeader');
   if(!el) return;
   const s = DB.settings;
+
+  // durante o quiz o menu só distrai: fica a marca e o caminho de volta
+  if(ativo === 'foco'){
+    el.classList.add('header-foco');
+    el.innerHTML = `
+      <a class="logo" href="index.html">
+        <img src="marca/simbolo.svg" alt="">
+        <span>${esc(s.marca || 'Dani Minuto')}</span>
+      </a>
+      <a class="voltar-area" href="area.html">Minha área</a>`;
+    return;
+  }
+
   el.innerHTML = `
     <a class="logo" href="index.html">
       <img src="marca/simbolo.svg" alt="">
@@ -307,6 +324,35 @@ function montarHeader(ativo){
       <a href="index.html#duvidas">Dúvidas</a>
       <a href="area.html" class="nav-cta ${ativo === 'area' ? 'on' : ''}">Área da cliente</a>
     </nav>`;
+}
+
+/* Revela elementos conforme entram na tela. Quem pediu menos movimento
+   recebe tudo já visível — a página nunca depende da animação para ler. */
+function ativarRevelacao(){
+  const alvos = $$('[data-revelar]');
+  if(!alvos.length) return;
+  const parado = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(parado || !('IntersectionObserver' in window)){
+    alvos.forEach(el => el.classList.add('visivel'));
+    return;
+  }
+  const obs = new IntersectionObserver((entradas) => {
+    entradas.forEach(e => {
+      if(!e.isIntersecting) return;
+      e.target.classList.add('visivel');
+      obs.unobserve(e.target);
+    });
+  }, { rootMargin: '0px 0px -12% 0px', threshold: .12 });
+  alvos.forEach(el => obs.observe(el));
+}
+
+/* O cabeçalho ganha sombra quando a página sai do topo. */
+function ativarCabecalhoDinamico(){
+  const el = $('#siteHeader');
+  if(!el) return;
+  const marcar = () => el.classList.toggle('rolado', window.scrollY > 12);
+  marcar();
+  addEventListener('scroll', marcar, { passive: true });
 }
 
 function montarFooter(){

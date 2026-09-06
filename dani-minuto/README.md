@@ -13,7 +13,7 @@ paleta, tipografia e princípios estão documentados em `social/marca.md`.
 | `index.html`    | Página de vendas: proposta, o que está incluso, planos, prévia da anamnese e dúvidas.  |
 | `checkout.html` | Dados da cliente → gera o **código de acesso** e mostra o PIX.                          |
 | `area.html`     | Área da cliente: entra com código + e-mail, vê o status e faz/rever a anamnese.        |
-| `anamnese.html` | **O quiz da anamnese**: 6 blocos, salva sozinho, revisão final e envio.                 |
+| `anamnese.html` | **O quiz da anamnese**: uma pergunta por tela, salva sozinho, revisão final e envio.      |
 | `admin.html`    | Painel da Dani: pedidos, anamneses, exclusões, configurações e backup.                  |
 | `app.js`        | Núcleo: estado, sincronização, sessão, cabeçalho e rodapé.                             |
 | `quiz.js`       | Perguntas da anamnese e a leitura automática do resultado.                             |
@@ -27,6 +27,11 @@ paleta, tipografia e princípios estão documentados em `social/marca.md`.
 2. **Comprovante** — ela manda o PIX pelo WhatsApp. No painel, a Dani clica em *Confirmar pago*.
 3. **Anamnese** — com o código, a cliente entra na área e responde o quiz. Ela já pode responder antes
    da confirmação do pagamento; as respostas ficam salvas no aparelho enquanto ela avança.
+
+   O quiz mostra **uma pergunta por tela**. Escolher uma resposta única já avança sozinho; múltipla
+   escolha e texto têm botão. Funciona no teclado — `1`–`9` escolhem, `Enter` continua, `Backspace`
+   volta — e cada bloco novo abre com uma tela de passagem, para dar ritmo. Na revisão final dá para
+   editar qualquer resposta e voltar direto para ela.
 4. **Leitura automática** — ao enviar, o sistema calcula um primeiro perfil (tipo de pele,
    sensibilidade, barreira, fotoproteção, prioridades e um esqueleto de rotina) e levanta **alertas de
    segurança** para a Dani.

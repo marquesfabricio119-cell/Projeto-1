@@ -422,6 +422,7 @@ function baixarBackup(){
   await initDB();
   montarHeader();
   montarFooter();
+  ativarCabecalhoDinamico();
   if(sessionStorage.getItem(ADMIN_KEY) === '1') telaPainel(); else telaLogin();
 })();
 </script>
