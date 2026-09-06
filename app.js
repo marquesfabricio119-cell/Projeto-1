@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "39";
+const APP_VERSION = "40";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -628,7 +628,11 @@ function atualizaAvisoDeNuvem(){
     return;
   }
   painel.className = 'estado-nuvem ruim';
-  painel.innerHTML = (falhouAoEnviar && (nuvemLida || nuvemVaziaConfirmada)
+  /* Se nem LER deu certo, o problema não é permissão de gravação — dizer
+     "não está aceitando gravar" mandaria o lojista mexer nas permissões
+     quando o projeto está fora do ar. A leitura manda no recado. */
+  const soNaoGrava = falhouAoEnviar && nuvemLida && !(ultimoErroNuvem && ultimoErroNuvem.status === 0);
+  painel.innerHTML = (soNaoGrava
       ? '⚠️ <strong>A nuvem não está aceitando gravar.</strong> '
       : '⚠️ <strong>Sem ligação com a nuvem.</strong> ') +
     'O trabalho está sendo salvo neste aparelho e sobe quando a ligação voltar. ' +
@@ -651,7 +655,9 @@ function explicarErroDaNuvem(erro){
   if(erro.status >= 500)
     return 'O servidor da nuvem respondeu com erro ' + erro.status + '. Projetos gratuitos do Supabase são pausados após alguns dias sem uso — confira no painel se o projeto precisa ser reativado.';
   if(erro.status === 0)
-    return 'Não houve resposta da nuvem. Pode ser a internet, ou o projeto do Supabase estar pausado — o painel dele diz qual dos dois.';
+    return 'O servidor da nuvem não respondeu NADA — nem para recusar. Como o resto do sistema está carregando, a internet está funcionando: '
+         + 'ou o projeto do Supabase está pausado/apagado, ou o endereço está errado. '
+         + 'Abra ' + configNuvem().url + ' no navegador: se não abrir, o projeto não está no ar.';
   return 'A nuvem respondeu ' + erro.status + '.';
 }
 
@@ -1799,6 +1805,11 @@ async function testarNuvem(){
   } else if(!leitura.ok && (leitura.status === 404 || /does not exist|not find/i.test(leitura.corpo||''))){
     recado = 'A tabela "' + cfg.tabela + '" não existe neste projeto do Supabase.';
     comoResolver = 'Nada está sendo salvo na nuvem. Copie o SQL que está logo abaixo, cole no SQL Editor do Supabase e clique em Run. Isso cria a tabela e libera o acesso.';
+  } else if(!leitura.ok && leitura.status === 0){
+    recado = 'O servidor da nuvem não respondeu nada.';
+    comoResolver = 'O sistema carregou normalmente, então a internet está boa — quem não respondeu foi o Supabase. '
+      + 'Confira no painel do Supabase se o projeto está ATIVO (projeto pausado ou apagado responde assim), '
+      + 'e se o endereço abaixo é mesmo o do seu projeto.';
   } else if(!leitura.ok){
     recado = 'A nuvem não deixou nem LER (' + leitura.status + ').';
     comoResolver = explicarErroDaNuvem({ status: leitura.status });
@@ -1828,7 +1839,9 @@ async function testarNuvem(){
     <button class="btn btn-sm" style="margin-top:10px" onclick="copiarDiagnostico()">📋 Copiar este diagnóstico</button>
     <p class="text-muted" style="font-size:12px;margin-top:8px">
       Projeto: <code>${escapeHtml(cfg.url.replace('https://','').split('.')[0])}</code> ·
-      tabela <code>${escapeHtml(cfg.tabela)}</code></p>`;
+      tabela <code>${escapeHtml(cfg.tabela)}</code><br>
+      <a href="${escapeHtml(cfg.url)}/rest/v1/" target="_blank" rel="noopener">Abrir o endereço da nuvem no navegador</a>
+      — se esta página não abrir, o projeto do Supabase não está no ar, e nenhum ajuste no sistema resolve isso.</p>`;
 }
 
 /* O diagnóstico em texto puro, para o lojista colar numa conversa. Print de
