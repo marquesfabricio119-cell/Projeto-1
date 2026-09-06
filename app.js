@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "40";
+const APP_VERSION = "41";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -3125,7 +3125,12 @@ function finalizeSale(){
     if(v) v.stock = Math.max(0, v.stock - i.qty);
   });
   DB.sales.push(sale);
-  DB.finance.entries.push({ id:uid(), type:'receita', category:'Venda PDV', amount: total, date: todayISO(), status:'pago', description:`Venda #${sale.id.slice(-6)}` });
+  /* A venda guarda o número do lançamento financeiro dela. Sem isso, mexer
+     na venda depois deixava o Financeiro com o valor antigo, e os dois
+     números da loja passavam a discordar. */
+  const lancamento = { id:uid(), type:'receita', category:'Venda PDV', amount: total, date: todayISO(), status:'pago', description:`Venda #${sale.id.slice(-6)}` };
+  sale.financeId = lancamento.id;
+  DB.finance.entries.push(lancamento);
 
   /* Só damos a venda por feita depois que ela está realmente gravada. Antes
      o recibo saía mesmo quando o armazenamento recusava a gravação, e a
@@ -3205,6 +3210,10 @@ function renderVendas(el){
 let vendasMostradas = 100;
 function renderVendasTable(){
   const wrap = document.getElementById('vendasWrap');
+  /* Cancelar ou excluir uma venda a partir de outra tela derrubava o
+     sistema aqui: não havia tabela para redesenhar. Sem tela, nada a
+     fazer — o dado já foi salvo, que é o que importa. */
+  if(!wrap) return;
   const todas = [...DB.sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!todas.length){ wrap.innerHTML=`<div class="empty-state">Nenhuma venda registrada</div>`; return; }
   const list = todas.slice(0, vendasMostradas);
@@ -3236,13 +3245,186 @@ function saleStatusBadge(s){
   return '<span class="badge badge-success">Concluída</span>';
 }
 function saleActions(s){
-  if(s.canceled) return '-';
+  /* Venda cancelada continuava sem botão nenhum — nem para apagar. Quem
+     registrou errado ficava com a linha errada na tela para sempre. */
+  if(s.canceled) return `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
   let btns='';
   if(s.origin==='loja' && s.status==='pendente') btns += `<button class="btn btn-sm btn-accent" onclick="markSalePaid('${s.id}')">Marcar Pago</button> `;
   if(s.origin==='loja' && s.status==='pago') btns += `<button class="btn btn-sm btn-gold" onclick="markSaleDelivered('${s.id}')">Marcar Entregue</button> `;
   btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">🧾 Recibo</button> `;
-  btns += `<button class="btn btn-sm btn-danger" onclick="cancelSale('${s.id}')">Cancelar</button>`;
+  btns += `<button class="btn btn-sm" onclick="openSaleModal('${s.id}')">✏️ Editar</button> `;
+  btns += `<button class="btn btn-sm" onclick="cancelSale('${s.id}')">Cancelar</button> `;
+  btns += `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
   return btns;
+}
+
+/* Mexer no estoque de uma venda: soma (devolvendo) ou subtrai (vendendo).
+   Um lugar só, para a devolução e a retirada nunca discordarem. */
+function mexerNoEstoqueDaVenda(itens, sinal){
+  (itens||[]).forEach(i=>{
+    const p = DB.products.find(x=>x.id===i.productId);
+    const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+    if(v) v.stock = Math.max(0, v.stock + sinal * Number(i.qty||0));
+  });
+}
+
+/* O lançamento no Financeiro que pertence a esta venda. As vendas novas
+   guardam o número dele; as antigas são achadas pela descrição, que é como
+   ele foi criado. */
+function lancamentoDaVenda(s){
+  const lista = (DB.finance && DB.finance.entries) || [];
+  if(s.financeId){
+    const achado = lista.find(e=>e.id === s.financeId);
+    if(achado) return achado;
+  }
+  const marca = '#' + String(s.id).slice(-6);
+  return lista.find(e=>e.description && e.description.indexOf(marca) >= 0) || null;
+}
+
+/* EXCLUIR é diferente de CANCELAR, e a diferença importa: cancelar guarda
+   a venda no histórico como cancelada; excluir apaga a linha, como se
+   nunca tivesse acontecido. Serve para o registro feito por engano — a
+   venda de R$ 0,00 que ninguém fez. */
+function excluirVenda(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm('EXCLUIR esta venda de ' + money(s.total) + ', de ' + dateBR(s.date) + '?\n\n' +
+              'A linha some do histórico e o lançamento no Financeiro sai junto.\n' +
+              (s.canceled ? 'O estoque já tinha voltado no cancelamento.\n' : 'O estoque das peças volta.\n') +
+              '\nIsto não tem como desfazer. Para apenas anular guardando o registro, use Cancelar.')) return;
+  if(!s.canceled) mexerNoEstoqueDaVenda(s.items, +1);
+  const lanc = lancamentoDaVenda(s);
+  if(lanc) DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+  DB.sales = DB.sales.filter(x=>x.id !== id);
+  registrarApagado('sales', id);
+  if(exigirGravacao('a exclusão da venda')){
+    renderVendasTable();
+    toast('Venda excluída');
+  }
+}
+
+/* Editar uma venda registrada. O que muda de verdade no balcão: a forma de
+   pagamento errada, a quantidade digitada a mais, o desconto esquecido, a
+   cliente que não foi anotada. Cada mudança acerta o estoque e o
+   Financeiro junto — senão a loja fica com dois números diferentes para a
+   mesma venda. */
+function openSaleModal(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s){ toast('Venda não encontrada','error'); return; }
+  if(s.canceled){ toast('Venda cancelada não pode ser editada. Exclua ou registre outra.','warn'); return; }
+
+  const itens = s.items.map(i=>({ ...i }));
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const opcoesCliente = ['<option value="">Consumidor final</option>']
+    .concat(DB.customers.map(c=>`<option value="${escapeHtml(c.id)}" ${s.customerId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`))
+    .join('');
+  const formas = ['dinheiro','pix','débito','crédito'];
+
+  overlay.innerHTML = `<div class="modal">
+    <h2>Editar venda de ${dateBR(s.date)}</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+      Mudou a quantidade? O estoque das peças é acertado na mesma hora, para mais ou para menos.</p>
+    <div id="itensDaVenda"></div>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="field"><label>Cliente</label>
+        <select id="v_cliente">${opcoesCliente}</select></div>
+      <div class="field"><label>Forma de pagamento</label>
+        <select id="v_pagto">${formas.map(f=>`<option ${s.payment===f?'selected':''}>${f}</option>`).join('')}</select></div>
+      <div class="field"><label>Desconto (R$)</label>
+        <input type="number" id="v_desc" step="0.01" min="0" value="${Number(s.discount)||0}"></div>
+      <div class="field"><label>Data e hora</label>
+        <input type="datetime-local" id="v_data" value="${new Date(s.date).toISOString().slice(0,16)}"></div>
+    </div>
+    <div class="lucro-box" id="v_total" style="margin-top:14px"></div>
+    <div class="modal-actions">
+      <button class="btn" id="v_cancelar">Voltar</button>
+      <button class="btn btn-accent" id="v_salvar">Salvar alterações</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  const caixaItens = overlay.querySelector('#itensDaVenda');
+  function desenharItens(){
+    if(!itens.length){
+      caixaItens.innerHTML = '<p class="text-muted" style="font-size:12.5px">Sem peças nesta venda. Salvando assim, ela fica zerada — talvez você queira Excluir.</p>';
+      return atualizarTotal();
+    }
+    caixaItens.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Peça</th><th style="width:90px">Qtd</th><th style="width:110px">Preço</th><th>Subtotal</th><th></th>
+    </tr></thead><tbody>
+      ${itens.map((i,idx)=>`<tr>
+        <td>${escapeHtml(i.name)} <span class="text-muted">${escapeHtml(i.size)}/${escapeHtml(i.color)}</span></td>
+        <td><input type="number" min="1" step="1" value="${i.qty}" data-qtd="${idx}" style="width:70px"></td>
+        <td><input type="number" min="0" step="0.01" value="${i.price}" data-preco="${idx}" style="width:95px"></td>
+        <td>${money(i.qty * i.price)}</td>
+        <td><button class="btn btn-sm btn-danger" data-tirar="${idx}">Tirar</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+    caixaItens.querySelectorAll('[data-qtd]').forEach(inp=>inp.addEventListener('input', e=>{
+      itens[Number(e.target.dataset.qtd)].qty = Math.max(1, Number(e.target.value)||1);
+      atualizarTotal();
+    }));
+    caixaItens.querySelectorAll('[data-preco]').forEach(inp=>inp.addEventListener('input', e=>{
+      itens[Number(e.target.dataset.preco)].price = Math.max(0, Number(e.target.value)||0);
+      atualizarTotal();
+    }));
+    caixaItens.querySelectorAll('[data-tirar]').forEach(b=>b.addEventListener('click', e=>{
+      itens.splice(Number(e.target.dataset.tirar), 1);
+      desenharItens();
+    }));
+    atualizarTotal();
+  }
+  function somaDosItens(){ return itens.reduce((soma,i)=>soma + Number(i.qty)*Number(i.price), 0); }
+  function totalNovo(){
+    return Math.max(0, somaDosItens() - (Number(overlay.querySelector('#v_desc').value)||0));
+  }
+  function atualizarTotal(){
+    const t = totalNovo();
+    overlay.querySelector('#v_total').innerHTML =
+      `Total desta venda: <strong>${money(t)}</strong>` +
+      (Math.abs(t - s.total) > 0.001 ? ` <span class="text-muted">(era ${money(s.total)})</span>` : '');
+  }
+  overlay.querySelector('#v_desc').addEventListener('input', atualizarTotal);
+  desenharItens();
+
+  overlay.querySelector('#v_cancelar').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#v_salvar').addEventListener('click', ()=>{
+    /* O estoque só fecha se a conta for feita nos dois sentidos: devolve o
+       que a venda antiga tinha tirado e tira o que a venda nova leva. */
+    const faltou = [];
+    mexerNoEstoqueDaVenda(s.items, +1);
+    itens.forEach(i=>{
+      const p = DB.products.find(x=>x.id===i.productId);
+      const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+      if(v && v.stock < i.qty) faltou.push(`${i.name} ${i.size}/${i.color} (tem ${v.stock})`);
+    });
+    if(faltou.length){
+      mexerNoEstoqueDaVenda(s.items, -1);          // desfaz a devolução
+      alert('Não há estoque para essa quantidade:\n\n· ' + faltou.join('\n· ') +
+            '\n\nAjuste o estoque em Estoque, ou reduza a quantidade aqui.');
+      return;
+    }
+    mexerNoEstoqueDaVenda(itens, -1);
+
+    const data = overlay.querySelector('#v_data').value;
+    s.items = itens;
+    s.discount = Number(overlay.querySelector('#v_desc').value)||0;
+    s.payment = overlay.querySelector('#v_pagto').value;
+    s.customerId = overlay.querySelector('#v_cliente').value || null;
+    s.total = totalNovo();
+    if(data) s.date = new Date(data).toISOString();
+    s.editadoEm = todayISO();
+
+    const lanc = lancamentoDaVenda(s);
+    if(lanc){ lanc.amount = s.total; lanc.date = s.date; }
+
+    if(exigirGravacao('a alteração da venda')){
+      overlay.remove();
+      renderVendasTable();
+      toast('Venda atualizada');
+    }
+  });
 }
 function markSalePaid(id){
   const s = DB.sales.find(x=>x.id===id);
