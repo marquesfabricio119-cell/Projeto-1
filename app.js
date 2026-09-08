@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "44";
+const APP_VERSION = "45";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -976,36 +976,122 @@ function ligarGatilhosDeEnvio(){
    guardada no aparelho, numa chave própria, e continua lá depois de
    fechar. Chave própria também importa por outro motivo: assim ela não
    engorda o banco que é sincronizado a cada venda. */
+/* =========================================================
+   FILA DE FOTOS — no armazenamento GRANDE do navegador
+   =========================================================
+   A fila morava no localStorage, junto com o cadastro da loja. E o
+   localStorage é o menor armazenamento que o navegador tem: cerca de
+   5 MB no total. Uma foto de peça ocupa ~150 KB ali (texto base64, que é
+   um terço maior que o arquivo). Conta feita: A PARTIR DA 31ª FOTO O
+   APARELHO ENCHE — e a loja tem mais de 40 peças. Não era um azar, era
+   uma certeza matemática: com a nuvem fora do ar, o aparelho ia encher
+   sempre.
+
+   A fila passa para o IndexedDB, que é o armazenamento grande (centenas
+   de megabytes, não cinco), e guarda a foto como arquivo binário em vez
+   de texto — outro terço a menos. O localStorage fica só com o cadastro
+   da loja, que tem alguns kilobytes e nunca disputa espaço com foto
+   nenhuma. */
 const fotosPendentes = new Map();
 let enviandoFotos = false;
-/* Por que a última foto não subiu. Sem guardar isso, o sistema só sabia
-   dizer "não deu" — e o lojista não tinha como saber se faltava criar a
-   pasta, se faltava permissão, ou se era a internet. */
 let ultimoErroFoto = null;
-const PREFIXO_FOTO = 'estiloCiaFoto_';
+const PREFIXO_FOTO = 'estiloCiaFoto_';     // formato antigo, ainda migrado
+const BANCO_FOTOS = 'estiloFashionFotos';
+const LOJA_FOTOS = 'pendentes';
 
+let bancoDeFotos = null;
+function abrirBancoDeFotos(){
+  if(bancoDeFotos) return bancoDeFotos;
+  bancoDeFotos = new Promise((resolve, reject)=>{
+    if(!window.indexedDB) return reject(new Error('sem IndexedDB'));
+    const req = indexedDB.open(BANCO_FOTOS, 1);
+    req.onupgradeneeded = ()=>{
+      if(!req.result.objectStoreNames.contains(LOJA_FOTOS)) req.result.createObjectStore(LOJA_FOTOS);
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  }).catch(err=>{ bancoDeFotos = null; throw err; });
+  return bancoDeFotos;
+}
+function comALoja(modo, fazer){
+  return abrirBancoDeFotos().then(db=>new Promise((resolve, reject)=>{
+    const t = db.transaction(LOJA_FOTOS, modo);
+    const pedido = fazer(t.objectStore(LOJA_FOTOS));
+    t.oncomplete = ()=>resolve(pedido && pedido.result);
+    t.onerror = ()=>reject(t.error);
+    t.onabort = ()=>reject(t.error);
+  }));
+}
+
+function dataUrlParaBlob(dataUrl){
+  return fetch(dataUrl).then(r=>r.blob());
+}
+function blobParaDataUrl(blob){
+  return new Promise((resolve, reject)=>{
+    const leitor = new FileReader();
+    leitor.onload = ()=>resolve(leitor.result);
+    leitor.onerror = reject;
+    leitor.readAsDataURL(blob);
+  });
+}
+
+/* Guardar é imediato na memória e persistente logo em seguida. A parte
+   imediata importa: quem chama isto pode estar no meio de uma venda, e
+   esperar o disco responder não é opção. */
 function guardarFotoPendente(pid, dataUrl){
   fotosPendentes.set(pid, dataUrl);
-  try{ localStorage.setItem(PREFIXO_FOTO + pid, dataUrl); }
-  catch(e){ /* aparelho cheio: fica na memória desta sessão, e avisamos */ }
+  dataUrlParaBlob(dataUrl)
+    .then(blob=>comALoja('readwrite', loja=>loja.put(blob, pid)))
+    .catch(err=>console.warn('Não deu para guardar a foto na fila:', err));
 }
 function esquecerFotoPendente(pid){
   fotosPendentes.delete(pid);
+  comALoja('readwrite', loja=>loja.delete(pid)).catch(()=>{});
   try{ localStorage.removeItem(PREFIXO_FOTO + pid); }catch(e){}
 }
-function carregarFotosPendentes(){
+async function carregarFotosPendentes(){
+  /* Primeiro traz o que ficou no formato antigo, dentro do localStorage,
+     e liberta aquele espaço — é ele que estava fazendo falta. */
+  let antigas = [];
+  try{ antigas = Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }catch(e){}
+  for(const chave of antigas){
+    const pid = chave.slice(PREFIXO_FOTO.length);
+    let valor = null;
+    try{ valor = localStorage.getItem(chave); }catch(e){}
+    if(valor){
+      fotosPendentes.set(pid, valor);
+      try{
+        const blob = await dataUrlParaBlob(valor);
+        await comALoja('readwrite', loja=>loja.put(blob, pid));
+        localStorage.removeItem(chave);      // só depois de estar guardada lá
+      }catch(err){ console.warn('Não deu para mudar a foto de lugar:', err); }
+    }
+  }
+  /* Agora o que já está no armazenamento grande. */
   try{
-    Object.keys(localStorage).forEach(k=>{
-      if(k.indexOf(PREFIXO_FOTO) === 0){
-        const valor = localStorage.getItem(k);
-        if(valor) fotosPendentes.set(k.slice(PREFIXO_FOTO.length), valor);
-      }
-    });
-  }catch(e){}
+    const chaves = await comALoja('readonly', loja=>loja.getAllKeys());
+    for(const pid of (chaves||[])){
+      if(fotosPendentes.has(pid)) continue;
+      const blob = await comALoja('readonly', loja=>loja.get(pid));
+      if(blob) fotosPendentes.set(pid, await blobParaDataUrl(blob));
+    }
+  }catch(err){ console.warn('Não deu para ler a fila de fotos:', err); }
 }
 function chavesDeFotosPendentes(){
   try{ return Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }
   catch(e){ return []; }
+}
+/* Quanto a fila está ocupando, para a tela de espaço poder mostrar. */
+async function tamanhoDaFilaDeFotos(){
+  let total = 0;
+  try{
+    const chaves = await comALoja('readonly', loja=>loja.getAllKeys());
+    for(const pid of (chaves||[])){
+      const blob = await comALoja('readonly', loja=>loja.get(pid));
+      if(blob) total += blob.size || 0;
+    }
+  }catch(e){}
+  return total;
 }
 
 function urlDaFoto(caminho){
@@ -1064,8 +1150,8 @@ async function enviarFotosPendentes(){
 
 /* Fotos do formato antigo (embutidas no banco) sobem para a nuvem sozinhas
    na primeira vez que o sistema abre com internet, liberando o espaço. */
-function migrarFotosAntigas(){
-  carregarFotosPendentes();          // o que ficou de sessões anteriores
+async function migrarFotosAntigas(){
+  await carregarFotosPendentes();    // o que ficou de sessões anteriores
   DB.products.forEach(p=>{
     if(p.photo && p.photo.startsWith('data:')) guardarFotoPendente(p.id, p.photo);
   });
@@ -1517,7 +1603,7 @@ function openProductModal(id){
     if(!file) return;
     const status = overlay.querySelector('#f_photoStatus');
     status.textContent = 'Preparando a foto...';
-    resizeImageFile(file, 900, 0.75).then(async dataUrl=>{
+    resizeImageFile(file, 800, 0.7).then(async dataUrl=>{
       const preview = overlay.querySelector('#f_photoPreview');
       preview.src = dataUrl; preview.style.display = '';
       status.textContent = 'Enviando para a nuvem...';
@@ -1994,17 +2080,20 @@ function emMB(bytes){
   const mb = bytes / (1024*1024);
   return (mb < 0.1 ? (bytes/1024).toFixed(0) + ' KB' : mb.toFixed(1) + ' MB');
 }
-function renderEspacoDoAparelho(){
+async function renderEspacoDoAparelho(){
   const box = document.getElementById('espacoDoAparelho');
   if(!box) return;
   const m = medirEspacoDoAparelho();
+  m.fotos = await tamanhoDaFilaDeFotos();
+  m.nFotos = fotosPendentes.size;
   /* O limite do navegador costuma ficar em torno de 5 MB. Não dá para
      perguntar o número exato, então mostramos o que é sabido — o quanto
      está ocupado — e deixamos claro que perto de 5 MB é hora de limpar. */
-  const apertado = m.total > 3.5 * 1024 * 1024;
+  const usadoNoPequeno = m.cadastro + m.copias + m.resto;
+  const apertado = usadoNoPequeno > 3.5 * 1024 * 1024;
   box.innerHTML = `
     <div class="${apertado ? 'aviso-codigo' : 'pdf-pronto'}">
-      <strong>${emMB(m.total)} ocupados neste aparelho.</strong>
+      <strong>${emMB(usadoNoPequeno)} ocupados pelo cadastro da loja.</strong>
       ${m.nFotos
         ? `${m.nFotos} foto(s) ainda não subiram — é isso que ocupa lugar. Toque em "Mandar as fotos para a nuvem agora".`
         : 'Só a cópia de trabalho da loja. As fotos estão todas na nuvem.'}
@@ -2013,9 +2102,15 @@ function renderEspacoDoAparelho(){
     <div class="table-wrap" style="margin-top:10px"><table><tbody>
       <tr><td>Cadastro da loja (peças, vendas, clientes)</td><td><strong>${emMB(m.cadastro)}</strong></td></tr>
       <tr><td>Cópias de segurança</td><td><strong>${emMB(m.copias)}</strong></td></tr>
-      <tr><td>Fotos esperando para subir <span class="text-muted">(${m.nFotos})</span></td><td><strong>${emMB(m.fotos)}</strong></td></tr>
       <tr><td>Outros</td><td><strong>${emMB(m.resto)}</strong></td></tr>
-    </tbody></table></div>`;
+      <tr><td>Fotos esperando para subir <span class="text-muted">(${m.nFotos})</span><br>
+        <span class="text-muted" style="font-size:11px">no armazenamento grande, fora do espaço acima</span></td>
+        <td><strong>${emMB(m.fotos)}</strong></td></tr>
+    </tbody></table></div>
+    <p class="text-muted" style="font-size:12px;margin-top:8px">
+      O lugar das fotos é o Supabase. As que aparecem aqui são as que ele ainda não aceitou —
+      elas esperam num armazenamento separado, que é centenas de vezes maior, para nunca
+      atrapalharem uma venda.</p>`;
 }
 /* O botão deixou de ser "apague suas fotos para caber". Com a nuvem de pé,
    o que resolve é MANDAR as fotos para lá — e o espaço se resolve sozinho,
