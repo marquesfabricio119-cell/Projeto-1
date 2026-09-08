@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "55";
+const APP_VERSION = "56";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -464,6 +464,11 @@ function aplicarPedidosDaLoja(){
 let bancoVeioVazio = false;
 let nuvemLida = false;
 let nuvemVaziaConfirmada = false;
+/* A primeira leitura da nuvem leva um instante. Nesse instante o sistema
+   dizia "sem ligação com a nuvem" — um alarme falso que aparecia logo ao
+   entrar, com o selo de cima já verde. Só se avisa depois que a nuvem
+   respondeu (ou deixou de responder). */
+let nuvemJaRespondeu = false;
 
 function loadDB(){
   let raw = null;
@@ -761,6 +766,12 @@ function atualizaSeloDaNuvem(){
     selo.title = 'Enviando as últimas alterações para a nuvem.';
     return;
   }
+  if(!nuvemJaRespondeu){
+    selo.className = 'selo-nuvem enviando';
+    selo.textContent = '⏳ conectando';
+    selo.title = 'Lendo a nuvem pela primeira vez.';
+    return;
+  }
   selo.className = 'selo-nuvem parado';
   selo.textContent = '⚠️ não salvo';
   selo.title = 'Sem ligação com a nuvem. Toque para ver o motivo.';
@@ -779,7 +790,7 @@ function atualizaAvisoDeNuvem(){
 
   /* Um recado só por sessão. Repetir a cada tentativa viraria barulho, e
      barulho é o que faz o lojista parar de ler. */
-  if(!est.ok && !jaAvisouDaNuvem && document.getElementById('app')
+  if(!est.ok && nuvemJaRespondeu && !jaAvisouDaNuvem && document.getElementById('app')
      && !document.getElementById('app').classList.contains('hidden')){
     jaAvisouDaNuvem = true;
     toast(falhouAoEnviar && (nuvemLida || nuvemVaziaConfirmada)
@@ -809,6 +820,11 @@ function atualizaAvisoDeNuvem(){
       ? '⏳ Salvando na nuvem…'
       : '✅ Ligado à nuvem, tudo salvo. O que é feito aqui vai para lá na hora e chega nos outros aparelhos.')
       + recadoDasFotos;
+    return;
+  }
+  if(!nuvemJaRespondeu){
+    painel.className = 'estado-nuvem ok';
+    painel.innerHTML = '⏳ Conectando à nuvem…' + recadoDasFotos;
     return;
   }
   painel.className = 'estado-nuvem ruim';
@@ -855,12 +871,14 @@ async function cloudPull(){
       let detalhe = '';
       try{ detalhe = (await res.text()).slice(0, 200); }catch(e){}
       ultimoErroNuvem = { status: res.status, detalhe };
+      nuvemJaRespondeu = true;
       atualizaAvisoDeNuvem();
       return;
     }
     ultimoErroNuvem = null;
     const rows = await res.json();
-    nuvemLida = true;                       // conseguimos ler: já sabemos o que há lá
+    nuvemLida = true;
+    nuvemJaRespondeu = true;                       // conseguimos ler: já sabemos o que há lá
     ultimoCarimboDaNuvem = rows && rows[0] ? rows[0].updated_at : null;
     /* O aviso é atualizado AQUI, e não só no fim. Havia um caminho — o mais
        comum de todos, o aparelho que reabre já com os dados em dia — que
@@ -903,6 +921,7 @@ async function cloudPull(){
     atualizaAvisoDeNuvem();
   }catch(e){
     ultimoErroNuvem = { status: 0, detalhe: String(e && e.message || e) };
+    nuvemJaRespondeu = true;
     atualizaAvisoDeNuvem();
   }
 }

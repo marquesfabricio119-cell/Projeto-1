@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 55 - gerado em 08/09/2026
+Versao 56 - gerado em 08/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,14 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 56
+------------------------
+  - Alarme falso "Sem ligacao com a nuvem" logo ao entrar, com o selo ja
+    verde: o aviso disparava antes de a primeira leitura da nuvem
+    terminar. Agora o selo mostra "conectando" nesse instante e o aviso so
+    aparece se a nuvem de fato nao responder.
 
 
 O QUE MUDOU NA VERSAO 55
