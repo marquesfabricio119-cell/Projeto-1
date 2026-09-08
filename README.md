@@ -39,7 +39,8 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
 - **Relatórios**: gráfico de vendas dos últimos 7 dias, ticket médio, top produtos, vendas por forma de
   pagamento e por vendedor(a).
 - **Configurações**: nome da loja, estoque mínimo, usuários (admin/vendedor), backup em JSON (exportar/importar),
-  e dados da loja virtual (WhatsApp, chave PIX, endereço, frase do topo).
+  e dados da loja virtual (WhatsApp, chave PIX, endereço, frase do topo). Vendedor(a) só vê Painel, PDV,
+  Produtos, Estoque, Vendas, Caixa, Etiquetas e Clientes. Senhas são guardadas como SHA-256.
 
 ## Loja virtual
 
@@ -51,7 +52,26 @@ e abre o WhatsApp da loja com o resumo do pedido. Pagamento é manual via PIX (s
 ## Sincronização (Supabase)
 
 Tabela `loja_roupas_db`: `id = 'main'`, `data` (jsonb = estado inteiro do sistema), `updated_at`.
-O app faz `cloudPull()` ao abrir e `cloudPush()` (debounce de 800ms) a cada alteração salva localmente.
+O app faz `cloudPull()` ao abrir, a cada minuto e quando volta para a frente; e `cloudPush()` (debounce de
+400ms) a cada alteração salva localmente. A gravação é condicional ao `updated_at` lido por último: se outro
+aparelho (ou a loja virtual) gravou no meio, o app junta o que chegou e tenta de novo.
+
+Tabela `loja_roupas_historico`: um gatilho `before update` em `loja_roupas_db` guarda a versão anterior da linha
+(no máximo uma a cada 10 minutos, sempre que produtos/vendas diminuem; ficam as 300 últimas). A chave publicável
+só lê o histórico. Em Configurações → "Histórico na nuvem" dá para voltar a qualquer versão.
+
+Pedidos da loja virtual entram com `estoqueBaixado: false`; quem dá baixa no estoque é o app da loja, na
+primeira vez que vê o pedido. A vitrine mostra como disponível `estoque − pedidos ainda não baixados`.
+
+## Testes
+
+```bash
+node testes/rodar.js
+```
+
+Carrega o `app.js` num navegador simulado e confere as regras que já deram problema na loja: ids, junção
+entre aparelhos, baixa de estoque dos pedidos do site, fuso horário, código de barras, senha e envio
+condicional à nuvem.
 
 ## Rodando localmente
 

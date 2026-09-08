@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "48";
+const APP_VERSION = "55";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -67,6 +67,37 @@ function dateBR(iso){ if(!iso) return '-'; const d=new Date(iso); return d.toLoc
 function monthKey(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(mk){ const [y,m]=mk.split('-'); const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return names[Number(m)-1]+'/'+y; }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* O mês de uma data, NO FUSO DA LOJA. As datas são gravadas em UTC
+   (terminam em Z), e comparar o texto delas com o mês local errava na
+   virada: uma venda das 22h do dia 30 aqui é dia 1º em UTC, e caía no
+   mês seguinte no Balanço e no Financeiro. */
+function chaveMes(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0,7);
+  return monthKey(d);
+}
+function chaveDia(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0,10);
+  return monthKey(d) + '-' + String(d.getDate()).padStart(2,'0');
+}
+/* Uma venda que conta como dinheiro que entrou: não cancelada e, se veio
+   da loja virtual, já paga. O pedido pendente do site aparecia no
+   "Faturado hoje" e nos relatórios antes de a cliente pagar. */
+function vendaValida(s){ return s && !s.canceled && s.status !== 'pendente'; }
+/* Carimbo de "mexido em". Quando dois aparelhos editam o mesmo registro,
+   a junção fica com o mais recente em vez de sempre o local. */
+function carimbar(obj){ if(obj && typeof obj === 'object') obj.atualizadoEm = todayISO(); return obj; }
+/* Data e hora locais no formato do campo datetime-local. O campo mostrava
+   a hora em UTC (3 h à frente) e cada salvamento empurrava a venda 3 h. */
+function paraDatetimeLocal(iso){
+  const d = iso ? new Date(iso) : new Date();
+  if(isNaN(d)) return '';
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 /* A aparência do aviso vive no style.css (#toast). Antes ele era desenhado
    aqui com estilo embutido e só ficava transparente ao sumir: continuava
    por cima da tela roubando o toque. No celular ele cobria justamente as
@@ -80,7 +111,7 @@ function escondeToast(t){
 function toast(msg, type='ok', onClick){
   let t = document.getElementById('toast');
   if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
-  t.style.background = type==='error' ? '#B33A3A' : (type==='warn' ? '#C1874F' : '#4C8B5C');
+  t.style.background = type==='error' ? '#DC3545' : (type==='warn' ? '#C27A12' : '#17171C');
   t.textContent = msg;
   t.classList.remove('sumindo');
   t.classList.toggle('clicavel', !!onClick);
@@ -125,51 +156,13 @@ function defaultDB(){
   };
 }
 
-/* ---------- Seed único: custos de abertura trazidos do sistema antigo ---------- */
+/* ---------- Custos de abertura: a semeadura foi desligada ----------
+   A lista padrão de custos "Abrir Loja" era plantada em todo aparelho que
+   abrisse sem dados — inclusive num aparelho novo que ainda ia buscar a
+   nuvem. Cada plantio criava os mesmos 37 itens com ids novos, e a junção
+   com a nuvem os somava: a loja ficou com 75 custos, 36 repetidos, e o
+   "total previsto" dobrou. A lista já vive na nuvem; não se planta mais. */
 function seedInitialData(){
-  if(DB.seedV1AbrirLoja) return;
-  const items = [
-    ['Compra do Ponto','Ponto/Aluguel',6000.00],
-    ['Aluguel','Ponto/Aluguel',1410.00],
-    ['Compra da porta de vidro','Material para reforma',2500.00],
-    ['Hospedagem do sistema','Outros',67.00],
-    ['Tinta stand 20L rende muito coral','Material para reforma',404.15],
-    ['Massa corrida coral Bd 25kg','Material para reforma',95.64],
-    ['Soleira para porta de entrada e soleira do wc','Material para reforma',300.00],
-    ['Lâmpada filamento 2 und','Material para reforma',66.00],
-    ['Trilho eletrificado 6und','Material para reforma',48.00],
-    ['Corda transada 2und','Material para reforma',62.00],
-    ['Luminária led spot 18 und','Material para reforma',288.00],
-    ['Tapete porta de entrada','Outros',20.00],
-    ['Luminária ventilador','Outros',58.00],
-    ['Camera inteligente Wi-Fi','Equipamentos',182.00],
-    ['Cabide','Móveis e araras',80.00],
-    ['Tapete para fotografia','Marketing/Fachada',35.00],
-    ['Cortinas para provador','Outros',32.94],
-    ['Caixa de luz 4x4,4x2,Argamassa, conduíte, gesso, rejunte','Material para reforma',155.17],
-    ['Conduíte, caixa de luz 4x4','Material para reforma',53.57],
-    ['Fachada em acm + Logotipo','Marketing/Fachada',2500.00],
-    ['Gesso liso é conduíte','Material para reforma',26.40],
-    ['Material para limpeza','Material para reforma',67.50],
-    ['Espelho para provador','Marketing/Fachada',420.00],
-    ['Alteração do CNPJ','Documentação/Alvará',150.00],
-    ['Compra de araras','Móveis e araras',1300.00],
-    ['Compra de cabide','Outros',400.00],
-    ['Balizador de piso Conduíte e conector','Material para reforma',130.00],
-    ['Embalagens','Marketing/Fachada',337.15],
-    ['Manequim','Móveis e araras',1400.00],
-    ['Drywall Material é Mão de Obra','Mão de obra',900.00],
-    ['Lâmpada para degrau + conduíte','Material para reforma',130.00],
-    ['Verniz para pintar porta de Aço Fundo preparador ,Fita crepe, Gesso liso, Lona plástica,palha de Aço e Tinner','Material para reforma',390.00],
-    ['Gesso liso e Conduíte','Material para reforma',51.80],
-    ['Areia, cimento, tijolo comum e lixa','Material para reforma',95.08],
-    ['Mão de obra de Pintor','Mão de obra',300.00],
-    ['Leitor de código de barras','Equipamentos',169.90],
-    ['Compra de mercadoria','Estoque inicial',5000.00],
-  ];
-  items.forEach(([name,category,value])=>{
-    DB.storeSetup.items.push({ id: uid(), category, name, planned: value, paid: value });
-  });
   DB.seedV1AbrirLoja = true;
 }
 
@@ -201,26 +194,45 @@ function normalizeDB(){
     return 'r' + h.toString(36) + i;
   };
 
+  /* O id é SEMPRE texto. O sistema antigo gravava números (id: 1), e os
+     botões da tela passam o id como texto ('1'): 1 !== '1', então Editar
+     abria uma peça nova e Excluir dizia "não encontrado". Foi assim que a
+     loja ficou com um "Produto sem nome" que não saía de jeito nenhum. */
+  const idTexto = v => (v === undefined || v === null || v === '') ? '' : String(v);
+  const idMudou = (antes, depois) => { if(antes !== depois) reparou = true; return depois; };
+
   DB.products = arr(DB.products).filter(Boolean).map((p, i)=>({
     ...p,
-    id: p.id || idEstavel(p, i),
-    name: p.name || 'Produto sem nome',
-    sku: p.sku || '',
-    category: p.category || '',
-    brand: p.brand || '',
-    cost: num(p.cost),
-    price: num(p.price),
+    id: idMudou(p.id, idTexto(p.id) || idEstavel(p, i)),
+    /* Campos do sistema antigo (nome, marca, codigo, categoria, precoCusto,
+       precoVenda) valem quando os novos estão vazios: um backup antigo
+       importado chegava como "Produto sem nome, R$ 0,00". */
+    name: p.name || p.nome || 'Produto sem nome',
+    sku: p.sku || p.codigo || '',
+    category: p.category || p.categoria || '',
+    brand: p.brand || p.marca || '',
+    cost: num(p.cost) || num(p.precoCusto),
+    price: num(p.price) || num(p.precoVenda),
     photo: p.photo || '',
     description: p.description || '',
     // `loja` era o nome antigo do "mostrar na loja virtual"
     showInStore: p.showInStore !== undefined ? p.showInStore !== false : p.loja !== false,
     isNew: !!p.isNew,
     variations: (()=>{
-      const vs = arr(p.variations).filter(Boolean).map(v=>({
+      let fonte = arr(p.variations).filter(Boolean);
+      /* `variacoes` (tam/cor/qtd/bar) era a lista do sistema antigo. Só
+         entra quando não há a lista nova com estoque de verdade. */
+      const antigas = arr(p.variacoes).filter(Boolean);
+      if(antigas.length && !fonte.some(v=>num(v.stock) > 0 || v.barcode)){
+        fonte = antigas.map(v=>({ size: v.tam || v.size || '', color: v.cor || v.color || '',
+                                 stock: num(v.qtd !== undefined ? v.qtd : v.stock), barcode: v.bar || v.barcode || '' }));
+        reparou = true;
+      }
+      const vs = fonte.map(v=>({
         ...v,
-        size: v.size || '',
-        color: v.color || '',
-        stock: num(v.stock),
+        size: v.size || v.tam || '',
+        color: v.color || v.cor || '',
+        stock: num(v.stock !== undefined ? v.stock : v.qtd),
         // `bar` era o nome antigo do código de barras
         barcode: v.barcode || v.bar || ''
       }));
@@ -232,27 +244,72 @@ function normalizeDB(){
     })()
   }));
 
-  DB.customers = arr(DB.customers).filter(Boolean).map(c=>({ ...c, id: c.id || novoId(), name: c.name || 'Cliente' }));
+  DB.customers = arr(DB.customers).filter(Boolean).map(c=>({
+    ...c, id: idMudou(c.id, idTexto(c.id) || novoId()), name: c.name || 'Cliente'
+  }));
 
   DB.sales = arr(DB.sales).filter(Boolean).map(s=>({
     ...s,
-    id: s.id || novoId(),
+    id: idMudou(s.id, idTexto(s.id) || novoId()),
     date: s.date || todayISO(),
-    items: arr(s.items).filter(Boolean).map(i=>({ ...i, qty: num(i.qty), price: num(i.price) })),
+    items: arr(s.items).filter(Boolean).map(i=>({ ...i, productId: idTexto(i.productId), qty: num(i.qty), price: num(i.price) })),
     discount: num(s.discount),
     total: num(s.total),
     payment: s.payment || 'Dinheiro',
     seller: s.seller || '-',
     // `origem` era o nome antigo de `origin`
     origin: s.origin || s.origem || 'pdv',
-    canceled: !!s.canceled
+    canceled: !!s.canceled,
+    customerId: s.customerId ? idTexto(s.customerId) : null
   }));
 
   if(!DB.finance || typeof DB.finance !== 'object') DB.finance = { entries: [] };
-  DB.finance.entries = arr(DB.finance.entries).filter(Boolean).map(e=>({ ...e, id: e.id || novoId(), amount: num(e.amount) }));
+  DB.finance.entries = arr(DB.finance.entries).filter(Boolean).map(e=>({ ...e, id: idTexto(e.id) || novoId(), amount: num(e.amount) }));
 
   if(!DB.storeSetup || typeof DB.storeSetup !== 'object') DB.storeSetup = { items: [] };
-  DB.storeSetup.items = arr(DB.storeSetup.items).filter(Boolean).map(i=>({ ...i, id: i.id || novoId(), planned: num(i.planned), paid: num(i.paid) }));
+  DB.storeSetup.items = arr(DB.storeSetup.items).filter(Boolean).map(i=>({ ...i, id: idTexto(i.id) || novoId(), planned: num(i.planned), paid: num(i.paid) }));
+
+  /* O que foi apagado de propósito fica apagado — também aqui, e não só
+     na hora de juntar com a nuvem. A peça que a loja excluiu e que voltou
+     por um id mal comparado sai agora, de vez. */
+  const lapides = (DB.apagados && typeof DB.apagados === 'object') ? DB.apagados : {};
+  const tirar = (lista, chave) => {
+    const fora = new Set(arr(lapides[chave]).map(String));
+    if(!fora.size) return lista;
+    const sobra = lista.filter(x=>!fora.has(String(x.id)));
+    if(sobra.length !== lista.length) reparou = true;
+    return sobra;
+  };
+  DB.products = tirar(DB.products, 'products');
+  DB.customers = tirar(DB.customers, 'customers');
+  DB.sales = tirar(DB.sales, 'sales');
+  DB.finance.entries = tirar(DB.finance.entries, 'finance');
+  DB.storeSetup.items = tirar(DB.storeSetup.items, 'setup');
+  /* Custos de abertura repetidos (mesmo nome e categoria) viram um só —
+     pela mesma regra em todo aparelho: fica o mexido por último; empatando,
+     o de maior valor (o que a loja corrigiu à mão); empatando, o de id
+     menor. Os outros ganham lápide, para não voltarem pela junção. */
+  const chaveCusto = i => String(i.name||'').trim().toLowerCase().replace(/\s+/g,' ') + '|' + String(i.category||'').trim().toLowerCase();
+  const porCusto = new Map();
+  DB.storeSetup.items.forEach(i=>{
+    const k = chaveCusto(i);
+    const atual = porCusto.get(k);
+    if(!atual){ porCusto.set(k, i); return; }
+    const tA = Date.parse(atual.atualizadoEm||'') || 0, tI = Date.parse(i.atualizadoEm||'') || 0;
+    let fica = atual;
+    if(tI !== tA) fica = tI > tA ? i : atual;
+    else if((num(i.planned) + num(i.paid)) !== (num(atual.planned) + num(atual.paid))) fica = (num(i.planned) + num(i.paid)) > (num(atual.planned) + num(atual.paid)) ? i : atual;
+    else if(String(i.id) < String(atual.id)) fica = i;
+    porCusto.set(k, fica);
+  });
+  if(porCusto.size !== DB.storeSetup.items.length){
+    const ficam = new Set([...porCusto.values()].map(i=>i.id));
+    DB.apagados = DB.apagados || {};
+    DB.apagados.setup = DB.apagados.setup || [];
+    DB.storeSetup.items.forEach(i=>{ if(!ficam.has(i.id) && !DB.apagados.setup.includes(String(i.id))) DB.apagados.setup.push(String(i.id)); });
+    DB.storeSetup.items = DB.storeSetup.items.filter(i=>ficam.has(i.id));
+    reparou = true;
+  }
 
   if(!DB.cashRegister || typeof DB.cashRegister !== 'object') DB.cashRegister = defaultDB().cashRegister;
   DB.cashRegister.movements = arr(DB.cashRegister.movements);
@@ -261,13 +318,50 @@ function normalizeDB(){
   if(!DB.monthlyExpenses || typeof DB.monthlyExpenses !== 'object') DB.monthlyExpenses = defaultDB().monthlyExpenses;
   if(!Array.isArray(DB.monthlyExpenses.fixed)) DB.monthlyExpenses.fixed = [];
   DB.monthlyExpenses.fixed = DB.monthlyExpenses.fixed.filter(Boolean).map(f=>({
-    ...f, id: f.id || novoId(), category: f.category || 'Outros',
+    ...f, id: idTexto(f.id) || novoId(), category: f.category || 'Outros',
     note: f.note || '', amount: num(f.amount), dueDay: num(f.dueDay) || 0
   }));
+  DB.monthlyExpenses.fixed = tirar(DB.monthlyExpenses.fixed, 'fixed');
+  if(!Array.isArray(DB.monthlyExpenses.records)) DB.monthlyExpenses.records = [];
+  DB.monthlyExpenses.records = DB.monthlyExpenses.records.filter(Boolean).map(r=>({
+    ...r, id: idTexto(r.id) || novoId(), amount: num(r.amount), status: r.status || 'pendente'
+  }));
+  DB.monthlyExpenses.records = tirar(DB.monthlyExpenses.records, 'records');
+  if(!Array.isArray(DB.monthlyExpenses.categories) || !DB.monthlyExpenses.categories.length){
+    DB.monthlyExpenses.categories = defaultDB().monthlyExpenses.categories;
+  }
 
   DB.users = arr(DB.users).filter(Boolean).map(u=>({
-    ...u, id: u.id || novoId(), user: (u.user||'').trim(), pass: u.pass==null ? '' : String(u.pass)
+    ...u, id: idTexto(u.id) || novoId(), user: (u.user||'').trim(), pass: u.pass==null ? '' : String(u.pass),
+    role: u.role === 'admin' ? 'admin' : 'vendedor'
   })).filter(u=>u.user);
+  DB.users = tirar(DB.users, 'users');
+  /* Dois usuários com o mesmo login: acontece quando um aparelho novo cria
+     o admin de fábrica e depois se junta à nuvem, que já tinha o admin da
+     loja. Só o primeiro da lista conseguia entrar. Fica um — o mesmo em
+     todos os aparelhos, por uma regra fixa: o que não está com a senha de
+     fábrica; empatando, o de id menor. O outro ganha lápide. */
+  const porLogin = new Map();
+  DB.users.forEach(u=>{
+    const chave = u.user.toLowerCase();
+    const atual = porLogin.get(chave);
+    if(!atual){ porLogin.set(chave, u); return; }
+    const fabrica = x => String(x.pass) === '1234' || x.pass === '';
+    let fica = atual;
+    if(fabrica(atual) !== fabrica(u)) fica = fabrica(atual) ? u : atual;
+    else if(String(u.id) < String(atual.id)) fica = u;
+    porLogin.set(chave, fica);
+  });
+  if(porLogin.size !== DB.users.length){
+    const ficam = new Set([...porLogin.values()].map(u=>u.id));
+    DB.users.filter(u=>!ficam.has(u.id)).forEach(u=>{
+      DB.apagados = DB.apagados || {};
+      DB.apagados.users = DB.apagados.users || [];
+      if(!DB.apagados.users.includes(String(u.id))) DB.apagados.users.push(String(u.id));
+    });
+    DB.users = DB.users.filter(u=>ficam.has(u.id));
+    reparou = true;
+  }
   /* A loja não pode ficar sem administrador. Se o único admin foi apagado,
      renomeado ou só sobrou vendedora, ninguém mais entra no sistema e não
      há tela para consertar isso. Nesses casos o admin padrão volta, sem
@@ -306,6 +400,10 @@ function migrateDB(){
   if(!DB.monthlyExpenses.categories) DB.monthlyExpenses.categories = d.monthlyExpenses.categories;
   if(!Array.isArray(DB.monthlyExpenses.records)) DB.monthlyExpenses.records = [];
   if(!DB.config || typeof DB.config !== 'object') DB.config = d.config;
+  /* Um banco antigo pode ter o config pela metade (sem minStock, por
+     exemplo). Sem o campo, o alerta de estoque baixo simplesmente não
+     aparecia — comparar com undefined é sempre falso. */
+  for(const k in d.config){ if(DB.config[k] === undefined || DB.config[k] === null) DB.config[k] = d.config[k]; }
   if(!DB.storeName) DB.storeName = d.storeName;
   // Renome da marca: quem já usava o sistema tem o nome antigo gravado no
   // banco e continuaria vendo "Estilo & Cia" na tela. Só troca quando é o
@@ -315,14 +413,48 @@ function migrateDB(){
   if(DB.config && DB.config.heroPhrase === 'Estilo que é só seu ✨'){
     DB.config.heroPhrase = d.config.heroPhrase; renomeou = true;
   }
-  const reparou = normalizeDB() || renomeou;
+  let reparou = normalizeDB() || renomeou;
   if(!DB.barcodeSeq) DB.barcodeSeq = 0;
   seedInitialData();
+  if(enxugarApagados()) reparou = true;
+  if(aplicarPedidosDaLoja()) reparou = true;
   // Grava o reparo: sem isso os ids recém-criados só existem em memória e
   // mudam a cada carregamento, e os botões de Editar/Excluir passam a
   // apontar para registros que não existem mais.
   if(reparou) saveDB();
-  enxugarApagados();
+}
+
+/* =========================================================
+   PEDIDOS DA LOJA VIRTUAL × ESTOQUE
+   A vitrine não mexe mais no estoque da peça: ela só registra o pedido.
+   Quem dá a baixa é o sistema da loja, na primeira vez que vê o pedido —
+   e marca o pedido como baixado para nunca baixar duas vezes.
+
+   Antes a vitrine gravava a peça com o estoque já descontado, e a junção
+   com o aparelho da loja (onde a cópia local da peça sempre vence) jogava
+   o desconto fora: a cliente comprava pelo site e a peça continuava
+   "disponível" no balcão. Com a baixa feita aqui, ela sobrevive à junção,
+   porque é o próprio aparelho que a faz na sua cópia.
+   ========================================================= */
+function aplicarPedidosDaLoja(){
+  let mexeu = false;
+  (DB.sales||[]).forEach(s=>{
+    if(!s || s.origin !== 'loja' || s.estoqueBaixado) return;
+    if(!s.canceled){
+      (s.items||[]).forEach(i=>{
+        const p = DB.products.find(x=>x.id===i.productId);
+        const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+        if(v) v.stock = Math.max(0, Number(v.stock||0) - Number(i.qty||0));
+        /* Congela o custo da peça no pedido, como o PDV faz, para o lucro
+           desta venda não mudar quando o custo da peça mudar. */
+        if(i.cost === undefined && p) i.cost = Number(p.cost)||0;
+      });
+    }
+    s.estoqueBaixado = true;
+    carimbar(s);          // a versão "já baixado" vence a do site na junção
+    mexeu = true;
+  });
+  return mexeu;
 }
 /* Um aparelho que abre SEM dados locais não pode mandar nada para a nuvem
    antes de ler o que há lá. O iPhone apaga os dados de sites que ficam
@@ -756,7 +888,14 @@ async function cloudPull(){
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
       saveDB(true);
-      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')){ renderShell(); navigate(currentRoute); }
+      /* O usuário desta sessão pode ter sido apagado em outro aparelho. */
+      if(SESSION){ validarSessao(); if(!SESSION){ showLogin(); toast('Seu usuário foi removido. Entre de novo.','warn'); return; } }
+      /* Redesenha a tela com o que chegou — mas não embaixo de quem está
+         digitando: trocar a tela com o teclado aberto fecha o teclado e
+         apaga o que estava no campo. Nesse caso os dados já estão certos e
+         a tela se acerta na próxima troca de tela. */
+      const digitando = document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden') && !digitando){ renderShell(); navigate(currentRoute); }
     } else {
       nuvemVaziaConfirmada = true;          // loja nova: não há o que preservar
       bancoVeioVazio = false;
@@ -803,9 +942,15 @@ function agendarEnvio(atraso){
   clearTimeout(pushTimer);
   pushTimer = setTimeout(cloudPush, atraso);
 }
+/* Cada gravação local sobe este número. O envio anota qual número levou;
+   se no fim ele já mudou, houve alteração DURANTE o envio, e ela ainda
+   não está na nuvem. Antes o sistema marcava "salvo" nessa hora, e a
+   alteração ficava presa no aparelho até alguém salvar outra coisa. */
+let versaoLocal = 0;
 /* Chamado por saveDB: a alteração acabou de acontecer, vai agora. */
 function marcarParaEnviar(){
   temPendencia = true;
+  versaoLocal++;
   atualizaAvisoDeNuvem();
   agendarEnvio(400);           // junta as alterações de um mesmo clique
 }
@@ -822,47 +967,110 @@ function estadoDoEnvio(){
    Onde o mesmo registro existe dos dois lados, vale o daqui, que é o que
    o lojista acabou de mexer; o que só existe lá é trazido junto. */
 function registrarApagado(colecao, id){
-  if(!id) return;
+  if(id === undefined || id === null || id === '') return;
+  id = String(id);
   DB.apagados = DB.apagados || {};
   DB.apagados[colecao] = DB.apagados[colecao] || [];
   if(!DB.apagados[colecao].includes(id)) DB.apagados[colecao].push(id);
 }
 function juntarPorId(daqui, deLa, apagados){
-  const fora = new Set(apagados || []);
-  const lista = (Array.isArray(daqui) ? daqui : []).filter(x=>!(x && fora.has(x.id)));
-  const tenho = new Set(lista.map(x=>x && x.id).filter(Boolean));
+  const fora = new Set((apagados || []).map(String));
+  const lista = (Array.isArray(daqui) ? daqui : []).filter(x=>!(x && fora.has(String(x.id))));
+  const posicao = new Map();
+  lista.forEach((x, i)=>{ if(x && x.id) posicao.set(String(x.id), i); });
   (Array.isArray(deLa) ? deLa : []).forEach(x=>{
-    if(x && x.id && !tenho.has(x.id) && !fora.has(x.id)){ lista.push(x); tenho.add(x.id); }
+    if(!x || !x.id || fora.has(String(x.id))) return;
+    const i = posicao.get(String(x.id));
+    if(i === undefined){ posicao.set(String(x.id), lista.length); lista.push(x); return; }
+    /* O mesmo registro dos dois lados: fica o que foi mexido por último.
+       Antes valia sempre o daqui — e a venda corrigida no computador
+       voltava para a versão errada quando o celular gravava depois. Sem
+       carimbo nos dois, vale o daqui, como sempre valeu. */
+    const meu = lista[i];
+    const tMeu = meu && meu.atualizadoEm ? Date.parse(meu.atualizadoEm) : 0;
+    const tDele = x.atualizadoEm ? Date.parse(x.atualizadoEm) : 0;
+    if(tDele > tMeu) lista[i] = x;
   });
   return lista;
 }
+/* ESTOQUE NA JUNÇÃO.
+   O estoque de uma peça não é um valor que se escolhe entre dois lados:
+   é o resultado das vendas. Quando o celular vendia uma peça e o
+   computador vendia outra ao mesmo tempo, o registro de cada peça vinha
+   de um lado só — e a baixa feita no outro lado sumia (a peça voltava a
+   "ter" o que já foi vendido). Agora, escolhido o registro, ele é
+   acertado pela diferença entre as vendas que ele conhecia e as vendas
+   da lista juntada. Um ajuste manual de estoque continua valendo pelo
+   carimbo de hora, como antes. */
+function efeitoDasVendas(vendas){
+  const m = new Map();
+  (vendas||[]).forEach(s=>{
+    if(!s || s.canceled) return;
+    if(s.origin === 'loja' && !s.estoqueBaixado) return;   // o pedido do site só baixa quando o sistema o aplica
+    (s.items||[]).forEach(i=>{
+      const k = String(i.productId) + '|' + (i.size||'') + '|' + (i.color||'');
+      m.set(k, (m.get(k)||0) + (Number(i.qty)||0));
+    });
+  });
+  return m;
+}
+function juntarProdutos(daqui, deLa, vendasJuntas, apagados){
+  const lista = juntarPorId(daqui.products, deLa.products, apagados);
+  const meus = new Set(Array.isArray(daqui.products) ? daqui.products : []);
+  const deles = new Set(Array.isArray(deLa.products) ? deLa.products : []);
+  const vistoDaqui = efeitoDasVendas(daqui.sales);
+  const vistoDeLa  = efeitoDasVendas(deLa.sales);
+  const juntado    = efeitoDasVendas(vendasJuntas);
+  return lista.map(p=>{
+    if(!p || !Array.isArray(p.variations)) return p;
+    /* Peça que só um lado conhece já reflete as vendas desse lado. */
+    const visto = meus.has(p) ? vistoDaqui : (deles.has(p) ? vistoDeLa : null);
+    if(!visto) return p;
+    let mexeu = false;
+    const variations = p.variations.map(v=>{
+      const k = String(p.id) + '|' + (v.size||'') + '|' + (v.color||'');
+      const delta = (juntado.get(k)||0) - (visto.get(k)||0);
+      if(!delta) return v;
+      mexeu = true;
+      return { ...v, stock: Math.max(0, (Number(v.stock)||0) - delta) };
+    });
+    return mexeu ? { ...p, variations } : p;
+  });
+}
+const COLECOES_COM_LAPIDE = ['products','customers','sales','users','fixed','finance','records','setup'];
 function juntarBancos(daqui, deLa){
   if(!deLa || typeof deLa !== 'object') return daqui;
   const junto = { ...daqui };
   /* As lápides dos dois aparelhos valem juntas: o que um apagou fica
      apagado no outro. */
   const lapides = {};
-  ['products','customers','sales','users','fixed'].forEach(k=>{
+  COLECOES_COM_LAPIDE.forEach(k=>{
     /* SEM O Set AQUI a lista DOBRAVA a cada junção. No aparelho da loja
        ela chegou a 580.610 registros do que eram 5 exclusões — 3,9 MB de
        lixo enchendo o aparelho e viajando para o Supabase a cada
        gravação. Duas listas iguais juntadas mil vezes continuam sendo a
        mesma lista; o Set é o que diz isso ao código. */
     lapides[k] = [ ...new Set([ ...(((daqui.apagados||{})[k])||[]),
-                                ...(((deLa.apagados||{})[k])||[]) ]) ];
+                                ...(((deLa.apagados||{})[k])||[]) ].map(String)) ];
   });
   junto.apagados = lapides;
-  junto.products  = juntarPorId(daqui.products,  deLa.products,  lapides.products);
   junto.customers = juntarPorId(daqui.customers, deLa.customers, lapides.customers);
   junto.sales     = juntarPorId(daqui.sales,     deLa.sales,     lapides.sales);
+  junto.products  = juntarProdutos(daqui, deLa, junto.sales, lapides.products);
   junto.users     = juntarPorId(daqui.users,     deLa.users,     lapides.users);
+  /* Lançamento, gasto e custo de abertura também ganharam lápide: o
+     lançamento excluído num aparelho voltava assim que o outro gravava. */
   junto.finance   = { ...(daqui.finance||{}),
-                      entries: juntarPorId((daqui.finance||{}).entries, (deLa.finance||{}).entries) };
+                      entries: juntarPorId((daqui.finance||{}).entries, (deLa.finance||{}).entries, lapides.finance) };
   junto.monthlyExpenses = { ...(daqui.monthlyExpenses||{}),
-    records: juntarPorId((daqui.monthlyExpenses||{}).records, (deLa.monthlyExpenses||{}).records),
+    records: juntarPorId((daqui.monthlyExpenses||{}).records, (deLa.monthlyExpenses||{}).records, lapides.records),
     fixed:   juntarPorId((daqui.monthlyExpenses||{}).fixed,   (deLa.monthlyExpenses||{}).fixed, lapides.fixed) };
   junto.storeSetup = { ...(daqui.storeSetup||{}),
-    items: juntarPorId((daqui.storeSetup||{}).items, (deLa.storeSetup||{}).items) };
+    items: juntarPorId((daqui.storeSetup||{}).items, (deLa.storeSetup||{}).items, lapides.setup) };
+  /* Categorias de gasto criadas em qualquer aparelho valem em todos. */
+  const cats = [ ...new Set([ ...(((daqui.monthlyExpenses||{}).categories)||[]),
+                              ...(((deLa.monthlyExpenses||{}).categories)||[]) ]) ];
+  if(cats.length) junto.monthlyExpenses.categories = cats;
   /* O número do próximo código de barras nunca anda para trás: dois
      aparelhos gerando código não podem chegar ao mesmo número. */
   junto.barcodeSeq = Math.max(Number(daqui.barcodeSeq)||0, Number(deLa.barcodeSeq)||0);
@@ -901,41 +1109,80 @@ async function cloudPush(){
   }
 
   enviandoAgora = true;
+  const versaoEnviada = versaoLocal;
   try{
     const c = configNuvem();
 
     /* Alguém mexeu na nuvem depois da última vez que lemos? Então tem
        trabalho de outro aparelho lá, e ele entra junto em vez de ser
        apagado por este envio. */
-    try{
+    const trazerDaNuvem = async ()=>{
       const olhada = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`,
                                  { headers: cabecalhosNuvem() });
-      if(olhada.ok){
-        const linhas = await olhada.json();
-        const carimbo = linhas && linhas[0] ? linhas[0].updated_at : null;
-        if(carimbo && ultimoCarimboDaNuvem && carimbo !== ultimoCarimboDaNuvem && linhas[0].data){
-          DB = juntarBancos(DB, linhas[0].data);
-          gravarLocal();
-        }
+      if(!olhada.ok) return;
+      const linhas = await olhada.json();
+      const carimbo = linhas && linhas[0] ? linhas[0].updated_at : null;
+      if(carimbo && carimbo !== ultimoCarimboDaNuvem && linhas[0].data){
+        DB = juntarBancos(DB, linhas[0].data);
+        aplicarPedidosDaLoja();
+        gravarLocal();
       }
-    }catch(e){ /* não deu para olhar: segue o envio, que é o que importa */ }
+      ultimoCarimboDaNuvem = carimbo;
+    };
+    try{ await trazerDaNuvem(); }
+    catch(e){ /* não deu para olhar: segue o envio, que é o que importa */ }
 
-    const carimboNovo = todayISO();
-    const res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
-      method:'POST',
-      headers:{
-        ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
-        'Prefer':'resolution=merge-duplicates,return=minimal'
-      },
-      body: JSON.stringify({ id:'main', data: dadosParaNuvem(), updated_at: carimboNovo })
-    });
+    /* A gravação é CONDICIONAL: só entra se a linha ainda for a que lemos
+       (mesmo updated_at). Se outro aparelho — ou a vitrine — gravou entre
+       a olhada e o envio, a nuvem responde "nenhuma linha", trazemos o que
+       ele fez e tentamos de novo. Sem isto havia um segundo em que a
+       venda do site podia ser apagada pelo caixa, sem ninguém ver. */
+    let res = null, carimboNovo = null, gravado = false;
+    for(let tentativa = 0; tentativa < 3 && !gravado; tentativa++){
+      carimboNovo = todayISO();
+      const corpo = JSON.stringify({ id:'main', data: dadosParaNuvem(), updated_at: carimboNovo });
+      /* Na última tentativa vai sem condição: já trouxemos o que havia lá
+         duas vezes. Ficar preso numa comparação de carimbo que nunca casa
+         seria pior do que gravar por cima do que acabamos de juntar. */
+      if(ultimoCarimboDaNuvem && tentativa < 2){
+        res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&updated_at=eq.${encodeURIComponent(ultimoCarimboDaNuvem)}&select=updated_at`, {
+          method:'PATCH',
+          headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }), 'Prefer':'return=representation' },
+          body: corpo
+        });
+        if(res.ok){
+          let linhas = [];
+          try{ linhas = await res.json(); }catch(e){}
+          if(Array.isArray(linhas) && linhas.length){
+            gravado = true;
+            if(linhas[0].updated_at) carimboNovo = linhas[0].updated_at;
+            break;
+          }
+          /* Ninguém casou com o carimbo: a linha mudou (ou sumiu). */
+          try{ await trazerDaNuvem(); }catch(e){}
+          continue;
+        }
+        if(res.status !== 404 && res.status !== 400) break;   // erro de verdade: sai e avisa
+        /* 404/400 aqui: a tabela pode não ter a linha ainda. Cai no upsert. */
+      }
+      res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
+        method:'POST',
+        headers:{
+          ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
+          'Prefer':'resolution=merge-duplicates,return=minimal'
+        },
+        body: corpo
+      });
+      if(res.ok) gravado = true;
+      else break;
+    }
 
     /* A resposta AGORA é conferida. Sem isto, um 401 ou um 404 passava por
        gravação bem-sucedida e a loja não ficava sabendo de nada. */
-    if(!res.ok){
+    if(!gravado){
       let detalhe = '';
-      try{ detalhe = (await res.text()).slice(0, 200); }catch(e){}
-      ultimoErroNuvem = { status: res.status, detalhe };
+      try{ detalhe = res ? (await res.text()).slice(0, 200) : 'a linha mudou três vezes seguidas'; }catch(e){}
+      ultimoErroNuvem = { status: res ? res.status : 0, detalhe };
       falhouAoEnviar = true;
       tentativasDeEnvio++;
       agendarEnvio(esperaDoReenvio());
@@ -955,8 +1202,14 @@ async function cloudPush(){
        sumia. */
     try{ localStorage.setItem(LOCAL_TS_KEY, String(new Date(carimboNovo).getTime())); }catch(e){}
     horaDoUltimoEnvioOk = Date.now();
-    temPendencia = false;
     tentativasDeEnvio = 0;
+    if(versaoLocal === versaoEnviada){
+      temPendencia = false;
+    } else {
+      /* Mudou alguma coisa enquanto o envio viajava: continua pendente e
+         vai de novo já. */
+      agendarEnvio(400);
+    }
     atualizaAvisoDeNuvem();
   }catch(e){
     /* Sem rede no meio do envio. A alteração continua pendente e volta a
@@ -1280,14 +1533,36 @@ function openScanner(onDetect){
 /* =========================================================
    AUTH
    ========================================================= */
-function tryLogin(user, pass){
-  const u = DB.users.find(x=>x.user===user && x.pass===pass);
-  if(u){
-    SESSION = { id:u.id, user:u.user, name:u.name||u.user, role:u.role };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION));
-    return true;
-  }
-  return false;
+/* SENHAS.
+   Ficam em texto, como sempre ficaram. Guardar a impressão digital (SHA-256)
+   parecia melhor, mas quebrou a loja: o site publicado numa versão antiga
+   compara a senha em texto e passou a recusar todo mundo até ser
+   atualizado. Uma senha que já esteja gravada como impressão digital
+   continua entrando — o sistema confere dos dois jeitos. */
+const MARCA_SENHA = 'sha256:';
+function temCofre(){ return !!(window.crypto && crypto.subtle && crypto.subtle.digest); }
+async function impressaoDaSenha(senha){
+  const bytes = new TextEncoder().encode('estilo-fashion|' + senha);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return MARCA_SENHA + [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function guardarSenha(senha){ return String(senha); }
+async function senhaConfere(u, senha){
+  const guardada = u.pass == null ? '' : String(u.pass);
+  if(guardada.indexOf(MARCA_SENHA) !== 0) return guardada === String(senha);
+  if(!temCofre()) return false;
+  try{ return (await impressaoDaSenha(senha)) === guardada; }catch(e){ return false; }
+}
+async function tryLogin(user, pass){
+  const alvo = String(user||'').trim().toLowerCase();
+  const u = DB.users.find(x=>String(x.user||'').toLowerCase() === alvo);
+  if(!u || !(await senhaConfere(u, pass))) return false;
+  /* Senha gravada como impressão digital por uma versão anterior volta a
+     texto, para os aparelhos na versão antiga voltarem a entrar. */
+  if(String(u.pass).indexOf(MARCA_SENHA) === 0){ u.pass = String(pass); saveDB(); }
+  SESSION = { id:u.id, user:u.user, name:u.name||u.user, role:u.role };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION));
+  return true;
 }
 /* A dica embaixo do botão era o texto fixo "admin / 1234". Quando o lojista
    troca a senha ou renomeia o usuário, ela passa a mentir — foi o que
@@ -1325,6 +1600,23 @@ function logout(){
 }
 function restoreSession(){
   try{ SESSION = JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ SESSION=null; }
+  validarSessao();
+}
+/* A sessão guardada continuava valendo depois de o usuário ser apagado ou
+   rebaixado: a vendedora demitida seguia entrando como admin até limpar o
+   navegador. A sessão vale enquanto o usuário existir, com o perfil atual. */
+function validarSessao(){
+  if(!SESSION || !SESSION.id){ SESSION = null; return; }
+  const u = (DB && DB.users || []).find(x=>x.id === SESSION.id);
+  if(!u){ SESSION = null; try{ localStorage.removeItem(SESSION_KEY); }catch(e){} return; }
+  SESSION.user = u.user; SESSION.name = u.name || u.user; SESSION.role = u.role;
+}
+/* O que cada perfil abre. Vendedor(a) fica com o balcão; o resto é do
+   Admin. Antes qualquer login via tudo, inclusive Configurações. */
+const ROTAS_DE_ADMIN = ['balanco','financeiro','gastos','abrirloja','relatorios','config'];
+function podeAbrir(route){
+  if(!SESSION) return false;
+  return SESSION.role === 'admin' || !ROTAS_DE_ADMIN.includes(route);
 }
 
 /* =========================================================
@@ -1333,6 +1625,27 @@ function restoreSession(){
 /* O menu é separado pelo uso: em cima o que a loja abre todo dia, embaixo
    o que se mexe de vez em quando. Nada foi removido — só deixou de
    competir por atenção com o balcão. */
+/* Ícones do menu, em linha (SVG). Emojis mudam de cara em cada aparelho
+   e não combinam com o resto da interface; estes seguem a cor do texto. */
+const ICONES = {
+  painel: '<path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/>',
+  pdv: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+  produtos: '<path d="M20.4 6.3L16 4l-1.5 2h-5L8 4 3.6 6.3 2 10l3 1.5V20h14v-8.5L22 10z"/>',
+  estoque: '<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="M3.3 7l8.7 5 8.7-5M12 22V12"/>',
+  vendas: '<path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  balanco: '<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+  caixa: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  etiquetas: '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.2"/>',
+  clientes: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  financeiro: '<path d="M12 20V10M18 20V4M6 20v-4"/>',
+  gastos: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  abrirloja: '<path d="M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6"/>',
+  relatorios: '<path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/>',
+  config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+};
+function icone(id){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[id]||ICONES.painel}</svg>`;
+}
 const NAV = [
   /* O Painel abre o menu e o sistema. Ele é o resumo do dia: quem chega na
      loja de manhã quer ver como está antes de vender. */
@@ -1374,11 +1687,12 @@ function renderShell(){
   document.getElementById('sidebarStoreName').textContent = DB.storeName;
   document.getElementById('userPill').textContent = `${SESSION.name} · ${SESSION.role==='admin'?'Admin':'Vendedor(a)'}`;
   const navEl = document.getElementById('navList');
-  const item = n => `<li><a href="#${n.id}" data-route="${n.id}">${n.icon} ${n.label}</a></li>`;
+  const item = n => `<li><a href="#${n.id}" data-route="${n.id}"><span class="nav-ico">${icone(n.id)}</span><span>${n.label}</span></a></li>`;
+  const visiveis = NAV.filter(n=>podeAbrir(n.id));
+  const gestao = visiveis.filter(n=>n.group==='gestao');
   navEl.innerHTML =
-      NAV.filter(n=>n.group==='dia').map(item).join('')
-    + `<li class="nav-sep">Gerenciar</li>`
-    + NAV.filter(n=>n.group==='gestao').map(item).join('');
+      visiveis.filter(n=>n.group==='dia').map(item).join('')
+    + (gestao.length ? `<li class="nav-sep">Gerenciar</li>` + gestao.map(item).join('') : '');
   const ver = document.getElementById('appVersion');
   if(ver) ver.textContent = 'versão '+APP_VERSION;
 }
@@ -1392,8 +1706,11 @@ function closeSidebar(){
 }
 
 function navigate(route){
+  if(!SESSION) return;
+  if(!podeAbrir(route)){ toast('Essa tela é só para o administrador','warn'); route = 'painel'; }
+  if(!NAV.some(n=>n.id===route)) route = 'painel';
   currentRoute = route;
-  location.hash = route;
+  if(location.hash !== '#' + route) location.hash = route;
   document.querySelectorAll('.nav-list a').forEach(a=>a.classList.toggle('active', a.dataset.route===route));
   const title = NAV.find(n=>n.id===route)?.label || '';
   document.getElementById('viewTitle').textContent = title;
@@ -1419,6 +1736,11 @@ function navigate(route){
   }
 }
 
+/* Redesenha a tela atual com um renderizador, se ela estiver na frente. */
+function redesenhar(render){
+  const view = document.getElementById('view');
+  if(view && typeof render === 'function') render(view);
+}
 /* Reparo manual: renormaliza o banco local e recarrega a tela. */
 function repairAndReload(){
   try{
@@ -1436,12 +1758,12 @@ function repairAndReload(){
    ========================================================= */
 function renderPainel(el){
   const today = new Date(); today.setHours(0,0,0,0);
-  const salesToday = DB.sales.filter(s=>!s.canceled && new Date(s.date)>=today);
+  const salesToday = DB.sales.filter(s=>vendaValida(s) && new Date(s.date)>=today);
   const totalToday = salesToday.reduce((a,s)=>a+s.total,0);
   const lowStock = countLowStock();
-  const pendingOnline = DB.sales.filter(s=>s.origin==='loja' && s.status==='pendente').length;
+  const pendingOnline = DB.sales.filter(s=>s.origin==='loja' && s.status==='pendente' && !s.canceled).length;
   const mk = monthKey();
-  const financeMonth = DB.finance.entries.filter(e=>e.date && e.date.startsWith(mk));
+  const financeMonth = DB.finance.entries.filter(e=>chaveMes(e.date) === mk);
   const receitasMes = financeMonth.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
   const despesasMes = financeMonth.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
 
@@ -1473,7 +1795,7 @@ function lastSalesTable(){
   const list = [...DB.sales].filter(s=>!s.canceled).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
   if(!list.length) return `<div class="empty-state">Nenhuma venda ainda</div>`;
   return `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Total</th><th>Pagto</th></tr></thead><tbody>
-    ${list.map(s=>`<tr><td>${dateBR(s.date)}</td><td>${escapeHtml(customerName(s.customerId))}</td><td>${money(s.total)}</td><td>${s.payment}</td></tr>`).join('')}
+    ${list.map(s=>`<tr><td>${dateBR(s.date)}</td><td>${escapeHtml(customerName(s.customerId))}</td><td>${money(s.total)}</td><td>${escapeHtml(s.payment)}${s.status==='pendente'?' <span class="badge badge-warning">Pendente</span>':''}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 function lowStockTable(){
@@ -1632,8 +1954,8 @@ function openProductModal(id){
             <label class="btn btn-sm" style="cursor:pointer;margin:0">📁 Enviar do computador/celular
               <input type="file" id="f_photoFile" accept="image/*" style="display:none">
             </label>
-            <img id="f_photoPreview" src="${escapeHtml(p.photo||'')}" style="height:52px;width:52px;object-fit:cover;border-radius:8px;background:var(--sand);${p.photo?'':'display:none'}">
-            <span id="f_photoStatus" class="text-muted" style="font-size:12px"></span>
+            <img id="f_photoPreview" src="${escapeHtml(fotoDaPeca(p))}" style="height:52px;width:52px;object-fit:cover;border-radius:8px;background:var(--sand);${fotoDaPeca(p)?'':'display:none'}">
+            <span id="f_photoStatus" class="text-muted" style="font-size:12px">${p.photoPendente && !p.photo ? 'Foto guardada aqui, esperando a nuvem' : ''}</span>
           </div>
         </div>
         <div class="field full"><label>Descrição</label><textarea id="f_desc" rows="2">${escapeHtml(p.description)}</textarea></div>
@@ -1670,6 +1992,7 @@ function openProductModal(id){
     resizeImageFile(file, 800, 0.7).then(async dataUrl=>{
       const preview = overlay.querySelector('#f_photoPreview');
       preview.src = dataUrl; preview.style.display = '';
+      overlay.dataset.fotoPendente = '';
       status.textContent = 'Enviando para a nuvem...';
       try{
         /* A foto vai para a nuvem e o banco guarda só o endereço. Guardar a
@@ -1801,21 +2124,38 @@ function openProductModal(id){
         if(!v.barcode){ v.barcode = generateUniqueBarcode(); novosCodigos.push(v.barcode); }
       });
       const precoInput = usandoGrade ? overlay.querySelector('#f_price_grade') : overlay.querySelector('#f_price');
+      const cost = Number((usandoGrade ? overlay.querySelector('#f_cost_grade') : overlay.querySelector('#f_cost')).value)||0;
+      const price = Number(precoInput.value)||0;
+      if(price < 0 || cost < 0){ toast('Preço e custo não podem ser negativos','error'); return; }
+      const fotoUrl = overlay.querySelector('#f_photo').value.trim();
+      /* Uma foto que ainda está na fila continua na fila: salvar a peça
+         sem trocar a foto apagava a marca de "pendente" e a imagem sumia
+         da tela até a nuvem aceitar. */
+      const fotoPendente = overlay.dataset.fotoPendente === '1'
+        || (!fotoUrl && !!(editing && editing.photoPendente && fotosPendentes.has(p.id)));
       const data = {
         id:p.id, name,
         sku: overlay.querySelector('#f_sku').value.trim(),
         category: overlay.querySelector('#f_category').value.trim(),
         brand: overlay.querySelector('#f_brand').value.trim(),
-        cost: Number((usandoGrade ? overlay.querySelector('#f_cost_grade') : overlay.querySelector('#f_cost')).value)||0,
-        price: Number(precoInput.value)||0,
-        photo: overlay.querySelector('#f_photo').value.trim(),
-        photoPendente: overlay.dataset.fotoPendente === '1' ? true : undefined,
+        cost, price,
+        photo: fotoUrl,
+        photoPendente: fotoPendente ? true : undefined,
         description: overlay.querySelector('#f_desc').value.trim(),
         showInStore: overlay.querySelector('#f_show').checked,
         isNew: overlay.querySelector('#f_new').checked,
         variations: finalVariations
       };
-      if(editing){ Object.assign(editing, data); }
+      /* Dois tamanhos iguais na mesma peça (M/Preto duas vezes) viram um
+         estoque só que ninguém sabe qual é. */
+      const combos = new Set();
+      for(const v of finalVariations){
+        const k = (v.size||'') + '|' + (v.color||'');
+        if(combos.has(k)){ toast('A combinação ' + (v.size||'-') + '/' + (v.color||'-') + ' está repetida','error'); return; }
+        combos.add(k);
+      }
+      carimbar(data);
+      if(editing){ Object.assign(editing, data); if(!fotoPendente) delete editing.photoPendente; }
       else DB.products.push(data);
       if(!exigirGravacao('esta peça')){
         if(!editing) DB.products.pop();   // não deixa a peça só na tela
@@ -1901,6 +2241,74 @@ drop policy if exists "loja apaga" on public.TABELA;
 create policy "loja apaga" on public.TABELA
   for delete to anon using (true);
 
+create table if not exists public.BASE_historico (
+  id bigserial primary key,
+  linha text not null,
+  data jsonb not null,
+  gravado_em timestamptz not null,
+  guardado_em timestamptz not null default now(),
+  produtos integer not null default 0,
+  vendas integer not null default 0
+);
+
+create index if not exists BASE_historico_idx
+  on public.BASE_historico (linha, guardado_em desc);
+
+alter table public.BASE_historico enable row level security;
+
+drop policy if exists "historico le" on public.BASE_historico;
+create policy "historico le" on public.BASE_historico
+  for select to anon using (true);
+
+create or replace function public.BASE_conta(d jsonb, chave text)
+returns integer language sql immutable as $$
+  select case when jsonb_typeof(d -> chave) = 'array' then jsonb_array_length(d -> chave) else 0 end;
+$$;
+
+create or replace function public.BASE_guardar_historico()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ultimo timestamptz;
+  encolheu boolean;
+begin
+  if old.data is not distinct from new.data then
+    return new;
+  end if;
+  encolheu := BASE_conta(new.data, 'products') < BASE_conta(old.data, 'products')
+           or BASE_conta(new.data, 'sales') < BASE_conta(old.data, 'sales');
+  select guardado_em into ultimo
+    from public.BASE_historico
+   where linha = old.id
+   order by guardado_em desc
+   limit 1;
+  if not encolheu and ultimo is not null and ultimo > now() - interval '10 minutes' then
+    return new;
+  end if;
+  insert into public.BASE_historico (linha, data, gravado_em, produtos, vendas)
+  values (old.id, old.data, old.updated_at,
+          BASE_conta(old.data, 'products'),
+          BASE_conta(old.data, 'sales'));
+  delete from public.BASE_historico
+   where linha = old.id
+     and id not in (
+       select id from public.BASE_historico
+        where linha = old.id
+        order by guardado_em desc
+        limit 300
+     );
+  return new;
+end;
+$$;
+
+drop trigger if exists BASE_historico_trg on public.TABELA;
+create trigger BASE_historico_trg
+  before update on public.TABELA
+  for each row execute function public.BASE_guardar_historico();
+
 insert into storage.buckets (id, name, public)
 values ('BUCKET', 'BUCKET', true)
 on conflict (id) do update set public = true;
@@ -1921,9 +2329,13 @@ drop policy if exists "fotos remocao" on storage.objects;
 create policy "fotos remocao" on storage.objects
   for delete to anon using (bucket_id = 'BUCKET');`;
 
+/* Os objetos do histórico levam o nome da tabela sem o "_db":
+   loja_roupas_db -> loja_roupas_historico, loja_roupas_conta... */
+function baseDaTabela(){ return configNuvem().tabela.replace(/_db$/, ''); }
+function tabelaHistorico(){ return baseDaTabela() + '_historico'; }
 function sqlDaTabela(){
   const c = configNuvem();
-  return SQL_CRIAR_TABELA.replaceAll('TABELA', c.tabela).replaceAll('BUCKET', c.bucket);
+  return SQL_CRIAR_TABELA.replaceAll('BASE_', baseDaTabela() + '_').replaceAll('TABELA', c.tabela).replaceAll('BUCKET', c.bucket);
 }
 
 function copiarSqlDaTabela(){
@@ -2065,12 +2477,20 @@ async function testarNuvem(){
     anotar('3. ENVIAR foto para a pasta', 0, false, String(err && err.message || err));
   }
 
-  const leitura = linhas[0], gravacao = linhas[1], fotos = linhas[2];
-  const tudoBem = leitura.ok && gravacao.ok && fotos.ok;
+  /* O histórico é a rede de proteção contra a linha gravada por cima: a
+     nuvem guarda as versões anteriores sozinha. Sem ele o sistema
+     funciona, mas sem como voltar atrás. */
+  await tentar('4. Ler o histórico da nuvem', `${cfg.url}/rest/v1/${tabelaHistorico()}?select=id&limit=1`);
+
+  const leitura = linhas[0], gravacao = linhas[1], fotos = linhas[2], historico = linhas[3];
+  const tudoBem = leitura.ok && gravacao.ok && fotos.ok && historico.ok;
 
   let recado, comoResolver = '';
   if(tudoBem){
-    recado = 'Instalação completa: a nuvem lê, grava e recebe fotos. Nada fica preso neste aparelho.';
+    recado = 'Instalação completa: a nuvem lê, grava, recebe fotos e guarda o histórico. Nada fica preso neste aparelho.';
+  } else if(leitura.ok && gravacao.ok && fotos.ok && !historico.ok){
+    recado = 'Tudo funciona, mas a nuvem ainda não guarda o histórico das versões (' + historico.status + ').';
+    comoResolver = 'Sem ele não há como voltar atrás se alguém gravar por cima. Copie o SQL de instalação logo abaixo e rode no SQL Editor do Supabase: ele cria a tabela de histórico.';
   } else if(leitura.ok && gravacao.ok && !fotos.ok){
     recado = 'A tabela está certa, mas a pasta das fotos não aceita envio (' + fotos.status + ').';
     comoResolver = 'As fotos ficam presas no aparelho enquanto isso. Copie o SQL de instalação logo abaixo e rode no SQL Editor do Supabase: ele cria a pasta e libera o envio.';
@@ -2249,7 +2669,7 @@ function acharBancosNaLinha(linha){
    e se não der, procuramos pelos nomes de tabela mais prováveis. A leitura
    das tabelas em si funciona: é assim que o sistema sincroniza. */
 const TABELAS_PROVAVEIS = [
-  'loja_roupas_db', 'lumina_db', 'loja_db', 'sistema_db', 'estilo_db',
+  'loja_roupas_db', 'loja_roupas_historico', 'lumina_db', 'loja_db', 'sistema_db', 'estilo_db',
   'db', 'dados', 'banco', 'backup', 'backups', 'loja', 'store', 'sistema',
   'app_data', 'estado', 'snapshot', 'snapshots', 'historico'
 ];
@@ -2372,6 +2792,74 @@ function restaurarDaNuvem(indice){
 }
 
 /* =========================================================
+   HISTÓRICO NA NUVEM
+   A linha da loja é uma só. Antes, quem gravasse por cima apagava tudo
+   sem deixar rastro — foi assim que o estoque sumiu. Agora o próprio
+   Supabase guarda a versão anterior a cada gravação (no máximo uma a
+   cada 10 minutos, e sempre que algo encolhe), e as últimas 300 ficam.
+   Esta tela lista essas versões e traz uma de volta com um toque.
+   ========================================================= */
+let versoesDaNuvem = [];
+async function carregarHistoricoDaNuvem(){
+  const box = document.getElementById('historicoNuvem');
+  if(!box) return;
+  box.innerHTML = '<p class="text-muted">Lendo o histórico...</p>';
+  const c = configNuvem();
+  try{
+    const res = await fetch(`${c.url}/rest/v1/${tabelaHistorico()}?linha=eq.main&select=id,gravado_em,guardado_em,produtos,vendas&order=guardado_em.desc&limit=60`,
+                            { headers: cabecalhosNuvem() });
+    if(res.status === 404){
+      box.innerHTML = `<div class="aviso-codigo">A nuvem ainda não guarda histórico. Rode o SQL de instalação (logo acima) no Supabase: ele cria a tabela e o gatilho.</div>`;
+      return;
+    }
+    if(!res.ok){ box.innerHTML = `<div class="aviso-codigo">A nuvem respondeu ${res.status} ao ler o histórico.</div>`; return; }
+    versoesDaNuvem = await res.json();
+  }catch(e){
+    box.innerHTML = `<div class="aviso-codigo">Sem ligação com a nuvem agora.</div>`;
+    return;
+  }
+  if(!versoesDaNuvem.length){
+    box.innerHTML = `<div class="empty-state">Nenhuma versão guardada ainda. A primeira aparece na próxima gravação que mudar alguma coisa.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Versão de</th><th style="text-align:right">Produtos</th><th style="text-align:right">Vendas</th><th></th></tr></thead><tbody>
+    ${versoesDaNuvem.map((v,i)=>`<tr>
+      <td>${dateBR(v.gravado_em)}<div class="text-muted" style="font-size:11px">guardada ${dateBR(v.guardado_em)}</div></td>
+      <td style="text-align:right"><strong>${v.produtos}</strong></td>
+      <td style="text-align:right">${v.vendas}</td>
+      <td><button class="btn btn-sm" onclick="restaurarVersaoDaNuvem(${i})">Voltar para esta</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+  <p class="text-muted" style="font-size:12px;margin-top:10px">
+    O que está no sistema agora vira cópia de segurança antes de qualquer troca, e a versão escolhida
+    é enviada para a nuvem em seguida.</p>`;
+}
+async function restaurarVersaoDaNuvem(i){
+  const v = versoesDaNuvem[i];
+  if(!v) return;
+  if(!confirm('Voltar para a versão de ' + dateBR(v.gravado_em) + '?\n\n' +
+              v.produtos + ' produto(s) e ' + v.vendas + ' venda(s).\n\n' +
+              'O que está no sistema agora será guardado como cópia antes da troca.')) return;
+  const c = configNuvem();
+  let banco = null;
+  try{
+    const res = await fetch(`${c.url}/rest/v1/${tabelaHistorico()}?id=eq.${v.id}&select=data`, { headers: cabecalhosNuvem() });
+    const rows = res.ok ? await res.json() : [];
+    banco = rows[0] && rows[0].data;
+  }catch(e){}
+  if(!banco){ toast('Não consegui ler essa versão da nuvem','error'); return; }
+  guardarCopiaDeSeguranca('antes de voltar a uma versão da nuvem');
+  DB = banco;
+  migrateDB();
+  restaurarEscolhaDaEtiqueta();
+  if(exigirGravacao('a versão restaurada')){
+    toast('Versão de ' + dateBR(v.gravado_em) + ' restaurada. Enviando para a nuvem…');
+    renderShell(); navigate('painel');
+  }
+}
+
+/* =========================================================
    ATUALIZAÇÃO AUTOMÁTICA
    O celular da loja ficou preso numa versão antiga por dias, e cada
    correção que eu publicava parecia não funcionar — quando na verdade nem
@@ -2413,19 +2901,33 @@ let balancoPeriodo = 'mes';
 function periodoBalanco(){
   const hoje = new Date();
   const ano = hoje.getFullYear();
+  /* `casa` recebe tanto datas completas (vendas, lançamentos) quanto o
+     mês "2026-09" dos gastos mensais. As datas são convertidas para o
+     fuso da loja antes de comparar. */
+  const mesDe = x => (typeof x === 'string' && /^\d{4}-\d{2}$/.test(x)) ? x : chaveMes(x);
   if(balancoPeriodo === 'mes'){
     const mk = monthKey();
-    return { rotulo: monthLabel(mk), casa: d => (d||'').startsWith(mk), mesUnico: mk };
+    return { rotulo: monthLabel(mk), casa: d => mesDe(d) === mk, mesUnico: mk };
   }
   if(balancoPeriodo === 'mesPassado'){
     const d = new Date(ano, hoje.getMonth()-1, 1);
-    const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    return { rotulo: monthLabel(mk), casa: x => (x||'').startsWith(mk), mesUnico: mk };
+    const mk = monthKey(d);
+    return { rotulo: monthLabel(mk), casa: x => mesDe(x) === mk, mesUnico: mk };
   }
   if(balancoPeriodo === 'ano'){
-    return { rotulo: 'ano de '+ano, casa: x => (x||'').startsWith(String(ano)), mesUnico: null };
+    return { rotulo: 'ano de '+ano, casa: x => mesDe(x).startsWith(String(ano)), mesUnico: null };
   }
   return { rotulo: 'desde o começo', casa: () => true, mesUnico: null };
+}
+
+/* Lançamento do Financeiro que é ESPELHO de outra tela (gasto mensal
+   marcado como pago, custo de abertura pago). O Balanço já soma o gasto
+   na tela de origem; somar o espelho de novo dobrava o aluguel na conta. */
+function lancamentoEspelhado(e){
+  if(!e) return false;
+  if(e.origem === 'gasto' || e.origem === 'abertura') return true;
+  const c = String(e.category||'');
+  return c.indexOf('Gasto mensal — ') === 0 || c.indexOf('Abertura — ') === 0;
 }
 
 /* Quanto está parado nas araras. Custo é o dinheiro investido; venda é o que
@@ -2447,7 +2949,7 @@ function valorDoEstoque(){
    venda; nas vendas antigas, que não guardavam isso, caímos no custo atual
    da peça — e a tela avisa quando isso acontece. */
 function resumoVendas(per){
-  const vendas = DB.sales.filter(s => !s.canceled && per.casa(s.date));
+  const vendas = DB.sales.filter(s => vendaValida(s) && per.casa(s.date));
   let total = 0, custoVendido = 0, pecas = 0, estimadas = 0;
   vendas.forEach(s => {
     total += Number(s.total)||0;
@@ -2474,7 +2976,7 @@ function resumoGastos(per){
     .reduce((a,r) => a + (Number(r.amount)||0), 0);
 
   const despesas = DB.finance.entries
-    .filter(e => e.type === 'despesa' && per.casa(e.date))
+    .filter(e => e.type === 'despesa' && e.status !== 'pendente' && !lancamentoEspelhado(e) && per.casa(e.date))
     .reduce((a,e) => a + (Number(e.amount)||0), 0);
 
   /* Abrir a loja foi um gasto de uma vez só, sem data de mês. Entra apenas
@@ -2490,7 +2992,7 @@ function gastosPorCategoria(per){
   const mapa = {};
   DB.monthlyExpenses.records.filter(r => per.casa(r.month))
     .forEach(r => { mapa[r.category] = (mapa[r.category]||0) + (Number(r.amount)||0); });
-  DB.finance.entries.filter(e => e.type === 'despesa' && per.casa(e.date))
+  DB.finance.entries.filter(e => e.type === 'despesa' && e.status !== 'pendente' && !lancamentoEspelhado(e) && per.casa(e.date))
     .forEach(e => { const c = e.category || 'Outros';
                     mapa[c] = (mapa[c]||0) + (Number(e.amount)||0); });
   return Object.entries(mapa).sort((a,b) => b[1] - a[1]);
@@ -2640,7 +3142,7 @@ function renderEstoque(el){
     </div>` : ''}
     <div id="stockTableWrap"></div>`;
   document.getElementById('minStockInput').addEventListener('change', e=>{
-    DB.config.minStock = Number(e.target.value)||0; saveDB(); toast('Estoque mínimo atualizado');
+    DB.config.minStock = Math.max(0, Number(e.target.value)||0); saveDB(); renderStockTable(); toast('Estoque mínimo atualizado');
   });
   if(estoqueMode){
     const inp = document.getElementById('bipeInput');
@@ -2666,7 +3168,14 @@ function handleBipe(code){
   if(!found){ if(msg) msg.innerHTML = `<span class="text-danger">Código "${escapeHtml(code)}" não encontrado</span>`; return; }
   const { product, variation } = found;
   if(estoqueMode==='entrada') variation.stock = Number(variation.stock||0)+1;
-  else variation.stock = Math.max(0, Number(variation.stock||0)-1);
+  else {
+    if(Number(variation.stock||0) <= 0){
+      if(msg) msg.innerHTML = `<span class="text-danger">${escapeHtml(product.name)} (${escapeHtml(variation.size)}/${escapeHtml(variation.color)}) já está zerada</span>`;
+      return;
+    }
+    variation.stock = Number(variation.stock||0)-1;
+  }
+  carimbar(product);
   saveDB();
   if(msg) msg.innerHTML = `<span class="text-success">${estoqueMode==='entrada'?'+1':'-1'} — ${escapeHtml(product.name)} (${escapeHtml(variation.size)}/${escapeHtml(variation.color)}) → estoque: ${variation.stock}</span>`;
   renderStockTable();
@@ -2693,14 +3202,21 @@ function renderStockTable(){
       <td>${escapeHtml(v.barcode||'-')}</td>
       <td>${v.stock}</td>
       <td>${v.stock<=DB.config.minStock?'<span class="badge badge-danger">Baixo</span>':'<span class="badge badge-success">OK</span>'}</td>
-      <td><input type="number" value="${v.stock}" style="width:80px" onchange="adjustStock('${p.id}','${v.size}','${v.color}',this.value)"></td>
+      <td><input type="number" min="0" value="${v.stock}" style="width:80px" data-ajuste data-pid="${escapeHtml(p.id)}" data-size="${escapeHtml(v.size)}" data-color="${escapeHtml(v.color)}"></td>
     </tr>`).join('')}
   </tbody></table></div>`;
+  /* Tamanho ou cor com aspas quebrava o onclick embutido no HTML; o campo
+     agora carrega a peça em atributos e o ajuste lê de lá. */
+  wrap.querySelectorAll('[data-ajuste]').forEach(inp=>inp.addEventListener('change', e=>{
+    adjustStock(e.target.dataset.pid, e.target.dataset.size, e.target.dataset.color, e.target.value);
+  }));
 }
 function adjustStock(pid,size,color,val){
   const p = DB.products.find(x=>x.id===pid);
-  const v = p.variations.find(x=>x.size===size && x.color===color);
-  v.stock = Number(val)||0;
+  const v = p && p.variations.find(x=>x.size===size && x.color===color);
+  if(!v){ toast('Peça não encontrada. Atualize a tela.','error'); renderStockTable(); return; }
+  v.stock = Math.max(0, Number(val)||0);
+  carimbar(p);
   saveDB(); renderStockTable(); toast('Estoque ajustado');
 }
 
@@ -3284,13 +3800,27 @@ function renderCustomerTable(filter){
   const f=(filter||'').toLowerCase();
   const list = DB.customers.filter(c=>!f || c.name.toLowerCase().includes(f) || (c.phone||'').includes(f));
   if(!list.length){ wrap.innerHTML=`<div class="empty-state">Nenhum cliente</div>`; return; }
-  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Compras</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Compras</th><th>Gasto</th><th></th></tr></thead><tbody>
     ${list.map(c=>{
-      const n = DB.sales.filter(s=>s.customerId===c.id && !s.canceled).length;
-      return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td>${n}</td>
-      <td><button class="btn btn-sm" onclick="openCustomerModal('${c.id}')">Editar</button></td></tr>`;
+      const compras = DB.sales.filter(s=>s.customerId===c.id && vendaValida(s));
+      const gasto = compras.reduce((a,s)=>a+Number(s.total||0),0);
+      return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td>${compras.length}</td><td>${money(gasto)}</td>
+      <td><button class="btn btn-sm" onclick="openCustomerModal('${c.id}')">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${c.id}')">Excluir</button></td></tr>`;
     }).join('')}
   </tbody></table></div>`;
+}
+/* Não havia como apagar um cliente — e a loja virtual cria um a cada
+   pedido. As vendas dele continuam no histórico, como "Consumidor final". */
+function deleteCustomer(id){
+  const c = DB.customers.find(x=>x.id===id);
+  if(!c) return;
+  const n = DB.sales.filter(s=>s.customerId===id).length;
+  if(!confirm('Excluir o cliente "' + c.name + '"?' + (n ? '\n\nAs ' + n + ' venda(s) dele continuam no histórico, sem o nome.' : ''))) return;
+  DB.customers = DB.customers.filter(x=>x.id!==id);
+  registrarApagado('customers', id);
+  if(pdvCustomer === id) pdvCustomer = '';
+  saveDB(); renderCustomerTable(document.getElementById('custSearch')?.value || ''); toast('Cliente excluído');
 }
 function openCustomerModal(id){
   const editing = id ? DB.customers.find(c=>c.id===id) : null;
@@ -3312,7 +3842,7 @@ function openCustomerModal(id){
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
     const name = overlay.querySelector('#c_name').value.trim();
     if(!name){ toast('Informe o nome','error'); return; }
-    const data = { ...c, name, phone:overlay.querySelector('#c_phone').value.trim(), email:overlay.querySelector('#c_email').value.trim(), address:overlay.querySelector('#c_address').value.trim() };
+    const data = carimbar({ ...c, name, phone:overlay.querySelector('#c_phone').value.trim(), email:overlay.querySelector('#c_email').value.trim(), address:overlay.querySelector('#c_address').value.trim() });
     if(editing) Object.assign(editing, data); else DB.customers.push(data);
     saveDB(); overlay.remove(); renderCustomerTable('');
     toast('Cliente salvo');
@@ -3324,6 +3854,7 @@ function openCustomerModal(id){
    ========================================================= */
 let cart = [];
 let pdvSearch = '';
+const FORMAS_DE_PAGAMENTO = ['PIX','Dinheiro','Débito','Crédito'];
 let pdvPayment = 'PIX';
 let pdvCustomer = '';
 let pdvDiscount = 0;
@@ -3352,7 +3883,7 @@ function renderPDV(el){
           <input type="number" id="pdvDiscount" value="${pdvDiscount}" min="0" step="0.01">
         </div>
         <div class="pay-methods">
-          ${['PIX','Dinheiro','Débito','Crédito'].map(m=>`<button class="${pdvPayment===m?'active':''}" data-pay="${m}">${m}</button>`).join('')}
+          ${FORMAS_DE_PAGAMENTO.map(m=>`<button class="${pdvPayment===m?'active':''}" data-pay="${m}">${m}</button>`).join('')}
         </div>
         <div class="cart-totals">
           <div class="row"><span>Subtotal</span><span>${money(cartSubtotal())}</span></div>
@@ -3370,10 +3901,20 @@ function renderPDV(el){
   input.addEventListener('input', e=>{ pdvSearch=e.target.value; renderPDVResults(); });
   input.addEventListener('keydown', e=>{
     if(e.key==='Enter'){
+      e.preventDefault();
       const code = pdvSearch.trim();
+      if(!code) return;
       const found = findVariationByBarcode(code);
       if(found){ addToCart(found.product, found.variation); }
-      else if(code) toast('Código não encontrado','error');
+      else {
+        /* Não é código de barras: se a busca por nome deixou UMA peça na
+           tela, Enter é ela. Antes qualquer Enter apagava o que estava
+           digitado e dizia "código não encontrado" — para quem procurava
+           por nome, parecia que o PDV não achava nada. */
+        const lista = produtosDoPDV();
+        if(lista.length === 1){ quickAdd(lista[0].id); }
+        else { toast(lista.length ? 'Toque na peça que quer vender' : 'Nenhuma peça com esse nome ou código','error'); return; }
+      }
       pdvSearch=''; input.value=''; renderPDVResults(); input.focus();
     }
   });
@@ -3396,23 +3937,66 @@ function renderPDV(el){
   renderPDVResults();
   renderCartItems();
 }
+function produtosDoPDV(){
+  const f = pdvSearch.trim().toLowerCase();
+  return DB.products.filter(p=> p.variations.some(v=>v.stock>0) && (!f || p.name.toLowerCase().includes(f)
+    || (p.sku||'').toLowerCase().includes(f) || (p.category||'').toLowerCase().includes(f)
+    || p.variations.some(v=>(v.barcode||'').toLowerCase() === f)));
+}
 function renderPDVResults(){
   const wrap = document.getElementById('pdvResults');
   if(!wrap) return;
-  const f = pdvSearch.toLowerCase();
-  const list = DB.products.filter(p=> p.variations.some(v=>v.stock>0) && (!f || p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f)));
-  wrap.innerHTML = list.map(p=>`
+  const list = produtosDoPDV();
+  const mostra = t => (!t || t==='Único' || t==='Padrão') ? '' : t;
+  wrap.innerHTML = list.map(p=>{
+    const comEstoque = p.variations.filter(v=>v.stock>0);
+    const v0 = comEstoque[0] || {};
+    const detalhe = comEstoque.length > 1
+      ? `${comEstoque.length} tamanhos/cores`
+      : [mostra(v0.size), mostra(v0.color)].filter(Boolean).join(' · ');
+    const foto = fotoDaPeca(p);
+    return `
     <div class="pdv-product" onclick="quickAdd('${p.id}')">
-      <img src="${escapeHtml(fotoDaPeca(p))}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
+      ${foto ? `<img src="${escapeHtml(foto)}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : `<div class="sem-foto">👗</div>`}
       <div class="pname">${escapeHtml(p.name)}</div>
+      ${detalhe ? `<div class="pmeta">${escapeHtml(detalhe)}</div>` : ''}
       <div class="pprice">${money(p.price)}</div>
-    </div>`).join('') || `<div class="empty-state">Nenhum produto encontrado</div>`;
+    </div>`;
+  }).join('') || `<div class="empty-state">Nenhum produto encontrado</div>`;
 }
+/* Tocar na peça: se ela só tem uma combinação com estoque, vai direto
+   para o carrinho. Se tem várias (P/M/G, cores), pergunta qual — antes
+   entrava a primeira da lista sem avisar, e a venda saía com o tamanho
+   errado e o estoque do tamanho certo intacto. */
 function quickAdd(pid){
   const p = DB.products.find(x=>x.id===pid);
-  const v = p.variations.find(v=>v.stock>0);
-  if(!v){ toast('Sem estoque','error'); return; }
-  addToCart(p, v);
+  if(!p) return;
+  const disponiveis = p.variations.filter(v=>v.stock>0);
+  if(!disponiveis.length){ toast('Sem estoque','error'); return; }
+  if(disponiveis.length === 1){ addToCart(p, disponiveis[0]); return; }
+  escolherVariacao(p, disponiveis, v=>addToCart(p, v));
+}
+function escolherVariacao(p, variacoes, aoEscolher){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:420px">
+    <h2>${escapeHtml(p.name)}</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">Qual tamanho/cor está saindo?</p>
+    <div class="escolha-variacao">
+      ${variacoes.map((v,i)=>`<button type="button" class="btn" data-var="${i}">
+        <strong>${escapeHtml(v.size)}${v.color && v.color!=='Padrão' ? ' · '+escapeHtml(v.color) : ''}</strong>
+        <span class="text-muted">${v.stock} em estoque</span></button>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) overlay.remove(); });
+  overlay.querySelectorAll('[data-var]').forEach(b=>b.addEventListener('click', e=>{
+    const v = variacoes[Number(e.currentTarget.dataset.var)];
+    overlay.remove();
+    if(v) aoEscolher(v);
+  }));
 }
 function addToCart(product, variation){
   if(variation.stock<=0){ toast('Sem estoque para essa variação','error'); return; }
@@ -3438,8 +4022,13 @@ function renderCartItems(){
         <button class="btn btn-icon btn-sm btn-danger" onclick="removeFromCart(${idx})">✕</button>
       </div>
     </div>`).join('') : `<div class="empty-state" style="padding:20px">Carrinho vazio</div>`;
-  document.querySelectorAll('.cart-totals .row span:last-child')[0].textContent = money(cartSubtotal());
-  document.querySelectorAll('.cart-totals .total span:last-child')[0].textContent = money(Math.max(0,cartSubtotal()-pdvDiscount));
+  const linhas = document.querySelectorAll('.cart-totals .row span:last-child');
+  if(linhas[0]) linhas[0].textContent = money(cartSubtotal());
+  /* A linha do desconto não acompanhava o campo: mostrava "-R$ 0,00" com
+     desconto digitado. */
+  if(linhas[1]) linhas[1].textContent = '-' + money(pdvDiscount);
+  const total = document.querySelector('.cart-totals .total span:last-child');
+  if(total) total.textContent = money(Math.max(0,cartSubtotal()-pdvDiscount));
 }
 function changeQty(idx,delta){
   const i = cart[idx];
@@ -3454,6 +4043,23 @@ function clearCart(){ cart=[]; pdvDiscount=0; renderPDV(document.getElementById(
 
 function finalizeSale(){
   if(!cart.length){ toast('Carrinho vazio','error'); return; }
+  if(pdvDiscount < 0){ toast('Desconto não pode ser negativo','error'); return; }
+  if(pdvDiscount > cartSubtotal()){
+    if(!confirm('O desconto (' + money(pdvDiscount) + ') é maior que o total (' + money(cartSubtotal()) + ').\n\nRegistrar a venda por R$ 0,00 mesmo assim?')) return;
+  }
+  /* O estoque pode ter mudado desde que a peça entrou no carrinho (outro
+     aparelho vendeu, a nuvem trouxe). Confere de novo antes de fechar. */
+  const semEstoque = [];
+  cart.forEach(i=>{
+    const p = DB.products.find(x=>x.id===i.productId);
+    const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+    if(!v) semEstoque.push(i.name + ' (peça não está mais no cadastro)');
+    else if(v.stock < i.qty) semEstoque.push(`${i.name} ${i.size}/${i.color} (tem ${v.stock}, no carrinho ${i.qty})`);
+  });
+  if(semEstoque.length){
+    alert('Não dá para fechar esta venda:\n\n· ' + semEstoque.join('\n· ') + '\n\nAjuste o carrinho ou o estoque.');
+    return;
+  }
   // Vender é o que não pode parar. Se o caixa não foi aberto, abre sozinho
   // com valor inicial zero em vez de bloquear a venda — quem controla o
   // caixa continua podendo abrir com troco pela tela de Caixa.
@@ -3483,7 +4089,7 @@ function finalizeSale(){
   /* A venda guarda o número do lançamento financeiro dela. Sem isso, mexer
      na venda depois deixava o Financeiro com o valor antigo, e os dois
      números da loja passavam a discordar. */
-  const lancamento = { id:uid(), type:'receita', category:'Venda PDV', amount: total, date: todayISO(), status:'pago', description:`Venda #${sale.id.slice(-6)}` };
+  const lancamento = { id:uid(), type:'receita', category:'Venda PDV', origem:'venda', amount: total, date: sale.date, status:'pago', description:`Venda #${sale.id.slice(-6)}` };
   sale.financeId = lancamento.id;
   DB.finance.entries.push(lancamento);
 
@@ -3581,7 +4187,7 @@ function renderVendasTable(){
       <td>${escapeHtml(customerName(s.customerId))}</td>
       <td>${s.items.reduce((a,i)=>a+i.qty,0)}</td>
       <td>${money(s.total)}</td>
-      <td>${s.payment}</td>
+      <td>${escapeHtml(s.payment)}</td>
       <td>${s.origin==='loja'?'<span class="badge badge-gold">Loja virtual</span>':'PDV'}</td>
       <td>${saleStatusBadge(s)}</td>
       <td>${saleActions(s)}</td>
@@ -3649,7 +4255,10 @@ function excluirVenda(id){
               '\nIsto não tem como desfazer. Para apenas anular guardando o registro, use Cancelar.')) return;
   if(!s.canceled) mexerNoEstoqueDaVenda(s.items, +1);
   const lanc = lancamentoDaVenda(s);
-  if(lanc) DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+  if(lanc){
+    DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+    registrarApagado('finance', lanc.id);
+  }
   DB.sales = DB.sales.filter(x=>x.id !== id);
   registrarApagado('sales', id);
   if(exigirGravacao('a exclusão da venda')){
@@ -3674,7 +4283,13 @@ function openSaleModal(id){
   const opcoesCliente = ['<option value="">Consumidor final</option>']
     .concat(DB.customers.map(c=>`<option value="${escapeHtml(c.id)}" ${s.customerId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`))
     .join('');
-  const formas = ['dinheiro','pix','débito','crédito'];
+  /* As mesmas formas do PDV, com a mesma grafia. Aqui estavam em
+     minúsculas ("pix"), então a venda em "PIX" nunca casava, o campo caía
+     em "dinheiro" e salvar trocava a forma de pagamento sem ninguém pedir
+     — e os relatórios passavam a ter "PIX" e "pix" como duas formas. */
+  const formas = FORMAS_DE_PAGAMENTO.slice();
+  const formaAtual = formas.find(f=>f.toLowerCase() === String(s.payment||'').toLowerCase()) || s.payment || formas[0];
+  if(!formas.includes(formaAtual)) formas.push(formaAtual);
 
   overlay.innerHTML = `<div class="modal">
     <h2>Editar venda de ${dateBR(s.date)}</h2>
@@ -3685,11 +4300,11 @@ function openSaleModal(id){
       <div class="field"><label>Cliente</label>
         <select id="v_cliente">${opcoesCliente}</select></div>
       <div class="field"><label>Forma de pagamento</label>
-        <select id="v_pagto">${formas.map(f=>`<option ${s.payment===f?'selected':''}>${f}</option>`).join('')}</select></div>
+        <select id="v_pagto">${formas.map(f=>`<option value="${escapeHtml(f)}" ${formaAtual===f?'selected':''}>${escapeHtml(f)}</option>`).join('')}</select></div>
       <div class="field"><label>Desconto (R$)</label>
         <input type="number" id="v_desc" step="0.01" min="0" value="${Number(s.discount)||0}"></div>
       <div class="field"><label>Data e hora</label>
-        <input type="datetime-local" id="v_data" value="${new Date(s.date).toISOString().slice(0,16)}"></div>
+        <input type="datetime-local" id="v_data" value="${paraDatetimeLocal(s.date)}"></div>
     </div>
     <div class="lucro-box" id="v_total" style="margin-top:14px"></div>
     <div class="modal-actions">
@@ -3768,11 +4383,14 @@ function openSaleModal(id){
     s.payment = overlay.querySelector('#v_pagto').value;
     s.customerId = overlay.querySelector('#v_cliente').value || null;
     s.total = totalNovo();
-    if(data) s.date = new Date(data).toISOString();
+    /* O campo datetime-local vem sem fuso: new Date() lê como hora local,
+       que é o que a pessoa digitou. */
+    if(data && !isNaN(new Date(data))) s.date = new Date(data).toISOString();
     s.editadoEm = todayISO();
+    carimbar(s);
 
     const lanc = lancamentoDaVenda(s);
-    if(lanc){ lanc.amount = s.total; lanc.date = s.date; }
+    if(lanc){ lanc.amount = s.total; lanc.date = s.date; carimbar(lanc); }
 
     if(exigirGravacao('a alteração da venda')){
       overlay.remove();
@@ -3783,39 +4401,72 @@ function openSaleModal(id){
 }
 function markSalePaid(id){
   const s = DB.sales.find(x=>x.id===id);
+  if(!s || s.canceled) return;
   s.status='pago';
-  DB.finance.entries.push({ id:uid(), type:'receita', category:'Venda loja virtual', amount:s.total, date:todayISO(), status:'pago', description:`Pedido online #${id.slice(-6)}` });
+  /* Marcar pago duas vezes (dois aparelhos, dois toques) não pode gerar
+     duas receitas. */
+  let lanc = lancamentoDaVenda(s);
+  if(!lanc){
+    lanc = { id:uid(), type:'receita', category:'Venda loja virtual', amount:s.total, date:todayISO(), status:'pago', description:`Pedido online #${id.slice(-6)}` };
+    DB.finance.entries.push(lanc);
+  }
+  s.financeId = lanc.id;
+  carimbar(s);
   saveDB(); renderVendasTable(); toast('Pedido marcado como pago');
 }
 function markSaleDelivered(id){
-  const s = DB.sales.find(x=>x.id===id); s.status='entregue';
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s || s.canceled) return;
+  s.status='entregue'; carimbar(s);
   saveDB(); renderVendasTable(); toast('Pedido marcado como entregue');
 }
 function cancelSale(id){
-  if(!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
   const s = DB.sales.find(x=>x.id===id);
-  s.items.forEach(i=>{
-    const p = DB.products.find(x=>x.id===i.productId);
-    const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-    if(v) v.stock += i.qty;
-  });
+  if(!s || s.canceled) return;
+  if(!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
+  mexerNoEstoqueDaVenda(s.items, +1);
   s.canceled = true;
-  saveDB(); renderVendasTable(); toast('Venda cancelada');
+  carimbar(s);
+  /* A receita da venda cancelada continuava no Financeiro, e o "Saldo do
+     mês" ficava com dinheiro que não entrou. Sai junto. */
+  const lanc = lancamentoDaVenda(s);
+  if(lanc){
+    DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+    registrarApagado('finance', lanc.id);
+  }
+  saveDB(); renderVendasTable(); toast('Venda cancelada — estoque devolvido');
 }
 
 /* =========================================================
    CAIXA
    ========================================================= */
+/* Vendas que passaram pelo caixa desde que ele abriu. O pedido da loja
+   virtual não passa pela gaveta: ele é pago por PIX na conta e conferido
+   na tela de Vendas. Entrava aqui como se fosse dinheiro do balcão. */
+function vendasDoCaixa(cr){
+  if(!cr || !cr.open) return [];
+  const desde = new Date(cr.openedAt);
+  return DB.sales.filter(s=>vendaValida(s) && s.origin !== 'loja' && new Date(s.date) >= desde);
+}
 function renderCaixa(el){
   const cr = DB.cashRegister;
-  const salesInSession = cr.open ? DB.sales.filter(s=>!s.canceled && new Date(s.date)>=new Date(cr.openedAt)) : [];
+  const salesInSession = vendasDoCaixa(cr);
   const byPay = {};
   salesInSession.forEach(s=>{ byPay[s.payment]=(byPay[s.payment]||0)+s.total; });
+  const dinheiro = salesInSession.filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
+  const reforcos = cr.movements.filter(m=>m.type==='reforco').reduce((a,m)=>a+Number(m.amount||0),0);
+  const sangrias = cr.movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+Number(m.amount||0),0);
+  const naGaveta = Number(cr.openingAmount||0) + dinheiro + reforcos - sangrias;
   el.innerHTML = `
     <div class="panel">
       <h3>Status do caixa</h3>
       ${cr.open ? `
         <p>Caixa <strong class="text-success">aberto</strong> desde ${dateBR(cr.openedAt)} — valor inicial ${money(cr.openingAmount)}</p>
+        <div class="cards-row" style="margin-top:14px;margin-bottom:0">
+          <div class="card"><div class="label">Vendas nesta sessão</div><div class="value">${salesInSession.length}</div></div>
+          <div class="card"><div class="label">Total vendido</div><div class="value">${money(salesInSession.reduce((a,s)=>a+s.total,0))}</div></div>
+          <div class="card"><div class="label">Dinheiro na gaveta (esperado)</div><div class="value">${money(naGaveta)}</div></div>
+        </div>
         <div class="toolbar" style="margin-top:14px">
           <button class="btn" onclick="openMovementModal('sangria')">➖ Sangria</button>
           <button class="btn" onclick="openMovementModal('reforco')">➕ Reforço</button>
@@ -3833,7 +4484,7 @@ function renderCaixa(el){
     ${cr.open ? `<div class="panel">
       <h3>Resumo por forma de pagamento</h3>
       <div class="table-wrap"><table><thead><tr><th>Forma</th><th>Total</th></tr></thead><tbody>
-        ${Object.keys(byPay).length ? Object.entries(byPay).map(([k,v])=>`<tr><td>${k}</td><td>${money(v)}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma venda nesta sessão</td></tr>'}
+        ${Object.keys(byPay).length ? Object.entries(byPay).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma venda nesta sessão</td></tr>'}
       </tbody></table></div>
       <h3 style="margin-top:18px">Movimentações</h3>
       <div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Valor</th><th>Obs</th><th>Data</th></tr></thead><tbody>
@@ -3849,7 +4500,7 @@ function openCashRegister(){
 function closeCashRegister(){
   if(!confirm('Fechar o caixa?')) return;
   const cr = DB.cashRegister;
-  const salesInSession = DB.sales.filter(s=>!s.canceled && new Date(s.date)>=new Date(cr.openedAt));
+  const salesInSession = vendasDoCaixa(cr);
   const total = salesInSession.reduce((a,s)=>a+s.total,0);
   cr.closedHistory.push({ openedAt:cr.openedAt, closedAt: todayISO(), openingAmount:cr.openingAmount, totalSales: total, movements: cr.movements });
   DB.cashRegister = { open:false, openedAt:null, openingAmount:0, movements:[], closedHistory: cr.closedHistory };
@@ -3880,7 +4531,7 @@ function openMovementModal(type){
    ========================================================= */
 function renderFinanceiro(el){
   const mk = monthKey();
-  const monthEntries = DB.finance.entries.filter(e=>e.date && e.date.startsWith(mk));
+  const monthEntries = DB.finance.entries.filter(e=>chaveMes(e.date) === mk);
   const receitas = monthEntries.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
   const despesas = monthEntries.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
   const aPagar = DB.finance.entries.filter(e=>e.type==='despesa' && e.status==='pendente').reduce((a,e)=>a+e.amount,0);
@@ -3917,13 +4568,19 @@ function renderFinanceTable(){
   </tbody></table></div>`;
 }
 function markFinanceEntryPaid(id){
-  const e = DB.finance.entries.find(x=>x.id===id); e.status='pago'; e.date=todayISO();
+  const e = DB.finance.entries.find(x=>x.id===id);
+  if(!e) return;
+  e.status='pago'; e.date=todayISO(); carimbar(e);
   saveDB(); renderFinanceTable(); toast('Lançamento marcado como pago');
 }
 function deleteFinanceEntry(id){
-  if(!confirm('Excluir este lançamento?')) return;
-  DB.finance.entries = DB.finance.entries.filter(e=>e.id!==id);
-  saveDB(); renderFinanceTable();
+  const e = DB.finance.entries.find(x=>x.id===id);
+  if(!e) return;
+  const venda = e.origem === 'venda' || /^(Venda|Pedido online) #/.test(e.description||'');
+  if(!confirm('Excluir este lançamento?' + (venda ? '\n\nEle é a receita de uma venda. A venda continua no histórico; para desfazê-la use Cancelar em Vendas.' : ''))) return;
+  DB.finance.entries = DB.finance.entries.filter(x=>x.id!==id);
+  registrarApagado('finance', id);
+  saveDB(); renderFinanceTable(); toast('Lançamento excluído');
 }
 function openFinanceModal(type, id){
   const editing = id ? DB.finance.entries.find(x=>x.id===id) : null;
@@ -3953,8 +4610,8 @@ function openFinanceModal(type, id){
     if(amount<=0){ toast('Informe um valor','error'); return; }
     const data = { category: overlay.querySelector('#fe_cat').value.trim()||'Outros',
       description: overlay.querySelector('#fe_desc').value.trim(), amount, status: overlay.querySelector('#fe_status').value };
-    if(editing){ Object.assign(editing, data); }
-    else DB.finance.entries.push({ ...e, ...data, date: todayISO() });
+    if(editing){ Object.assign(editing, data); carimbar(editing); }
+    else DB.finance.entries.push(carimbar({ ...e, ...data, date: todayISO() }));
     saveDB(); overlay.remove(); renderFinanceiro(document.getElementById('view'));
     toast('Lançamento salvo');
   });
@@ -4135,7 +4792,9 @@ function renderGastosTable(){
 function openCategoryModal(){
   const name = prompt('Nome da nova categoria de gasto:');
   if(name && name.trim()){
-    DB.monthlyExpenses.categories.push(name.trim());
+    const nome = name.trim();
+    if(DB.monthlyExpenses.categories.some(c=>c.toLowerCase() === nome.toLowerCase())){ toast('Essa categoria já existe','warn'); return; }
+    DB.monthlyExpenses.categories.push(nome);
     saveDB(); toast('Categoria adicionada');
   }
 }
@@ -4170,28 +4829,70 @@ function openGastoModal(id){
     if(amount<=0){ toast('Informe um valor','error'); return; }
     const status = overlay.querySelector('#g_status').value;
     const data = { category: overlay.querySelector('#g_cat').value, note: overlay.querySelector('#g_note').value.trim(), amount, status };
+    let alvo = editing;
     if(editing){
       Object.assign(editing, data);
     } else {
-      DB.monthlyExpenses.records.push({ ...r, ...data, paidDate: status==='pago'?todayISO():null });
-      if(status==='pago'){
-        DB.finance.entries.push({ id:uid(), type:'despesa', category:`Gasto mensal — ${data.category}`, amount, date: todayISO(), status:'pago', description: data.note||data.category });
-      }
+      alvo = { ...r, ...data, paidDate: status==='pago'?todayISO():null };
+      DB.monthlyExpenses.records.push(alvo);
     }
+    carimbar(alvo);
+    sincronizarGastoNoFinanceiro(alvo);
     saveDB(); overlay.remove(); renderGastos(document.getElementById('view'));
     toast('Gasto salvo');
   });
 }
+/* O gasto mensal e o lançamento dele no Financeiro são um só. Antes eles
+   se soltavam: editar o valor do gasto deixava o Financeiro com o valor
+   velho, voltar para "pendente" mantinha a despesa paga, e excluir o gasto
+   deixava o lançamento órfão. Um lugar só acerta os dois. */
+function lancamentoDoGasto(r){
+  const lista = DB.finance.entries;
+  if(r.financeId){ const l = lista.find(e=>e.id === r.financeId); if(l) return l; }
+  return lista.find(e=>e.gastoId === r.id) || null;
+}
+function sincronizarGastoNoFinanceiro(r){
+  let lanc = lancamentoDoGasto(r);
+  if(r.status === 'pago'){
+    if(!r.paidDate) r.paidDate = todayISO();
+    if(!lanc){
+      lanc = { id:uid(), type:'despesa', origem:'gasto', gastoId:r.id, category:`Gasto mensal — ${r.category}`,
+               amount:r.amount, date: r.paidDate, status:'pago', description: r.note||r.category };
+      DB.finance.entries.push(lanc);
+    } else {
+      lanc.category = `Gasto mensal — ${r.category}`; lanc.amount = r.amount;
+      lanc.description = r.note||r.category; lanc.status = 'pago'; lanc.origem = 'gasto'; lanc.gastoId = r.id;
+    }
+    carimbar(lanc);
+    r.financeId = lanc.id;
+  } else {
+    r.paidDate = null;
+    if(lanc){
+      DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+      registrarApagado('finance', lanc.id);
+    }
+    delete r.financeId;
+  }
+}
 function markGastoPaid(id){
   const r = DB.monthlyExpenses.records.find(x=>x.id===id);
-  r.status='pago'; r.paidDate=todayISO();
-  DB.finance.entries.push({ id:uid(), type:'despesa', category:`Gasto mensal — ${r.category}`, amount:r.amount, date: todayISO(), status:'pago', description: r.note||r.category });
-  saveDB(); renderGastosTable(); toast('Gasto marcado como pago e lançado no Financeiro');
+  if(!r) return;
+  r.status='pago'; r.paidDate=todayISO(); carimbar(r);
+  sincronizarGastoNoFinanceiro(r);
+  saveDB(); redesenhar(renderGastos); toast('Gasto marcado como pago e lançado no Financeiro');
 }
 function deleteGasto(id){
-  if(!confirm('Excluir este gasto?')) return;
-  DB.monthlyExpenses.records = DB.monthlyExpenses.records.filter(r=>r.id!==id);
-  saveDB(); renderGastosTable();
+  const r = DB.monthlyExpenses.records.find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm('Excluir este gasto?' + (r.status==='pago' ? '\n\nO lançamento dele no Financeiro sai junto.' : ''))) return;
+  const lanc = lancamentoDoGasto(r);
+  if(lanc){
+    DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+    registrarApagado('finance', lanc.id);
+  }
+  DB.monthlyExpenses.records = DB.monthlyExpenses.records.filter(x=>x.id!==id);
+  registrarApagado('records', id);
+  saveDB(); redesenhar(renderGastos); toast('Gasto excluído');
 }
 
 /* =========================================================
@@ -4256,22 +4957,30 @@ function openSetupModal(id){
       planned: Number(overlay.querySelector('#s_planned').value)||0,
       paid: Number(overlay.querySelector('#s_paid').value)||0,
     };
-    if(editing){ Object.assign(editing, data); }
-    else DB.storeSetup.items.push({ id:i.id, ...data });
+    if(data.planned < 0 || data.paid < 0){ toast('Valores não podem ser negativos','error'); return; }
+    if(editing){ Object.assign(editing, data); carimbar(editing); }
+    else DB.storeSetup.items.push(carimbar({ id:i.id, ...data }));
     saveDB(); overlay.remove(); renderAbrirLoja(document.getElementById('view'));
     toast('Custo salvo');
   });
 }
 function markSetupPaid(id){
   const i = DB.storeSetup.items.find(x=>x.id===id);
-  i.paid = i.planned;
-  DB.finance.entries.push({ id:uid(), type:'despesa', category:`Abertura — ${i.category}`, amount:i.planned, date:todayISO(), status:'pago', description:i.name });
-  saveDB(); renderSetupTable(); toast('Marcado como pago');
+  if(!i) return;
+  const faltava = Math.max(0, Number(i.planned||0) - Number(i.paid||0));
+  i.paid = i.planned; carimbar(i);
+  /* O que entra no Financeiro é só o que faltava pagar: o item já
+     parcialmente pago lançava o valor cheio de novo. */
+  if(faltava > 0){
+    DB.finance.entries.push(carimbar({ id:uid(), type:'despesa', origem:'abertura', setupId:i.id, category:`Abertura — ${i.category}`, amount:faltava, date:todayISO(), status:'pago', description:i.name }));
+  }
+  saveDB(); redesenhar(renderAbrirLoja); toast('Marcado como pago');
 }
 function deleteSetup(id){
   if(!confirm('Excluir este item?')) return;
   DB.storeSetup.items = DB.storeSetup.items.filter(i=>i.id!==id);
-  saveDB(); renderSetupTable();
+  registrarApagado('setup', id);
+  saveDB(); redesenhar(renderAbrirLoja);
 }
 
 /* =========================================================
@@ -4291,13 +5000,13 @@ function renderRelatorios(el){
   drawBarChart('chart7d', last7Days());
 }
 function avgTicket(){
-  const valid = DB.sales.filter(s=>!s.canceled);
+  const valid = DB.sales.filter(vendaValida);
   if(!valid.length) return 0;
   return valid.reduce((a,s)=>a+s.total,0)/valid.length;
 }
 function topProductsTable(){
   const map={};
-  DB.sales.filter(s=>!s.canceled).forEach(s=>s.items.forEach(i=>{ map[i.name]=(map[i.name]||0)+i.qty; }));
+  DB.sales.filter(vendaValida).forEach(s=>s.items.forEach(i=>{ map[i.name]=(map[i.name]||0)+i.qty; }));
   const list = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6);
   if(!list.length) return `<div class="empty-state">Sem dados</div>`;
   return `<div class="table-wrap"><table><thead><tr><th>Produto</th><th>Qtd. vendida</th></tr></thead><tbody>
@@ -4306,16 +5015,16 @@ function topProductsTable(){
 }
 function byPaymentTable(){
   const map={};
-  DB.sales.filter(s=>!s.canceled).forEach(s=>{ map[s.payment]=(map[s.payment]||0)+s.total; });
+  DB.sales.filter(vendaValida).forEach(s=>{ map[s.payment]=(map[s.payment]||0)+s.total; });
   const entries = Object.entries(map);
   if(!entries.length) return `<div class="empty-state">Sem dados</div>`;
   return `<div class="table-wrap"><table><thead><tr><th>Forma</th><th>Total</th></tr></thead><tbody>
-    ${entries.map(([k,v])=>`<tr><td>${k}</td><td>${money(v)}</td></tr>`).join('')}
+    ${entries.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 function bySellerTable(){
   const map={};
-  DB.sales.filter(s=>!s.canceled).forEach(s=>{ map[s.seller]=(map[s.seller]||0)+s.total; });
+  DB.sales.filter(vendaValida).forEach(s=>{ map[s.seller]=(map[s.seller]||0)+s.total; });
   const entries = Object.entries(map);
   if(!entries.length) return `<div class="empty-state">Sem dados</div>`;
   return `<div class="table-wrap"><table><thead><tr><th>Vendedor(a)</th><th>Total</th></tr></thead><tbody>
@@ -4327,7 +5036,7 @@ function last7Days(){
   for(let i=6;i>=0;i--){
     const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
     const next = new Date(d); next.setDate(d.getDate()+1);
-    const total = DB.sales.filter(s=>!s.canceled && new Date(s.date)>=d && new Date(s.date)<next).reduce((a,s)=>a+s.total,0);
+    const total = DB.sales.filter(s=>vendaValida(s) && new Date(s.date)>=d && new Date(s.date)<next).reduce((a,s)=>a+s.total,0);
     days.push({ label: d.toLocaleDateString('pt-BR',{weekday:'short'}), total });
   }
   return days;
@@ -4336,18 +5045,36 @@ function drawBarChart(canvasId, data){
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
-  const w = canvas.clientWidth || 600; canvas.width = w; canvas.height = 160;
-  ctx.clearRect(0,0,w,160);
+  /* Desenha em alta resolução: no celular o gráfico saía borrado. */
+  const escala = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 600, h = 180;
+  canvas.width = w * escala; canvas.height = h * escala;
+  canvas.style.height = h + 'px';
+  ctx.scale(escala, escala);
+  ctx.clearRect(0,0,w,h);
   const max = Math.max(...data.map(d=>d.total), 1);
   const barW = w/data.length;
+  const topo = 26, base = h - 26, alturaUtil = base - topo;
+  ctx.strokeStyle = '#E6E6EB'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, base + .5); ctx.lineTo(w, base + .5); ctx.stroke();
   data.forEach((d,i)=>{
-    const h = (d.total/max)*110;
-    ctx.fillStyle = '#C1694F';
-    ctx.fillRect(i*barW+10, 130-h, barW-20, h);
-    ctx.fillStyle = '#8A7F77';
-    ctx.font = '11px Poppins, sans-serif';
-    ctx.textAlign='center';
-    ctx.fillText(d.label, i*barW+barW/2, 148);
+    const bh = Math.max(d.total > 0 ? 3 : 0, (d.total/max)*alturaUtil);
+    const x = i*barW + barW*0.22, largura = barW*0.56, y = base - bh;
+    const grad = ctx.createLinearGradient(0, y, 0, base);
+    grad.addColorStop(0, '#E0668C'); grad.addColorStop(1, '#D3466F');
+    ctx.fillStyle = grad;
+    const r = Math.min(6, largura/2, bh);
+    ctx.beginPath();
+    ctx.moveTo(x, base); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.lineTo(x + largura - r, y); ctx.quadraticCurveTo(x + largura, y, x + largura, y + r);
+    ctx.lineTo(x + largura, base); ctx.closePath(); ctx.fill();
+    ctx.textAlign = 'center';
+    if(d.total > 0){
+      ctx.fillStyle = '#17171C'; ctx.font = '600 11px Inter, sans-serif';
+      ctx.fillText(money(d.total).replace(/\u00a0/g,' '), i*barW+barW/2, y - 7);
+    }
+    ctx.fillStyle = '#8A8A99'; ctx.font = '500 11px Inter, sans-serif';
+    ctx.fillText(d.label.replace('.', ''), i*barW+barW/2, h - 8);
   });
 }
 
@@ -4428,6 +5155,15 @@ function renderConfig(el){
     </div>
 
     <div class="panel">
+      <h3>🕓 Histórico na nuvem</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        O Supabase guarda sozinho as versões anteriores do cadastro (uma a cada 10 minutos, e sempre que
+        algo some). Se um aparelho gravar por cima do que não devia, é aqui que se volta atrás.</p>
+      <div id="historicoNuvem"></div>
+      <button class="btn btn-sm" style="margin-top:10px" onclick="carregarHistoricoDaNuvem()">Atualizar lista</button>
+    </div>
+
+    <div class="panel">
       <h3>💾 Espaço deste aparelho</h3>
       <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
         Aqui não fica nada de definitivo: o lugar dos dados é o Supabase. O que estiver neste
@@ -4477,7 +5213,7 @@ function renderConfig(el){
     </div>`;
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
-    DB.config.minStock = Number(el.querySelector('#cfg_minStock').value)||0;
+    DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
     saveDB(); renderShell(); toast('Configurações salvas');
   });
   el.querySelector('#saveOnlineBtn').addEventListener('click', ()=>{
@@ -4488,6 +5224,7 @@ function renderConfig(el){
     saveDB(); toast('Configurações da loja virtual salvas');
   });
   renderEspacoDoAparelho();
+  carregarHistoricoDaNuvem();
   el.querySelector('#importFile').addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
@@ -4501,14 +5238,22 @@ function renderConfig(el){
            via "Backup importado" na tela e continuava com os dados
            velhos. O que o banco recém-chegado precisa é só do migrateDB,
            para ganhar os campos que versões novas passaram a ter. */
+        if(!pacote || typeof pacote !== 'object' || !(Array.isArray(pacote.products) || Array.isArray(pacote.sales))){
+          toast('Esse arquivo não é um backup do sistema','error'); return;
+        }
+        if(!confirm('Importar este backup?\n\n' + (pacote.products||[]).length + ' produto(s) e ' + (pacote.sales||[]).length + ' venda(s).\n\n' +
+                    'O que está no sistema agora será guardado como cópia de segurança antes da troca.')) { e.target.value=''; return; }
+        guardarCopiaDeSeguranca('antes de importar backup');
         DB = pacote; migrateDB(); restaurarEscolhaDaEtiqueta();
         Object.entries(fotos).forEach(([pid, dataUrl])=>guardarFotoPendente(pid, dataUrl));
         if(fotosPendentes.size) enviarFotosPendentes();
-        saveDB();
+        if(!exigirGravacao('o backup importado')) return;
         toast((DB.products||[]).length + ' produto(s) e ' + Object.keys(fotos).length + ' foto(s) importados.');
-        navigate('painel');
+        validarSessao();
+        if(!SESSION){ showLogin(); toast('O backup não tem o seu usuário. Entre de novo.','warn'); return; }
+        renderShell(); navigate('painel');
       }
-      catch(err){ toast('Arquivo inválido','error'); }
+      catch(err){ console.error(err); toast('Arquivo inválido','error'); }
     };
     reader.readAsText(file);
   });
@@ -4519,8 +5264,22 @@ function renderUsersTable(){
   if(!wrap) return;
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Usuário</th><th>Nome</th><th>Perfil</th><th></th></tr></thead><tbody>
     ${DB.users.map(u=>`<tr><td>${escapeHtml(u.user)}</td><td>${escapeHtml(u.name||'-')}</td><td>${u.role==='admin'?'Admin':'Vendedor(a)'}</td>
-      <td><button class="btn btn-sm" onclick="openUserModal('${u.id}')">Editar</button></td></tr>`).join('')}
-  </tbody></table></div>`;
+      <td><button class="btn btn-sm" onclick="openUserModal('${u.id}')">Editar</button>
+          ${SESSION && SESSION.id === u.id ? '' : `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Excluir</button>`}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="text-muted" style="font-size:12px;margin-top:8px">Vendedor(a) usa Painel, PDV, Produtos, Estoque, Vendas, Caixa, Etiquetas e Clientes. Balanço, Financeiro, Gastos, Abrir Loja, Relatórios e Configurações são só do Admin.</p>`;
+}
+/* Não existia como apagar um usuário: a vendedora que saiu continuava
+   entrando. O último administrador não sai, senão ninguém mais entra. */
+function deleteUser(id){
+  const u = DB.users.find(x=>x.id===id);
+  if(!u) return;
+  if(SESSION && SESSION.id === id){ toast('Você não pode excluir o próprio usuário','error'); return; }
+  if(u.role === 'admin' && DB.users.filter(x=>x.role==='admin').length <= 1){ toast('É o único administrador — cadastre outro antes','error'); return; }
+  if(!confirm('Excluir o usuário "' + u.user + '"?\n\nAs vendas feitas por ' + (u.name||u.user) + ' continuam no histórico.')) return;
+  DB.users = DB.users.filter(x=>x.id!==id);
+  registrarApagado('users', id);
+  saveDB(); renderUsersTable(); toast('Usuário excluído');
 }
 function openUserModal(id){
   const editing = id ? DB.users.find(u=>u.id===id) : null;
@@ -4530,8 +5289,8 @@ function openUserModal(id){
   overlay.innerHTML = `<div class="modal" style="max-width:400px">
     <h2>${editing?'Editar':'Novo'} usuário</h2>
     <div class="field"><label>Nome</label><input id="u_name" value="${escapeHtml(u.name)}"></div>
-    <div class="field" style="margin-top:10px"><label>Usuário (login)</label><input id="u_user" value="${escapeHtml(u.user)}"></div>
-    <div class="field" style="margin-top:10px"><label>Senha</label><input id="u_pass" value="${escapeHtml(u.pass)}"></div>
+    <div class="field" style="margin-top:10px"><label>Usuário (login)</label><input id="u_user" value="${escapeHtml(u.user)}" autocomplete="off"></div>
+    <div class="field" style="margin-top:10px"><label>${editing ? 'Nova senha (deixe em branco para manter)' : 'Senha'}</label><input id="u_pass" type="password" value="" autocomplete="new-password"></div>
     <div class="field" style="margin-top:10px"><label>Perfil</label>
       <select id="u_role"><option value="vendedor" ${u.role==='vendedor'?'selected':''}>Vendedor(a)</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>
     </div>
@@ -4539,11 +5298,22 @@ function openUserModal(id){
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
-  overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
+  overlay.querySelector('#saveBtn').addEventListener('click', async ()=>{
     const user = overlay.querySelector('#u_user').value.trim();
     if(!user){ toast('Informe o login','error'); return; }
-    const data = { id:u.id, user, pass: overlay.querySelector('#u_pass').value, name: overlay.querySelector('#u_name').value.trim(), role: overlay.querySelector('#u_role').value };
-    if(editing) Object.assign(editing, data); else DB.users.push(data);
+    /* Dois logins iguais: só o primeiro conseguia entrar. */
+    if(DB.users.some(x=>x.id !== u.id && x.user.toLowerCase() === user.toLowerCase())){ toast('Já existe um usuário com esse login','error'); return; }
+    const senhaDigitada = overlay.querySelector('#u_pass').value;
+    if(!editing && !senhaDigitada){ toast('Informe a senha','error'); return; }
+    const role = overlay.querySelector('#u_role').value;
+    if(editing && editing.role === 'admin' && role !== 'admin' && DB.users.filter(x=>x.role==='admin').length <= 1){
+      toast('É o único administrador — cadastre outro antes de rebaixar','error'); return;
+    }
+    const data = { id:u.id, user, name: overlay.querySelector('#u_name').value.trim(), role };
+    if(senhaDigitada) data.pass = await guardarSenha(senhaDigitada);
+    carimbar(data);
+    if(editing) Object.assign(editing, data); else DB.users.push({ pass:'', ...data });
+    if(SESSION && SESSION.id === u.id){ SESSION.name = data.name || data.user; SESSION.role = data.role; localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); renderShell(); }
     saveDB(); overlay.remove(); renderUsersTable();
     toast('Usuário salvo');
   });
@@ -4618,21 +5388,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
   restoreSession();
   cloudPull();
 
-  document.getElementById('loginForm').addEventListener('submit', e=>{
+  document.getElementById('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value;
-    if(tryLogin(user, pass)){ showApp(); }
+    const erro = document.getElementById('loginError');
+    if(!user || !pass){ erro.textContent = !user ? 'Digite o usuário.' : 'Digite a senha.'; return; }
+    const btn = document.getElementById('loginBtn');
+    if(btn){ btn.disabled = true; btn.textContent = 'Entrando…'; }
+    let entrou = false;
+    try{ entrou = await tryLogin(user, pass); }catch(err){ console.error(err); }
+    if(btn){ btn.disabled = false; btn.textContent = 'Entrar'; }
+    if(entrou){ erro.textContent = ''; showApp(); }
     else {
       /* A tela não entrega mais nem os usuários cadastrados: quem está do
          lado de fora não precisa saber quem existe aqui dentro. Para quem
          é da casa e esqueceu a senha, o caminho de volta aparece logo
          abaixo, e ele é que resolve. */
-      document.getElementById('loginError').textContent = 'Usuário ou senha inválidos.';
+      erro.textContent = 'Usuário ou senha não conferem. Confira letras maiúsculas e o teclado do celular.';
       document.getElementById('loginHelpBtn').style.display = 'block';
+      document.getElementById('loginPass').select();
     }
   });
   document.getElementById('loginHelpBtn').addEventListener('click', recuperarAcesso);
+  /* Enter em qualquer um dos dois campos envia o formulário — alguns
+     teclados de celular mandam o Enter sem disparar o envio do form. */
+  ['loginUser','loginPass'].forEach(id=>document.getElementById(id).addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('loginForm').requestSubmit(); }
+  }));
   document.getElementById('logoutBtn').addEventListener('click', logout);
   document.getElementById('navList').addEventListener('click', e=>{
     const a = e.target.closest('a[data-route]');
@@ -4640,6 +5423,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.getElementById('menuToggle')?.addEventListener('click', toggleSidebar);
   document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebar);
+  /* O botão Voltar do navegador (e o gesto de voltar no celular) mudava o
+     endereço e não mudava a tela. */
+  window.addEventListener('hashchange', ()=>{
+    const rota = location.hash.replace('#','');
+    if(SESSION && rota && rota !== currentRoute && NAV.some(n=>n.id===rota)) navigate(rota);
+  });
 
   conferirVersao();
   ligarGatilhosDeEnvio();
@@ -4653,5 +5442,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrarFotosAntigas();
   const lv = document.getElementById('loginVersion');
   if(lv) lv.textContent = 'versão ' + APP_VERSION;
+  const nomeNoLogin = document.getElementById('loginBrandName');
+  if(nomeNoLogin && DB && DB.storeName) nomeNoLogin.textContent = DB.storeName;
+  /* Mostrar/esconder a senha: no celular, a senha digitada errada por
+     causa do teclado era a causa mais comum de "não entra". */
+  const olho = document.getElementById('loginEye');
+  if(olho) olho.addEventListener('click', ()=>{
+    const campo = document.getElementById('loginPass');
+    campo.type = campo.type === 'password' ? 'text' : 'password';
+    olho.setAttribute('aria-label', campo.type === 'password' ? 'Mostrar senha' : 'Esconder senha');
+    campo.focus();
+  });
   if(SESSION){ showApp(); } else { showLogin(); }
 });

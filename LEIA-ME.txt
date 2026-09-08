@@ -1,0 +1,209 @@
+==========================================================
+ESTILO FASHION - SISTEMA COMPLETO
+Versao 55 - gerado em 08/09/2026
+==========================================================
+
+O QUE TEM AQUI DENTRO
+---------------------
+index.html            A tela do sistema (ERP/PDV)
+app.js                Todo o funcionamento: PDV, estoque, produtos,
+                      etiquetas, financeiro, balanco, nuvem
+style.css             A aparencia (tema rose gold)
+pdf-etiquetas.js      Gerador de PDF: etiquetas da Brother QL-800 e
+                      recibos de venda, feito sem biblioteca de fora
+versao.json           O numero da versao, usado para o sistema se
+                      atualizar sozinho no celular da loja
+vercel.json           Configuracao de publicacao (cache dos arquivos)
+loja/                 A loja virtual (o site que a cliente ve)
+marca/                O logotipo
+instalacao-supabase.sql   O comando que monta a nuvem
+
+testes/               Testes automaticos: node testes/rodar.js
+dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 55
+------------------------
+  - ABRIR LOJA com 75 custos, 36 repetidos (total previsto dobrado). Um
+    aparelho abriu vazio, o sistema plantou a lista padrao de custos com
+    ids novos e depois juntou com a lista real da nuvem. O sistema agora
+    enxuga os repetidos sozinho ao abrir (mesmo nome e categoria: fica o
+    mexido por ultimo, senao o de maior valor, senao o de id menor) e
+    deixa lapide para nao voltarem. A semeadura da lista padrao foi
+    desligada de vez.
+
+
+O QUE MUDOU NA VERSAO 54
+------------------------
+  - LOGIN RECUSANDO admin/1234: a versao 49 passou a guardar a senha como
+    impressao digital (SHA-256). O site publicado, ainda na versao 48,
+    compara a senha em texto e recusava todo mundo. A senha volta a ficar
+    em texto (como sempre foi) e a nuvem ja foi corrigida. Uma senha que
+    ficou como impressao digital ainda entra e volta a texto sozinha.
+  - No celular, o campo de usuario nao poe mais letra maiuscula sozinho
+    (era outra causa de "nao entra"). O login tambem ignora maiusculas e
+    espacos em volta.
+  - Botao de mostrar/esconder a senha e mensagem de erro mais clara.
+  - Tela de login redesenhada: metade grafite com a marca, metade branca
+    com o formulario. No celular vira uma faixa curta em cima.
+
+
+O QUE MUDOU NA VERSAO 53
+------------------------
+Teste de ponta a ponta contra o Supabase real (numa tabela de teste,
+apagada depois), com dois aparelhos ao mesmo tempo e a loja virtual:
+cadastro com foto, venda com desconto, peca com grade (P/M/G), pedido
+pelo site, baixa do pedido no sistema, marcar pago, cancelar, excluir
+peca num aparelho e sumir no outro. Tudo passou, com uma correcao:
+  - Dois aparelhos vendendo AO MESMO TEMPO: as duas vendas ficavam, mas a
+    baixa de estoque de um dos lados se perdia (a peca voltava a "ter" o
+    que ja tinha sido vendida). Agora o estoque e acertado pelas vendas na
+    hora de juntar os dois lados. Ajuste manual de estoque continua
+    valendo pelo horario. Cinco testes automaticos cobrem isso.
+Tempo de abertura de cada tela: entre 1 e 13 milissegundos.
+
+
+O QUE MUDOU NA VERSAO 52
+------------------------
+Nuvem instalada e ligada de ponta a ponta (feito em 08/09/2026 no
+projeto mfywchoecdhbzuiskpwx):
+  - Tabela loja_roupas_db com as permissoes da chave publicavel.
+  - Pasta de fotos "fotos", publica, aceitando envio: as fotos das pecas
+    passam a subir para a nuvem (antes a pasta nao existia e ficavam
+    presas no aparelho).
+  - NOVO: tabela loja_roupas_historico + gatilho no banco. A cada
+    gravacao que muda alguma coisa, o Supabase guarda a versao anterior
+    (no maximo uma a cada 10 minutos, e SEMPRE que produtos ou vendas
+    diminuem). Ficam as ultimas 300. Ninguem apaga o historico pela
+    chave publicavel.
+  - Configuracoes > "Historico na nuvem": lista as versoes e volta para
+    qualquer uma com um toque.
+  - "Testar conexao atual" agora confere quatro coisas: ler, gravar,
+    enviar foto e ler o historico.
+  - instalacao-supabase.sql atualizado com tudo isso; pode rodar de novo
+    quando quiser, nao apaga nada.
+
+
+O QUE MUDOU NA VERSAO 51
+------------------------
+Interface nova, moderna, no sistema e na loja virtual:
+  - Paleta: fundo cinza-claro (#F4F4F6), superficies brancas, grafite
+    (#17171C) no texto e rose (#D3466F) como unica cor de destaque.
+    O simbolo EF ganhou o gradiente rose.
+  - Tipografia: Plus Jakarta Sans nos titulos e numeros, Inter no texto.
+  - Menu lateral claro com icones em linha (SVG) no lugar dos emojis;
+    item ativo em rose claro.
+  - Cartoes e paineis brancos com borda fina, cantos de 16px e sombra
+    suave; botao principal rose; tabelas com cabecalho cinza.
+  - Grafico de vendas em alta resolucao, com valores em cima das barras.
+  - Loja virtual: cabecalho branco, vitrine com cartoes 3:4 e zoom na
+    foto, sacola deslizante, botao de compra rose.
+O manual da marca (marca/identidade.html) foi atualizado com a paleta.
+
+
+O QUE MUDOU NA VERSAO 49
+------------------------
+Defeitos corrigidos:
+  - "Produto sem nome" que nao saia: o id vinha como numero do sistema
+    antigo e o botao Excluir comparava com texto. Todo id agora e texto,
+    e o que esta na lista de apagados sai de vez ao abrir o sistema.
+  - Editar venda trocava a forma de pagamento (PIX virava dinheiro) e
+    empurrava a hora 3 horas a cada salvamento (fuso horario).
+  - Cancelar venda deixava a receita no Financeiro.
+  - Venda das 21h em diante do ultimo dia do mes caia no mes seguinte
+    no Balanco, no Financeiro e no Painel (fuso horario).
+  - Aluguel (gasto mensal pago) era somado DUAS vezes no Balanco.
+  - Editar/excluir gasto mensal deixava o Financeiro desencontrado.
+  - Pedido pendente do site contava como faturamento no Painel, nos
+    Relatorios e no Caixa antes de a cliente pagar.
+  - Alteracao feita ENQUANTO a nuvem gravava ficava presa no aparelho
+    com o selo dizendo "salvo".
+  - Pedido do site perdia a baixa de estoque quando o balcao gravava
+    logo depois. Agora a vitrine so registra o pedido e quem baixa o
+    estoque e o sistema da loja, uma vez so.
+  - Duas gravacoes ao mesmo tempo (balcao e site) apagavam uma a outra:
+    a gravacao virou condicional e refaz em cima do que chegou.
+  - Lancamento, gasto ou cliente excluido num aparelho voltava do outro.
+  - Dois usuarios "admin" apos juntar um aparelho novo com a nuvem.
+  - No PDV, peca com varios tamanhos entrava no carrinho com o primeiro
+    tamanho sem perguntar. Agora pergunta qual.
+  - No PDV, Enter numa busca por nome apagava o texto e dizia "codigo
+    nao encontrado".
+  - Linha "Desconto" do carrinho nao acompanhava o valor digitado.
+  - Backup importado nao pedia confirmacao nem guardava copia antes.
+  - Mensagem do WhatsApp da loja virtual cortava em nomes com "&" ou "#".
+  - Vendedor(a) via e mexia em tudo, inclusive Configuracoes.
+  - Senha do usuario viajava em texto puro para a nuvem. Agora vai a
+    impressao digital (SHA-256). A senha antiga continua entrando e e
+    convertida no primeiro login.
+
+Novidades:
+  - Excluir cliente, excluir usuario, "quanto ja gastou" por cliente.
+  - Caixa mostra o dinheiro esperado na gaveta.
+  - Botao Voltar do navegador troca a tela.
+  - Backup do sistema antigo (nome/precoVenda/variacoes) e lido.
+  - Testes automaticos: node testes/rodar.js
+
+
+O QUE NAO TEM AQUI, E POR QUE
+-----------------------------
+Os produtos, vendas e clientes DA LOJA nao estao neste pacote.
+Eles nao ficam no codigo: ficam no Supabase e no aparelho onde o
+sistema e usado. Como o banco do Supabase esta fora do ar, a unica
+copia viva esta no aparelho da loja.
+
+Para completar este pacote:
+  1. Abra o sistema no aparelho da loja
+  2. Configuracoes > "Baixar backup completo"
+  3. Ponha o arquivo baixado dentro da pasta dados-da-loja/
+
+Esse arquivo traz produtos, variacoes, estoque, custos, codigos de
+barras, vendas, clientes, financeiro, gastos mensais E as fotos que
+ainda nao subiram para a nuvem.
+
+
+COMO RODAR NO COMPUTADOR
+------------------------
+Nao precisa instalar nada. E so abrir o index.html no navegador.
+Se preferir um servidor local:
+    python3 -m http.server 8000
+e abrir http://localhost:8000
+
+
+COMO PUBLICAR
+-------------
+O sistema esta publicado pela Vercel, a partir da branch main do
+repositorio marquesfabricio119-cell/Projeto-1. Todo commit em main
+vira uma publicacao.
+
+
+COMO LIGAR A NUVEM (SUPABASE)
+-----------------------------
+JA ESTA FEITO (08/09/2026). Os passos abaixo so servem se um dia a loja
+mudar de projeto no Supabase.
+
+1. No Supabase, DESLIGUE a traducao automatica da pagina no navegador
+   (ela reescreve o SQL e o comando quebra)
+2. SQL Editor > New query > cole o instalacao-supabase.sql > Run
+   Isso cria a tabela, a pasta das fotos e libera as duas
+3. No sistema: Configuracoes > Testar conexao atual
+   O esperado e: "Instalacao completa: a nuvem le, grava e recebe fotos"
+
+Projeto em uso: mfywchoecdhbzuiskpwx.supabase.co
+Tabela: loja_roupas_db (+ loja_roupas_historico, com as versoes)
+Pasta das fotos: fotos
+A chave que o sistema usa e a PUBLICAVEL (sb_publishable_...).
+Nenhuma chave secreta esta neste pacote, e nem deve estar.
+
+
+COMO RESTAURAR OS DADOS
+-----------------------
+Configuracoes > Importar backup > escolha o arquivo .json
+Volta tudo: produtos, vendas, clientes e as fotos.
+
+
+ENTRAR NO SISTEMA
+-----------------
+Usuario e senha sao os cadastrados na loja. Se ninguem lembrar,
+a tela de login tem "Nao consigo entrar", que restaura o acesso de
+administrador sem apagar nada.
