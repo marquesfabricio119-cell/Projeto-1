@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "45";
+const APP_VERSION = "46";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -731,6 +731,9 @@ async function cloudPull(){
          que ele mesmo acabou de fazer. */
       DB = temPendencia ? juntarBancos(DB, rows[0].data) : rows[0].data;
       bancoVeioVazio = false;
+      /* Linha antiga, das que ainda traziam a imagem dentro: a foto entra
+         na fila para ir ao Storage e sai da linha no próximo envio. */
+      migrarFotosAntigas();
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
       saveDB(true);
@@ -841,6 +844,21 @@ function juntarBancos(daqui, deLa){
   return junto;
 }
 
+/* O QUE VAI PARA O BANCO — e o que NUNCA deve ir.
+   A foto que ainda não conseguiu subir para o Storage viajava dentro da
+   linha do banco, em texto. Com 40 peças isso dá uma linha de quase 6 MB,
+   REESCRITA POR INTEIRO a cada venda, a cada ajuste de estoque, a cada
+   clique. Somando as leituras de todos os aparelhos, é carga suficiente
+   para derrubar um banco pequeno — e foi provavelmente o que sufocou o
+   desta loja.
+
+   A partir daqui a linha carrega só o cadastro e o ENDEREÇO das fotos. A
+   imagem tem um lugar só: o Storage do Supabase. Enquanto ela não sobe,
+   espera no armazenamento grande do aparelho, sem pesar em nada. */
+function dadosParaNuvem(){
+  return JSON.parse(semAsFotos(DB));
+}
+
 async function cloudPush(){
   if(enviandoAgora) return;
 
@@ -884,7 +902,7 @@ async function cloudPush(){
         ...cabecalhosNuvem({ 'Content-Type':'application/json' }),
         'Prefer':'resolution=merge-duplicates,return=minimal'
       },
-      body: JSON.stringify({ id:'main', data: DB, updated_at: carimboNovo })
+      body: JSON.stringify({ id:'main', data: dadosParaNuvem(), updated_at: carimboNovo })
     });
 
     /* A resposta AGORA é conferida. Sem isto, um 401 ou um 404 passava por
@@ -1152,10 +1170,31 @@ async function enviarFotosPendentes(){
    na primeira vez que o sistema abre com internet, liberando o espaço. */
 async function migrarFotosAntigas(){
   await carregarFotosPendentes();    // o que ficou de sessões anteriores
+  /* Antes isto só COPIAVA a foto para a fila e a deixava dentro do banco.
+     A imagem continuava então em dois lugares: enchendo o espaço pequeno
+     do aparelho e viajando para o Supabase a cada gravação. Agora ela sai
+     do banco de verdade — o lugar dela é a fila, até o Storage aceitar. */
+  let mexeu = false;
   DB.products.forEach(p=>{
-    if(p.photo && p.photo.startsWith('data:')) guardarFotoPendente(p.id, p.photo);
+    if(p.photo && p.photo.indexOf('data:') === 0){
+      guardarFotoPendente(p.id, p.photo);
+      p.photo = '';
+      p.photoPendente = true;
+      mexeu = true;
+    }
   });
+  if(mexeu) gravarLocal();
   if(fotosPendentes.size) enviarFotosPendentes();
+}
+
+/* A foto de uma peça para mostrar na tela: o endereço na nuvem quando já
+   subiu, e a que está esperando na fila enquanto não subiu. Sem isto, a
+   peça ficaria sem imagem nenhuma no cadastro enquanto a nuvem não
+   aceitasse — e o lojista acharia que a foto se perdeu. */
+function fotoDaPeca(p){
+  if(p.photo) return p.photo;
+  if(p.photoPendente && fotosPendentes.has(p.id)) return fotosPendentes.get(p.id);
+  return '';
 }
 
 /* =========================================================
@@ -1455,7 +1494,7 @@ function renderProdutosTable(){
       const v0 = p.variations[0] || {};
       const grade = p.variations.length > 1;
       return `<tr>
-        <td><img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
+        <td><img src="${escapeHtml(fotoDaPeca(p))}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
         <td>${escapeHtml(p.name)} ${p.isNew?'<span class="tag-new">NOVO</span>':''}</td>
         <td>${grade ? `<span class="text-muted">${p.variations.length} combinações</span>` : mostra(v0.color)}</td>
         <td>${grade ? '' : mostra(v0.size)}</td>
@@ -2106,6 +2145,10 @@ async function renderEspacoDoAparelho(){
       <tr><td>Fotos esperando para subir <span class="text-muted">(${m.nFotos})</span><br>
         <span class="text-muted" style="font-size:11px">no armazenamento grande, fora do espaço acima</span></td>
         <td><strong>${emMB(m.fotos)}</strong></td></tr>
+    </tbody></table></div>
+    <div class="table-wrap" style="margin-top:10px"><table><tbody>
+      <tr><td>O que é enviado ao banco a cada alteração</td>
+        <td><strong>${emMB(JSON.stringify(dadosParaNuvem()).length)}</strong></td></tr>
     </tbody></table></div>
     <p class="text-muted" style="font-size:12px;margin-top:8px">
       O lugar das fotos é o Supabase. As que aparecem aqui são as que ele ainda não aceitou —
@@ -3335,7 +3378,7 @@ function renderPDVResults(){
   const list = DB.products.filter(p=> p.variations.some(v=>v.stock>0) && (!f || p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f)));
   wrap.innerHTML = list.map(p=>`
     <div class="pdv-product" onclick="quickAdd('${p.id}')">
-      <img src="${escapeHtml(p.photo||'')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
+      <img src="${escapeHtml(fotoDaPeca(p))}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <div class="pname">${escapeHtml(p.name)}</div>
       <div class="pprice">${money(p.price)}</div>
     </div>`).join('') || `<div class="empty-state">Nenhum produto encontrado</div>`;
