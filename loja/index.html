@@ -150,15 +150,25 @@ async function fetchDB(){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&select=data`, {
     headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
   });
+  /* A resposta é conferida. Sem isto, um 401 ou um 500 vinha como um objeto
+     de erro, o rows[0] dava undefined e a função devolvia null como se a
+     loja estivesse simplesmente vazia — e quem chamou seguia em frente com
+     dados velhos, prestes a gravar por cima do que não conseguiu ler. */
+  if(!res.ok) throw new Error('A loja não respondeu (' + res.status + ')');
   const rows = await res.json();
-  return rows && rows[0] ? rows[0].data : null;
+  if(!Array.isArray(rows)) throw new Error('A loja respondeu de um jeito inesperado');
+  return rows[0] ? rows[0].data : null;
 }
 async function pushDB(){
-  await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
     method:'POST',
     headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify({ id:'main', data: DB, updated_at: new Date().toISOString() })
   });
+  /* Dizer "Pedido recebido!" sem o pedido ter sido gravado é a pior coisa
+     que esta tela pode fazer: a cliente paga e a loja nunca fica sabendo.
+     Se a gravação falhou, o erro sobe e ela vê a verdade. */
+  if(!res.ok) throw new Error('Não foi possível registrar seu pedido agora (' + res.status + '). Nada foi cobrado — tente de novo em instantes ou chame a loja no WhatsApp.');
 }
 
 function storeProducts(){
@@ -347,9 +357,13 @@ function openCheckoutModal(){
 }
 
 async function submitOrder(customer){
-  // revalida estoque com dados frescos do Supabase
+  /* Relê a loja inteira antes de mexer nela. E se a leitura não trouxer
+     nada, PARA: gravar sem ter lido é escrever por cima do que a loja fez
+     enquanto a cliente escolhia — foi assim que um estoque inteiro já se
+     perdeu neste sistema. */
   const fresh = await fetchDB();
-  if(fresh) DB = fresh;
+  if(!fresh) throw new Error('Não consegui confirmar o estoque agora. Tente de novo em instantes ou chame a loja no WhatsApp.');
+  DB = fresh;
 
   for(const item of cart){
     const p = DB.products.find(x=>x.id===item.productId);
@@ -372,7 +386,7 @@ async function submitOrder(customer){
     total, status:'pendente', origin:'loja', canceled:false
   };
   DB.sales.push(sale);
-  await pushDB();
+  await pushDB();          // se falhar, lança e a cliente NÃO vê "pedido recebido"
 
   showOrderConfirmation(sale, custRecord);
   cart = []; saveCart();

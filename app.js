@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "46";
+const APP_VERSION = "47";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -4354,7 +4354,7 @@ function renderConfig(el){
     </div>
     <div class="panel">
       <h3>Backup</h3>
-      <button class="btn" onclick="exportBackup()">⬇️ Exportar JSON</button>
+      <button class="btn btn-accent" onclick="exportBackup()">⬇️ Baixar backup completo (produtos, vendas e fotos)</button>
       <label class="btn" style="display:inline-block;margin-left:8px">⬆️ Importar JSON<input type="file" id="importFile" accept=".json" style="display:none"></label>
       <p class="text-muted" style="font-size:12.5px;margin-top:12px">
         Exporte de vez em quando e guarde o arquivo. É a única cópia que não depende
@@ -4467,8 +4467,22 @@ function renderConfig(el){
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = ev=>{
-      try{ DB = JSON.parse(ev.target.result); loadDB(); restaurarEscolhaDaEtiqueta();
-           saveDB(); toast('Backup importado'); navigate('painel'); }
+      try{
+        const pacote = JSON.parse(ev.target.result);
+        const fotos = pacote.__fotosPendentes || {};
+        delete pacote.__fotosPendentes;
+        /* Aqui havia um `loadDB()`, que RELÊ O APARELHO e jogava fora o
+           arquivo que acabou de ser aberto: o lojista importava o backup,
+           via "Backup importado" na tela e continuava com os dados
+           velhos. O que o banco recém-chegado precisa é só do migrateDB,
+           para ganhar os campos que versões novas passaram a ter. */
+        DB = pacote; migrateDB(); restaurarEscolhaDaEtiqueta();
+        Object.entries(fotos).forEach(([pid, dataUrl])=>guardarFotoPendente(pid, dataUrl));
+        if(fotosPendentes.size) enviarFotosPendentes();
+        saveDB();
+        toast((DB.products||[]).length + ' produto(s) e ' + Object.keys(fotos).length + ' foto(s) importados.');
+        navigate('painel');
+      }
       catch(err){ toast('Arquivo inválido','error'); }
     };
     reader.readAsText(file);
@@ -4509,12 +4523,23 @@ function openUserModal(id){
     toast('Usuário salvo');
   });
 }
+/* O backup leva a loja INTEIRA, fotos incluídas. Desde que as imagens
+   saíram de dentro do banco (para não sufocar o Supabase), exportar só o
+   DB deixaria de fora justamente as fotos que ainda não subiram — e são
+   elas as que existem em um lugar só no mundo. */
 function exportBackup(){
-  const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
+  const pacote = JSON.parse(JSON.stringify(DB));
+  pacote.__fotosPendentes = {};
+  fotosPendentes.forEach((dataUrl, pid)=>{ pacote.__fotosPendentes[pid] = dataUrl; });
+  const quantas = Object.keys(pacote.__fotosPendentes).length;
+  const blob = new Blob([JSON.stringify(pacote, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `estilo-e-cia-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `estilo-fashion-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  toast((DB.products||[]).length + ' produto(s), ' + (DB.sales||[]).length + ' venda(s)' +
+        (quantas ? ' e ' + quantas + ' foto(s)' : '') + ' salvos no arquivo.');
 }
 
 /* =========================================================
