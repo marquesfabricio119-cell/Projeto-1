@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "47";
+const APP_VERSION = "48";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -280,6 +280,24 @@ function normalizeDB(){
   return reparou;
 }
 
+/* Enxuga as listas de exclusão. Roda a cada abertura: o aparelho que já
+   está com a lista inchada se cura sozinho, sem ninguém precisar apagar
+   nada à mão. O limite existe para que nem um defeito futuro consiga
+   transformar isto num peso outra vez. */
+const MAX_LAPIDES = 2000;
+function enxugarApagados(){
+  if(!DB.apagados || typeof DB.apagados !== 'object') { DB.apagados = {}; return false; }
+  let mudou = false;
+  Object.keys(DB.apagados).forEach(k=>{
+    const lista = DB.apagados[k];
+    if(!Array.isArray(lista)) { DB.apagados[k] = []; mudou = true; return; }
+    const unicos = [...new Set(lista)];
+    const cortada = unicos.length > MAX_LAPIDES ? unicos.slice(-MAX_LAPIDES) : unicos;
+    if(cortada.length !== lista.length){ DB.apagados[k] = cortada; mudou = true; }
+  });
+  return mudou;
+}
+
 function migrateDB(){
   // garante campos novos em bancos antigos, sem tocar no localStorage
   const d = defaultDB();
@@ -304,6 +322,7 @@ function migrateDB(){
   // mudam a cada carregamento, e os botões de Editar/Excluir passam a
   // apontar para registros que não existem mais.
   if(reparou) saveDB();
+  enxugarApagados();
 }
 /* Um aparelho que abre SEM dados locais não pode mandar nada para a nuvem
    antes de ler o que há lá. O iPhone apaga os dados de sites que ficam
@@ -824,7 +843,13 @@ function juntarBancos(daqui, deLa){
      apagado no outro. */
   const lapides = {};
   ['products','customers','sales','users','fixed'].forEach(k=>{
-    lapides[k] = [ ...(((daqui.apagados||{})[k])||[]), ...(((deLa.apagados||{})[k])||[]) ];
+    /* SEM O Set AQUI a lista DOBRAVA a cada junção. No aparelho da loja
+       ela chegou a 580.610 registros do que eram 5 exclusões — 3,9 MB de
+       lixo enchendo o aparelho e viajando para o Supabase a cada
+       gravação. Duas listas iguais juntadas mil vezes continuam sendo a
+       mesma lista; o Set é o que diz isso ao código. */
+    lapides[k] = [ ...new Set([ ...(((daqui.apagados||{})[k])||[]),
+                                ...(((deLa.apagados||{})[k])||[]) ]) ];
   });
   junto.apagados = lapides;
   junto.products  = juntarPorId(daqui.products,  deLa.products,  lapides.products);
