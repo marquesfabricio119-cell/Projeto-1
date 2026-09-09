@@ -55,7 +55,7 @@
         <div class="erro-msg" id="erro"></div>
 
         <button class="btn btn-primary btn-block btn-wide" id="btnGerar">Gerar meu acesso e ver o PIX</button>
-        <p class="tiny center" style="margin-top:12px">Seus dados ficam só comigo e são usados para montar o seu protocolo.</p>
+        <p class="tiny center" style="margin-top:12px">Seus dados ficam só conosco e são usados para montar o seu protocolo.</p>
       </div>
     </section>
 
@@ -63,7 +63,7 @@
     <section id="etapaPix" class="hidden">
       <div class="secao-head" style="margin-bottom:22px">
         <h2>Falta só o pagamento</h2>
-        <p>Seu acesso já está criado. Guarde o código abaixo — é com ele que você entra na sua área.</p>
+        <p>Seu acesso já está criado. Guarde o código abaixo: é com ele que você entra na sua área.</p>
       </div>
 
       <div class="painel">
@@ -76,7 +76,7 @@
 
         <div class="aviso" style="margin:18px 0">
           <strong>Importante</strong>
-          Depois de fazer o PIX, me envie o comprovante no WhatsApp. Assim que eu confirmar, seu pedido muda para
+          Depois de fazer o PIX, envie o comprovante no WhatsApp. Assim que confirmarmos, seu pedido muda para
           <em>pagamento confirmado</em> e a anamnese fica liberada na sua área.
         </div>
 
@@ -105,7 +105,7 @@ function planoDaUrl(){
 
 function pintarResumo(){
   const p = planoPorId($('#plano').value);
-  $('#planoResumo').textContent = p ? `${money(p.preco)} — ${p.resumo || ''}` : '';
+  $('#planoResumo').textContent = p ? `${money(p.preco)} · ${p.resumo || ''}` : '';
 }
 
 function validar(){
@@ -113,7 +113,7 @@ function validar(){
   const email = normEmail($('#email').value);
   const fone  = onlyDigits($('#fone').value);
   if(nome.length < 3)                        return 'Escreva seu nome completo.';
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return 'Confira seu e-mail — ele é a sua chave de acesso.';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return 'Confira seu e-mail: ele é a sua chave de acesso.';
   if(fone.length < 10 || fone.length > 13)   return 'Digite seu WhatsApp com DDD.';
   if(!$('#aceite').checked)                  return 'Confirme que você leu o aviso acima para continuar.';
   return '';
@@ -123,11 +123,11 @@ function blocoPix(){
   const s = DB.settings;
   if(!s.pix){
     return `<div class="aviso"><strong>Chave PIX ainda não cadastrada</strong>
-      Me chame no WhatsApp que eu te envio a chave para pagamento agora mesmo.</div>`;
+      Chame a gente no WhatsApp que enviamos a chave para pagamento agora mesmo.</div>`;
   }
   return `
     <div class="campo">
-      <label>Chave PIX${s.pixNome ? ' — ' + esc(s.pixNome) : ''}</label>
+      <label>Chave PIX${s.pixNome ? ' · ' + esc(s.pixNome) : ''}</label>
       <div class="copia">
         <input id="pixInput" readonly value="${esc(s.pix)}">
         <button class="btn btn-ghost btn-sm" id="btnCopiar" type="button">Copiar</button>
@@ -181,7 +181,7 @@ async function gerar(){
   );
   $('#statusNuvem').textContent = gravou
     ? 'Pedido registrado ✓'
-    : 'Pedido salvo neste aparelho. Me mande o código no WhatsApp para eu registrar do meu lado.';
+    : 'Pedido salvo neste aparelho. Mande o código no WhatsApp para registrarmos do nosso lado.';
 
   const copiar = $('#btnCopiar');
   if(copiar){
@@ -205,7 +205,7 @@ async function gerar(){
   ativarCabecalhoDinamico();
 
   $('#plano').innerHTML = DB.settings.planos
-    .map(p => `<option value="${esc(p.id)}">${esc(p.nome)} — ${money(p.preco)}</option>`).join('');
+    .map(p => `<option value="${esc(p.id)}">${esc(p.nome)} · ${money(p.preco)}</option>`).join('');
   $('#plano').value = planoDaUrl();
   pintarResumo();
   $('#plano').addEventListener('change', pintarResumo);

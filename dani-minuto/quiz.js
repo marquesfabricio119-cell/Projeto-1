@@ -36,7 +36,7 @@ const QUIZ_ETAPAS = [
           { v: 'nunca',     label: 'Nunca' },
           { v: 'as_vezes',  label: 'Às vezes, com produto novo ou sol forte' },
           { v: 'frequente', label: 'Com frequência' },
-          { v: 'sempre',    label: 'Quase sempre — reajo a quase tudo' }
+          { v: 'sempre',    label: 'Quase sempre, reajo a quase tudo' }
         ]
       },
       {
@@ -65,11 +65,11 @@ const QUIZ_ETAPAS = [
       {
         id: 'queixas', tipo: 'multipla', obrigatoria: true, max: 4,
         label: 'O que mais te incomoda hoje? (escolha até 4)',
-        ajuda: 'Vou priorizar o protocolo pelo que você marcar aqui.',
+        ajuda: 'Vamos priorizar o protocolo pelo que você marcar aqui.',
         opcoes: [
-          { v: 'acne',        label: 'Acne / espinhas' },
+          { v: 'acne',        label: 'Acne e espinhas' },
           { v: 'cravos',      label: 'Cravos e poros entupidos' },
-          { v: 'oleosidade',  label: 'Oleosidade / brilho' },
+          { v: 'oleosidade',  label: 'Oleosidade e brilho' },
           { v: 'manchas',     label: 'Manchas escuras' },
           { v: 'melasma',     label: 'Melasma' },
           { v: 'vermelhidao', label: 'Vermelhidão / sensibilidade' },
@@ -131,22 +131,22 @@ const QUIZ_ETAPAS = [
   {
     id: 'rotina',
     titulo: 'Sua rotina atual',
-    desc: 'Sem julgamento — preciso saber o ponto de partida real.',
+    desc: 'Sem julgamento: precisamos saber o ponto de partida real.',
     perguntas: [
       {
         id: 'produtos_atuais', tipo: 'multipla', obrigatoria: true,
         label: 'O que você usa hoje, mesmo que não seja todo dia?',
         opcoes: [
-          { v: 'nada',        label: 'Nada / só água' },
+          { v: 'nada',        label: 'Nada, só água' },
           { v: 'sabonete',    label: 'Sabonete facial' },
           { v: 'hidratante',  label: 'Hidratante facial' },
           { v: 'protetor',    label: 'Protetor solar' },
           { v: 'vitc',        label: 'Vitamina C' },
           { v: 'acido',       label: 'Ácidos (glicólico, salicílico, mandélico...)' },
-          { v: 'retinol',     label: 'Retinol / tretinoína' },
+          { v: 'retinol',     label: 'Retinol ou tretinoína' },
           { v: 'niacinamida', label: 'Niacinamida' },
           { v: 'esfoliante',  label: 'Esfoliante físico' },
-          { v: 'agua_micelar',label: 'Água micelar / demaquilante' },
+          { v: 'agua_micelar',label: 'Água micelar ou demaquilante' },
           { v: 'mascaras',    label: 'Máscaras' },
           { v: 'sabonete_corpo', label: 'Sabonete de corpo no rosto' }
         ]
@@ -165,7 +165,7 @@ const QUIZ_ETAPAS = [
         id: 'lavagens', tipo: 'unica', obrigatoria: true,
         label: 'Quantas vezes por dia você lava o rosto?',
         opcoes: [
-          { v: '0', label: 'Nenhuma / só no banho' },
+          { v: '0', label: 'Nenhuma, só no banho' },
           { v: '1', label: '1 vez' },
           { v: '2', label: '2 vezes' },
           { v: '3', label: '3 vezes ou mais' }
@@ -207,7 +207,7 @@ const QUIZ_ETAPAS = [
   {
     id: 'saude',
     titulo: 'Saúde e segurança',
-    desc: 'Essa parte define o que eu posso ou não indicar para você. Nada aqui é julgamento — é segurança.',
+    desc: 'Essa parte define o que podemos ou não indicar para você. Nada aqui é julgamento: é segurança.',
     perguntas: [
       {
         id: 'gestante', tipo: 'unica', obrigatoria: true,
@@ -235,7 +235,7 @@ const QUIZ_ETAPAS = [
         opcoes: [
           { v: 'rosacea',    label: 'Rosácea' },
           { v: 'dermatite',  label: 'Dermatite seborreica' },
-          { v: 'eczema',     label: 'Eczema / dermatite atópica' },
+          { v: 'eczema',     label: 'Eczema ou dermatite atópica' },
           { v: 'psoriase',   label: 'Psoríase' },
           { v: 'melasma',    label: 'Melasma diagnosticado' },
           { v: 'vitiligo',   label: 'Vitiligo' },
@@ -247,7 +247,7 @@ const QUIZ_ETAPAS = [
         label: 'Fez algum procedimento estético nos últimos 3 meses?',
         opcoes: [
           { v: 'peeling',        label: 'Peeling químico' },
-          { v: 'laser',          label: 'Laser / luz pulsada' },
+          { v: 'laser',          label: 'Laser ou luz pulsada' },
           { v: 'microagulhamento', label: 'Microagulhamento' },
           { v: 'botox',          label: 'Toxina botulínica' },
           { v: 'preenchimento',  label: 'Preenchimento' },
@@ -334,7 +334,7 @@ const QUIZ_ETAPAS = [
   {
     id: 'objetivo',
     titulo: 'Seus objetivos',
-    desc: 'Para eu montar um protocolo que cabe na sua vida de verdade.',
+    desc: 'Para montarmos um protocolo que cabe na sua vida de verdade.',
     perguntas: [
       {
         id: 'objetivo', tipo: 'unica', obrigatoria: true,
@@ -353,7 +353,7 @@ const QUIZ_ETAPAS = [
         id: 'tempo_rotina', tipo: 'unica', obrigatoria: true,
         label: 'Quanto tempo por dia você consegue dedicar à pele?',
         opcoes: [
-          { v: '3min',  label: 'Até 3 minutos — preciso do básico bem feito' },
+          { v: '3min',  label: 'Até 3 minutos, só o básico bem feito' },
           { v: '5a10',  label: '5 a 10 minutos' },
           { v: 'mais10',label: 'Mais de 10 minutos, gosto do ritual' }
         ]
@@ -361,7 +361,7 @@ const QUIZ_ETAPAS = [
       {
         id: 'investimento', tipo: 'unica', obrigatoria: true,
         label: 'Quanto você consegue investir por mês em produtos?',
-        ajuda: 'Vou indicar dentro dessa faixa — dá para ter resultado em qualquer uma delas.',
+        ajuda: 'Indicamos dentro dessa faixa. Dá para ter resultado em qualquer uma delas.',
         opcoes: [
           { v: 'ate100',  label: 'Até R$ 100' },
           { v: '100a250', label: 'R$ 100 a R$ 250' },
@@ -372,12 +372,12 @@ const QUIZ_ETAPAS = [
       {
         id: 'produtos_tem', tipo: 'textarea',
         label: 'Quais produtos você já tem em casa?',
-        placeholder: 'Marca e nome, se lembrar. Vou aproveitar o que der antes de indicar compra nova.'
+        placeholder: 'Marca e nome, se lembrar. Aproveitamos o que der antes de indicar compra nova.'
       },
       {
         id: 'observacoes', tipo: 'textarea',
-        label: 'Quer me contar mais alguma coisa?',
-        placeholder: 'Qualquer detalhe que você acha importante eu saber sobre a sua pele.'
+        label: 'Quer contar mais alguma coisa?',
+        placeholder: 'Qualquer detalhe que você acha importante sabermos sobre a sua pele.'
       }
     ]
   }
@@ -480,19 +480,19 @@ function calcularResultado(r){
 
   /* --- alertas de segurança (para a consultora) --- */
   const alertas = [];
-  if(r.gestante === 'gravida')  alertas.push('Gestante — sem retinoides, sem ácido salicílico em alta concentração, sem hidroquinona.');
-  if(r.gestante === 'amamenta') alertas.push('Amamentando — evitar retinoides e clareadores despigmentantes.');
-  if(r.gestante === 'tentando') alertas.push('Tentando engravidar — considerar protocolo já compatível com gestação.');
-  if(r.isotretinoina === 'usando')  alertas.push('Em uso de isotretinoína — sem ácidos, esfoliação ou procedimentos; foco em barreira e fotoproteção.');
-  if(r.isotretinoina === 'recente') alertas.push('Isotretinoína há menos de 6 meses — introduzir ativos com cautela extra.');
-  if(cond.includes('rosacea'))   alertas.push('Rosácea — evitar irritantes, álcool, fragrância e esfoliação física.');
-  if(cond.includes('melasma'))   alertas.push('Melasma — fotoproteção rigorosa com cor; cuidado com calor e luz visível.');
-  if(cond.includes('dermatite')) alertas.push('Dermatite seborreica — avaliar antifúngico tópico e sabonete adequado.');
-  if(cond.includes('eczema') || cond.includes('psoriase')) alertas.push('Condição inflamatória crônica — protocolo de barreira, encaminhar ao dermatologista.');
-  if(proc.length) alertas.push('Procedimento recente (' + proc.map(p => labelOpcao('procedimentos', p)).join(', ') + ') — respeitar janela de recuperação.');
-  if(r.acne_grau === 'inflamada') alertas.push('Acne inflamatória/nodular — indicar avaliação com dermatologista; skin care é suporte.');
-  if(usa.includes('sabonete_corpo')) alertas.push('Usa sabonete de corpo no rosto — trocar já na primeira orientação.');
-  if(sensLabel === 'Alta') alertas.push('Sensibilidade alta — introduzir um ativo por vez, com teste de contato.');
+  if(r.gestante === 'gravida')  alertas.push('Gestante: sem retinoides, sem ácido salicílico em alta concentração, sem hidroquinona.');
+  if(r.gestante === 'amamenta') alertas.push('Amamentando: evitar retinoides e clareadores despigmentantes.');
+  if(r.gestante === 'tentando') alertas.push('Tentando engravidar: considerar protocolo já compatível com gestação.');
+  if(r.isotretinoina === 'usando')  alertas.push('Em uso de isotretinoína: sem ácidos, esfoliação ou procedimentos; foco em barreira e fotoproteção.');
+  if(r.isotretinoina === 'recente') alertas.push('Isotretinoína há menos de 6 meses: introduzir ativos com cautela extra.');
+  if(cond.includes('rosacea'))   alertas.push('Rosácea: evitar irritantes, álcool, fragrância e esfoliação física.');
+  if(cond.includes('melasma'))   alertas.push('Melasma: fotoproteção rigorosa com cor; cuidado com calor e luz visível.');
+  if(cond.includes('dermatite')) alertas.push('Dermatite seborreica: avaliar antifúngico tópico e sabonete adequado.');
+  if(cond.includes('eczema') || cond.includes('psoriase')) alertas.push('Condição inflamatória crônica: protocolo de barreira, encaminhar ao dermatologista.');
+  if(proc.length) alertas.push('Procedimento recente (' + proc.map(p => labelOpcao('procedimentos', p)).join(', ') + '): respeitar janela de recuperação.');
+  if(r.acne_grau === 'inflamada') alertas.push('Acne inflamatória/nodular: indicar avaliação com dermatologista; skin care é suporte.');
+  if(usa.includes('sabonete_corpo')) alertas.push('Usa sabonete de corpo no rosto: trocar já na primeira orientação.');
+  if(sensLabel === 'Alta') alertas.push('Sensibilidade alta: introduzir um ativo por vez, com teste de contato.');
 
   /* --- esqueleto de rotina (a consultora fecha os produtos) --- */
   const gestacaoRestrita = r.gestante === 'gravida' || r.gestante === 'amamenta';
@@ -504,7 +504,7 @@ function calcularResultado(r){
 
   const noite = ['Remoção de maquiagem/protetor', 'Higienização', 'Hidratante / reparador de barreira'];
   if(semAtivos){
-    noite.splice(2, 0, 'Sem ativos por enquanto — foco em recuperar a barreira');
+    noite.splice(2, 0, 'Sem ativos por enquanto: foco em recuperar a barreira');
   }else if(gestacaoRestrita){
     noite.splice(2, 0, 'Ativo compatível com gestação (niacinamida, azelaico)');
   }else if(sensLabel === 'Alta'){

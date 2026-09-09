@@ -146,7 +146,7 @@ vira moldura. É o mesmo gesto no site: as duas auras difusas atrás do título 
 
 ### Bio (limite de 150 caracteres)
 
-**Opção 1 — a ponte (recomendada)**
+**Opção 1 · a ponte (recomendada)**
 
 ```
 A ponte entre os mundos
@@ -155,7 +155,7 @@ Reiki · Access Bars · ciclo feminino
 ↓ comece pela sua anamnese
 ```
 
-**Opção 2 — foco em skin care**
+**Opção 2 · foco em skin care**
 
 ```
 Farmacêutica · skin care com anamnese completa
@@ -164,12 +164,12 @@ Protocolo feito para a sua pele, não para a internet
 ↓
 ```
 
-**Opção 3 — pela dor**
+**Opção 3 · pela dor**
 
 ```
-Sua pele merece um plano, não um palpite
+Sua pele merece um plano profissional e personalizado
 Consultoria de skin care com anamnese completa
-Orientação estética — não substitui dermato
+Orientação estética, não substitui dermato
 ↓
 ```
 
@@ -196,6 +196,8 @@ primeiro item.
 ## 8. Tom de voz
 
 - Fala com a cliente, não sobre ela. "Sua pele", não "a pele da mulher moderna".
+- **Primeira pessoa do plural.** "Analisamos", "montamos", "aproveitamos" — nunca "eu analiso".
+- **Sem travessão.** Use dois-pontos, ponto ou vírgula. O ponto médio (·) separa itens.
 - Explica o porquê antes do quê. Nunca dá regra sem motivo.
 - Não promete resultado, não vende medo, não chama nada de milagre.
 - Diz o limite em voz alta: quando o caso é de dermatologista, ela fala.

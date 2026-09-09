@@ -40,7 +40,7 @@ function telaLogin(msgErro){
       <div class="erro-msg" id="erro">${msgErro ? esc(msgErro) : ''}</div>
       <button class="btn btn-primary btn-block btn-wide" id="btnEntrar">Entrar</button>
       <p class="tiny center" style="margin-top:14px">
-        Perdeu o código? <a href="${linkWhats('Oi! Perdi meu código de acesso da consultoria. Pode me ajudar?')}"
+        Perdeu o código? <a href="${linkWhats('Oi! Perdi meu código de acesso da consultoria. Podem me ajudar?')}"
         target="_blank" rel="noopener" style="color:var(--nude-esc)">me chame no WhatsApp</a>.
       </p>
       <p class="tiny center" style="margin-top:6px">Ainda não contratou? <a href="index.html#planos" style="color:var(--nude-esc)">Ver os planos</a>.</p>
@@ -51,7 +51,7 @@ function telaLogin(msgErro){
     const em  = normEmail($('#email').value);
     const o   = pedidoPorCodigo(cod);
     if(!o || normEmail(o.email) !== em){
-      $('#erro').textContent = 'Código ou e-mail não encontrado. Confira os dados ou me chame no WhatsApp.';
+      $('#erro').textContent = 'Código ou e-mail não encontrado. Confira os dados ou chame a gente no WhatsApp.';
       return;
     }
     setSession(o);
@@ -66,7 +66,7 @@ function cartaoResultado(a){
   return `
     <div class="painel" style="margin-top:16px">
       <h3 style="font-size:21px;margin-bottom:4px">A leitura da sua pele</h3>
-      <p class="tiny" style="margin-bottom:18px">Enviada em ${fmtDate(a.criadoEm)} · esta é a primeira leitura automática das suas respostas. O protocolo final vem depois da minha análise.</p>
+      <p class="tiny" style="margin-bottom:18px">Enviada em ${fmtDate(a.criadoEm)} · esta é a primeira leitura automática das suas respostas. O protocolo final vem depois da nossa análise.</p>
 
       <div class="perfil">
         <div class="perfil-item" data-revelar data-atraso="0"><span>Tipo de pele</span><strong>${esc(r.tipoPele || '—')}</strong></div>
@@ -90,7 +90,7 @@ function cartaoResultado(a){
       <div class="aviso" style="margin-top:18px">
         <strong>Ainda não saia comprando</strong>
         Aqui estão as categorias, não as marcas. Os produtos exatos, as concentrações e a frequência vão no seu
-        protocolo personalizado, que eu te envio depois de revisar tudo o que você respondeu.
+        protocolo personalizado, que enviamos depois de revisar tudo o que você respondeu.
       </div>
 
       <div style="display:grid;gap:10px;margin-top:18px">
@@ -135,8 +135,8 @@ function telaPainel(o){
       ${o.status === 'pendente' ? `
         <div class="aviso" style="margin-bottom:16px">
           <strong>Pagamento ainda não confirmado</strong>
-          Assim que eu conferir o comprovante, isso muda aqui sozinho. Você já pode ir adiantando a anamnese —
-          ela fica salva do mesmo jeito.
+          Assim que conferirmos o comprovante, isso muda aqui sozinho. Você já pode ir adiantando a anamnese,
+          que ela fica salva do mesmo jeito.
         </div>` : ''}
 
       ${acao}

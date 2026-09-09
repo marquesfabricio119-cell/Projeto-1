@@ -76,10 +76,10 @@ const PLANOS_PADRAO = [
     nome: 'Protocolo Completo',
     preco: 347,
     destaque: true,
-    resumo: 'Protocolo mais encontro comigo, para tirar tudo a limpo.',
+    resumo: 'O protocolo completo mais um encontro com a gente, para tirar tudo a limpo.',
     itens: [
       'Tudo do Protocolo Essencial',
-      'Videochamada de 40 min comigo',
+      'Videochamada de 40 min com a gente',
       'Cronograma de ativos semana a semana',
       'Ajuste do protocolo depois do encontro',
       '30 dias de suporte no WhatsApp'
@@ -105,7 +105,7 @@ const SETTINGS_PADRAO = {
   consultora: 'Dani',
   assinatura: 'A ponte entre os mundos',
   frase:      'A ciência que sente. A cura que pensa.',
-  headline:   'Sua pele cuidada com ciência — e olhada por inteiro.',
+  headline:   'Sua pele cuidada com ciência e olhada por inteiro.',
   sub:        'Consultoria de skin care com anamnese completa: um protocolo feito para a sua pele, a sua rotina e o seu momento. Nada de fórmula pronta.',
   whatsapp:   '',                 // ex.: 5511999999999
   instagram:  '',
@@ -368,9 +368,9 @@ function montarFooter(){
       <div>
         <strong>${esc(s.marca || 'Dani Minuto')}</strong>
         <p class="tiny">${esc(s.assinatura || 'A ponte entre os mundos')} · consultoria de skin care personalizada.<br>
-        Conteúdo educativo — não substitui consulta, diagnóstico ou prescrição médica.</p>
+        Conteúdo educativo: não substitui consulta, diagnóstico ou prescrição médica.</p>
       </div>
       <div class="foot-links">${redes.join('')}</div>
     </div>
-    <div class="foot-bottom tiny">© ${new Date().getFullYear()} ${esc(s.marca || '')} — todos os direitos reservados · <a href="admin.html">Acesso da Dani</a></div>`;
+    <div class="foot-bottom tiny">© ${new Date().getFullYear()} ${esc(s.marca || '')} · todos os direitos reservados · <a href="admin.html">Acesso da Dani</a></div>`;
 }
