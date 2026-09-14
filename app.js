@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "56";
+const APP_VERSION = "57";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -129,7 +129,11 @@ function defaultDB(){
       whatsapp: "",
       pixKey: "",
       address: "",
-      heroPhrase: "Moda que realça quem você é ✨"
+      heroPhrase: "Moda que realça quem você é ✨",
+      /* Cupom fiscal (NFC-e). O que é da loja fica aqui e vai para a
+         nuvem; a chave de emissão fica só no aparelho. */
+      fiscal: { ativo:false, cnpj:'', naturezaOperacao:'Venda ao consumidor', ncmPadrao:'61091000',
+                cfop:'5102', csosn:'102', origem:'0', pisCofins:'49', unidade:'UN', serie:'', endpoint:'/api/nfce' }
     },
     users: [
       { id: uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' }
@@ -1966,6 +1970,7 @@ function openProductModal(id){
         <div class="field"><label>Categoria</label><input id="f_category" value="${escapeHtml(p.category)}" placeholder="Vestidos, Blusas..."></div>
         <div class="field"><label>SKU</label><input id="f_sku" value="${escapeHtml(p.sku)}"></div>
         <div class="field"><label>Marca</label><input id="f_brand" value="${escapeHtml(p.brand)}"></div>
+        <div class="field"><label>NCM (cupom fiscal)</label><input id="f_ncm" value="${escapeHtml(p.ncm||'')}" inputmode="numeric" placeholder="vazio = padrão ${escapeHtml(configFiscal().ncmPadrao)}" maxlength="10"></div>
         <div class="field full">
           <label>Foto do produto</label>
           <input id="f_photo" value="${escapeHtml(p.photo)}" placeholder="Cole uma URL ou envie um arquivo abaixo">
@@ -2157,6 +2162,7 @@ function openProductModal(id){
         sku: overlay.querySelector('#f_sku').value.trim(),
         category: overlay.querySelector('#f_category').value.trim(),
         brand: overlay.querySelector('#f_brand').value.trim(),
+        ncm: overlay.querySelector('#f_ncm').value.replace(/\D/g,'').slice(0,8),
         cost, price,
         photo: fotoUrl,
         photoPendente: fotoPendente ? true : undefined,
@@ -3877,6 +3883,7 @@ const FORMAS_DE_PAGAMENTO = ['PIX','Dinheiro','Débito','Crédito'];
 let pdvPayment = 'PIX';
 let pdvCustomer = '';
 let pdvDiscount = 0;
+let pdvCpf = '';
 
 function renderPDV(el){
   el.innerHTML = `
@@ -3897,6 +3904,10 @@ function renderPDV(el){
             ${DB.customers.map(c=>`<option value="${c.id}" ${pdvCustomer===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
           </select>
         </div>
+        ${configFiscal().ativo ? `<div class="field">
+          <label>CPF na nota (opcional)</label>
+          <input id="pdvCpf" inputmode="numeric" placeholder="000.000.000-00" value="${escapeHtml(pdvCpf)}" maxlength="14">
+        </div>` : ''}
         <div class="field">
           <label>Desconto (R$)</label>
           <input type="number" id="pdvDiscount" value="${pdvDiscount}" min="0" step="0.01">
@@ -3951,6 +3962,7 @@ function renderPDV(el){
     el.querySelectorAll('[data-pay]').forEach(o=>o.classList.toggle('active', o.dataset.pay===pdvPayment));
   }));
   el.querySelector('#pdvCustomerSel').addEventListener('change', e=>pdvCustomer=e.target.value);
+  el.querySelector('#pdvCpf')?.addEventListener('input', e=>{ pdvCpf = e.target.value; });
   el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Number(e.target.value)||0; renderCartItems(); });
 
   renderPDVResults();
@@ -4063,6 +4075,8 @@ function clearCart(){ cart=[]; pdvDiscount=0; renderPDV(document.getElementById(
 function finalizeSale(){
   if(!cart.length){ toast('Carrinho vazio','error'); return; }
   if(pdvDiscount < 0){ toast('Desconto não pode ser negativo','error'); return; }
+  const cpfDigitado = (pdvCpf||'').replace(/\D/g,'');
+  if(cpfDigitado && cpfDigitado.length !== 11){ toast('O CPF precisa ter 11 números (ou deixe em branco)','error'); return; }
   if(pdvDiscount > cartSubtotal()){
     if(!confirm('O desconto (' + money(pdvDiscount) + ') é maior que o total (' + money(cartSubtotal()) + ').\n\nRegistrar a venda por R$ 0,00 mesmo assim?')) return;
   }
@@ -4096,6 +4110,7 @@ function finalizeSale(){
                price:i.price, qty:i.qty, cost: prod ? Number(prod.cost)||0 : 0 };
     }),
     discount: pdvDiscount, payment: pdvPayment, customerId: pdvCustomer || null,
+    cpfNota: (pdvCpf||'').replace(/\D/g,'') || undefined,
     seller: SESSION.name, total, status:'concluida', origin:'pdv', canceled:false
   };
   // baixa estoque
@@ -4126,7 +4141,7 @@ function finalizeSale(){
     toast('A venda NÃO foi salva. O carrinho continua aqui para você refazer.','error');
     return;
   }
-  cart=[]; pdvDiscount=0; pdvCustomer='';
+  cart=[]; pdvDiscount=0; pdvCustomer=''; pdvCpf='';
   renderPDV(document.getElementById('view'));
   mostrarOfertaDeRecibo(sale);
   toast('Venda finalizada!');
@@ -4166,15 +4181,161 @@ function mostrarOfertaDeRecibo(sale){
   const box = document.getElementById('reciboDaVenda');
   if(!box) return;
   box.className = 'pdf-pronto';
-  box.innerHTML = `<strong>Venda de ${escapeHtml(money(sale.total))} registrada</strong>
-    <a href="#" onclick="event.preventDefault();imprimirReciboDaVenda('${sale.id}')">🧾 Gerar recibo desta venda</a>
-    <span>Só se a cliente pedir — a venda já está salva.</span>`;
+  const fiscal = configFiscal().ativo;
+  box.innerHTML = `<strong>Venda de ${escapeHtml(money(sale.total))} registrada${temCupom(sale) ? ' · NFC-e nº ' + escapeHtml(String(sale.nfce.numero||'')) : ''}</strong>
+    ${fiscal ? `<a href="#" onclick="event.preventDefault();emitirCupomFiscal('${sale.id}')">${temCupom(sale) ? '🧾 Abrir o cupom fiscal' : '🧾 Emitir cupom fiscal (NFC-e)'}</a> ` : ''}
+    <a href="#" onclick="event.preventDefault();imprimirReciboDaVenda('${sale.id}')">📄 Recibo simples</a>
+    <span>${fiscal ? 'O cupom fiscal vai para a SEFAZ; o recibo simples é só um comprovante.' : 'Só se a cliente pedir — a venda já está salva.'}</span>`;
 }
 
 function imprimirReciboDaVenda(id){
   const sale = DB.sales.find(x=>x.id===id);
   if(!sale){ toast('Venda não encontrada','error'); return; }
   gerarReciboPdf(sale);
+}
+
+/* =========================================================
+   CUPOM FISCAL (NFC-e)
+   O sistema não fala com a SEFAZ: ele manda a venda para /api/nfce (uma
+   função no Vercel), que lê a venda na nuvem e emite pela Focus NFe. O
+   navegador só guarda o resultado (número, chave, link do cupom) dentro
+   da venda, e isso sobe para a nuvem como qualquer outra alteração.
+   ========================================================= */
+const CHAVE_FISCAL = 'estiloFashion_fiscal';
+function configFiscal(){
+  const d = defaultDB().config.fiscal;
+  const c = Object.assign({}, d, (DB.config && DB.config.fiscal) || {});
+  let local = {};
+  try{ local = JSON.parse(localStorage.getItem(CHAVE_FISCAL) || '{}') || {}; }catch(e){}
+  c.chave = local.chave || '';
+  return c;
+}
+function guardarChaveFiscal(chave){
+  try{ localStorage.setItem(CHAVE_FISCAL, JSON.stringify({ chave: String(chave||'').trim() })); }catch(e){}
+}
+async function chamarFiscal(corpo){
+  const cfg = configFiscal();
+  if(!cfg.chave) throw new Error('Digite a chave de emissão em Configurações → Cupom fiscal.');
+  const r = await fetch(cfg.endpoint || '/api/nfce', {
+    method:'POST', headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({}, corpo, { chave: cfg.chave }))
+  });
+  const tipo = r.headers.get('content-type') || '';
+  if(corpo.acao === 'danfe'){
+    if(!r.ok){ let j = {}; try{ j = await r.json(); }catch(e){} throw new Error(j.erro || ('O servidor respondeu ' + r.status)); }
+    return await r.blob();
+  }
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok || !j.ok) throw new Error(j.erro || (r.status === 404 ? 'A função /api/nfce não está publicada neste endereço.' : 'O servidor respondeu ' + r.status));
+  return j;
+}
+function guardarNfceNaVenda(sale, nfce){
+  sale.nfce = Object.assign({}, sale.nfce || {}, nfce || {});
+  carimbar(sale);
+  saveDB();
+}
+function temCupom(s){ return !!(s && s.nfce && s.nfce.chave && s.nfce.status === 'autorizado'); }
+async function emitirCupomFiscal(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s){ toast('Venda não encontrada','error'); return; }
+  if(!configFiscal().ativo){ toast('Ative o cupom fiscal em Configurações → Cupom fiscal.','warn'); return; }
+  if(temCupom(s)){ abrirCupomFiscal(id); return; }
+  if(temPendencia || enviandoAgora){ toast('Espere o selo ficar "salvo": a nota é montada a partir da nuvem.','warn'); return; }
+  let cpf = s.cpfNota || '';
+  if(!cpf){
+    const r = prompt('CPF na nota? (deixe em branco para não identificar)', '');
+    if(r === null) return;
+    cpf = r.replace(/\D/g,'');
+    if(cpf && cpf.length !== 11){ toast('CPF precisa ter 11 números','error'); return; }
+    if(cpf){ s.cpfNota = cpf; carimbar(s); saveDB(); }
+  }
+  toast('Emitindo o cupom fiscal…');
+  try{
+    const j = await chamarFiscal({ acao:'emitir', vendaId:id, cpf });
+    guardarNfceNaVenda(s, j.nfce);
+    if(j.nfce.status === 'autorizado'){
+      toast('Cupom fiscal autorizado — nº ' + (j.nfce.numero||'') + '. Abrindo…');
+      abrirCupomFiscal(id);
+    } else if(j.nfce.status === 'processando_autorizacao'){
+      toast('A SEFAZ ainda está processando. Toque em "Cupom" de novo daqui a pouco.','warn');
+    } else {
+      toast('A SEFAZ recusou: ' + (j.nfce.mensagem || j.nfce.status), 'error');
+    }
+  }catch(err){
+    toast(err.message, 'error');
+  }
+  renderVendasTable();
+  mostrarOfertaDeRecibo(s);
+}
+async function consultarCupomFiscal(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s) return;
+  try{
+    const j = await chamarFiscal({ acao:'consultar', vendaId:id });
+    if(j.nfce) guardarNfceNaVenda(s, j.nfce);
+    renderVendasTable();
+    toast(j.nfce ? 'Situação: ' + (j.nfce.status||'') : 'Esta venda não tem cupom no provedor.');
+  }catch(err){ toast(err.message, 'error'); }
+}
+async function abrirCupomFiscal(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s || !s.nfce){ toast('Esta venda não tem cupom','error'); return; }
+  /* A janela é aberta ANTES da espera: o celular só deixa abrir janela
+     no toque, não depois de uma resposta da rede. */
+  const janela = window.open('', '_blank');
+  try{
+    const blob = await chamarFiscal({ acao:'danfe', vendaId:id });
+    const url = URL.createObjectURL(blob);
+    if(janela) janela.location = url; else window.location = url;
+  }catch(err){
+    if(janela) janela.close();
+    toast(err.message, 'error');
+  }
+}
+async function cancelarCupomFiscal(id){
+  const s = DB.sales.find(x=>x.id===id);
+  if(!s || !temCupom(s)) return;
+  const j = prompt('Motivo do cancelamento (mínimo 15 letras). A SEFAZ só aceita cancelar em até 30 minutos na maioria dos estados:', 'Venda registrada por engano');
+  if(j === null) return;
+  if(String(j).trim().length < 15){ toast('A justificativa precisa ter pelo menos 15 letras','error'); return; }
+  toast('Cancelando na SEFAZ…');
+  try{
+    const r = await chamarFiscal({ acao:'cancelar', vendaId:id, justificativa: j });
+    guardarNfceNaVenda(s, r.nfce);
+    toast(r.nfce.status === 'cancelado' ? 'Cupom fiscal cancelado' : 'Situação: ' + r.nfce.status, r.nfce.status === 'cancelado' ? 'ok' : 'warn');
+  }catch(err){ toast(err.message, 'error'); }
+  renderVendasTable();
+}
+function badgeCupom(s){
+  if(!s.nfce || !s.nfce.status) return '';
+  const n = s.nfce;
+  if(n.status === 'autorizado') return `<span class="badge badge-gold" title="Chave ${escapeHtml(n.chave||'')}">NFC-e ${escapeHtml(String(n.numero||''))}</span>`;
+  if(n.status === 'cancelado') return `<span class="badge badge-muted">NFC-e cancelada</span>`;
+  if(n.status === 'processando_autorizacao') return `<span class="badge badge-warning">NFC-e processando</span>`;
+  return `<span class="badge badge-danger" title="${escapeHtml(n.mensagem||'')}">NFC-e recusada</span>`;
+}
+async function testarCupomFiscal(){
+  const box = document.getElementById('diagnosticoFiscal');
+  if(!box) return;
+  box.innerHTML = '<p class="text-muted">Testando…</p>';
+  const cfg = configFiscal();
+  let servidor = null;
+  try{
+    const r = await fetch(cfg.endpoint || '/api/nfce', { cache:'no-store' });
+    servidor = r.ok ? await r.json() : { erro: 'O servidor respondeu ' + r.status };
+  }catch(e){ servidor = { erro: 'A função /api/nfce não respondeu. Ela só existe no site publicado (estilofashion.vercel.app), não em um servidor local.' }; }
+  const linhas = [];
+  const item = (ok, texto) => linhas.push(`<li>${ok ? '✅' : '❌'} ${texto}</li>`);
+  if(servidor.erro){ item(false, escapeHtml(servidor.erro)); }
+  else {
+    item(true, 'A função /api/nfce está publicada (ambiente: <strong>' + escapeHtml(servidor.ambiente) + '</strong>).');
+    item(servidor.tokenConfigurado, servidor.tokenConfigurado ? 'Token da Focus NFe configurado no Vercel.' : 'Falta o token da Focus NFe no Vercel (variável FOCUS_NFE_TOKEN).');
+    item(servidor.chaveConfigurada, servidor.chaveConfigurada ? 'Chave de emissão configurada no Vercel.' : 'Falta a chave de emissão no Vercel (variável FISCAL_SENHA).');
+  }
+  item(!!cfg.chave, cfg.chave ? 'Chave de emissão digitada neste aparelho.' : 'Digite a chave de emissão aqui e salve.');
+  item(String(cfg.cnpj||'').replace(/\D/g,'').length === 14, 'CNPJ da loja ' + (String(cfg.cnpj||'').replace(/\D/g,'').length === 14 ? 'preenchido.' : 'faltando ou incompleto.'));
+  item(!!cfg.ativo, cfg.ativo ? 'Cupom fiscal ativado nas vendas.' : 'Cupom fiscal ainda desligado (marque "Ativar" e salve).');
+  box.innerHTML = `<ul style="list-style:none;display:grid;gap:6px;margin:0">${linhas.join('')}</ul>`;
 }
 
 /* =========================================================
@@ -4208,7 +4369,7 @@ function renderVendasTable(){
       <td>${money(s.total)}</td>
       <td>${escapeHtml(s.payment)}</td>
       <td>${s.origin==='loja'?'<span class="badge badge-gold">Loja virtual</span>':'PDV'}</td>
-      <td>${saleStatusBadge(s)}</td>
+      <td>${saleStatusBadge(s)} ${badgeCupom(s)}</td>
       <td>${saleActions(s)}</td>
     </tr>`).join('')}
   </tbody></table></div>
@@ -4231,7 +4392,12 @@ function saleActions(s){
   let btns='';
   if(s.origin==='loja' && s.status==='pendente') btns += `<button class="btn btn-sm btn-accent" onclick="markSalePaid('${s.id}')">Marcar Pago</button> `;
   if(s.origin==='loja' && s.status==='pago') btns += `<button class="btn btn-sm btn-gold" onclick="markSaleDelivered('${s.id}')">Marcar Entregue</button> `;
-  btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">🧾 Recibo</button> `;
+  if(configFiscal().ativo){
+    if(temCupom(s)) btns += `<button class="btn btn-sm" onclick="abrirCupomFiscal('${s.id}')">🧾 Cupom</button> <button class="btn btn-sm" onclick="cancelarCupomFiscal('${s.id}')" title="Cancelar a NFC-e na SEFAZ">Cancelar NFC-e</button> `;
+    else if(s.nfce && s.nfce.status === 'processando_autorizacao') btns += `<button class="btn btn-sm" onclick="consultarCupomFiscal('${s.id}')">🔄 Ver situação</button> `;
+    else if(s.status !== 'pendente') btns += `<button class="btn btn-sm btn-gold" onclick="emitirCupomFiscal('${s.id}')">🧾 Emitir NFC-e</button> `;
+  }
+  btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">📄 Recibo</button> `;
   btns += `<button class="btn btn-sm" onclick="openSaleModal('${s.id}')">✏️ Editar</button> `;
   btns += `<button class="btn btn-sm" onclick="cancelSale('${s.id}')">Cancelar</button> `;
   btns += `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
@@ -4295,6 +4461,7 @@ function openSaleModal(id){
   const s = DB.sales.find(x=>x.id===id);
   if(!s){ toast('Venda não encontrada','error'); return; }
   if(s.canceled){ toast('Venda cancelada não pode ser editada. Exclua ou registre outra.','warn'); return; }
+  if(temCupom(s)){ toast('Esta venda tem cupom fiscal autorizado. Cancele a NFC-e antes de editar.','warn'); return; }
 
   const itens = s.items.map(i=>({ ...i }));
   const overlay = document.createElement('div');
@@ -4442,6 +4609,7 @@ function markSaleDelivered(id){
 function cancelSale(id){
   const s = DB.sales.find(x=>x.id===id);
   if(!s || s.canceled) return;
+  if(temCupom(s)){ toast('Esta venda tem cupom fiscal autorizado. Cancele a NFC-e primeiro (botão "Cancelar NFC-e").','warn'); return; }
   if(!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
   mexerNoEstoqueDaVenda(s.items, +1);
   s.canceled = true;
@@ -5119,6 +5287,32 @@ function renderConfig(el){
       </div>
     </div>
     <div class="panel">
+      <h3>🧾 Cupom fiscal (NFC-e)</h3>
+      <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">
+        O cupom fiscal é emitido pela <strong>Focus NFe</strong> a partir do site publicado. O que é da loja
+        (CNPJ, NCM, tributação) fica aqui e vale em todos os aparelhos; a <strong>chave de emissão</strong> fica só
+        neste aparelho e precisa ser a mesma que está no Vercel (FISCAL_SENHA).</p>
+      <div class="form-grid">
+        <div class="field"><label>CNPJ da loja</label><input id="fx_cnpj" value="${escapeHtml(configFiscal().cnpj)}" inputmode="numeric" placeholder="00.000.000/0001-00"></div>
+        <div class="field"><label>Chave de emissão (só neste aparelho)</label><input id="fx_chave" type="password" value="${escapeHtml(configFiscal().chave)}" autocomplete="off"></div>
+        <div class="field"><label>NCM padrão das peças</label><input id="fx_ncm" value="${escapeHtml(configFiscal().ncmPadrao)}" inputmode="numeric" placeholder="61091000"></div>
+        <div class="field"><label>CFOP</label><input id="fx_cfop" value="${escapeHtml(configFiscal().cfop)}" inputmode="numeric"></div>
+        <div class="field"><label>CSOSN (Simples Nacional)</label><input id="fx_csosn" value="${escapeHtml(configFiscal().csosn)}" inputmode="numeric"></div>
+        <div class="field"><label>CST PIS/COFINS</label><input id="fx_pis" value="${escapeHtml(configFiscal().pisCofins)}" inputmode="numeric"></div>
+        <div class="field"><label>Série (vazio = padrão do provedor)</label><input id="fx_serie" value="${escapeHtml(configFiscal().serie)}" inputmode="numeric"></div>
+        <div class="field"><label><input type="checkbox" id="fx_ativo" ${configFiscal().ativo?'checked':''}> Ativar cupom fiscal nas vendas</label></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-accent" id="saveFiscalBtn">Salvar</button>
+        <button class="btn" onclick="testarCupomFiscal()">Testar ligação fiscal</button>
+      </div>
+      <div id="diagnosticoFiscal" style="margin-top:12px"></div>
+      <p class="text-muted" style="font-size:12px;margin-top:12px">
+        NCM 61091000 é camiseta/regata de malha; vestidos de malha 61044200; blusas de tecido 62063000; calças de malha 61046200.
+        Confirme os códigos e a tributação com o contador: eles definem o imposto do cupom. Peça a peça, o NCM pode ser trocado em Produtos → Mais opções.</p>
+    </div>
+
+    <div class="panel">
       <h3>Usuários</h3>
       <div id="usersWrap"></div>
       <button class="btn" style="margin-top:10px" onclick="openUserModal()">+ Novo usuário</button>
@@ -5241,6 +5435,24 @@ function renderConfig(el){
     DB.config.address = el.querySelector('#cfg_address').value.trim();
     DB.config.heroPhrase = el.querySelector('#cfg_phrase').value.trim();
     saveDB(); toast('Configurações da loja virtual salvas');
+  });
+  el.querySelector('#saveFiscalBtn').addEventListener('click', ()=>{
+    const cnpj = el.querySelector('#fx_cnpj').value.replace(/\D/g,'');
+    if(cnpj && cnpj.length !== 14){ toast('O CNPJ precisa ter 14 números','error'); return; }
+    const ncm = el.querySelector('#fx_ncm').value.replace(/\D/g,'');
+    if(ncm.length !== 8){ toast('O NCM padrão precisa ter 8 números','error'); return; }
+    DB.config.fiscal = Object.assign({}, configFiscal(), {
+      cnpj, ncmPadrao: ncm,
+      cfop: el.querySelector('#fx_cfop').value.replace(/\D/g,'') || '5102',
+      csosn: el.querySelector('#fx_csosn').value.replace(/\D/g,'') || '102',
+      pisCofins: el.querySelector('#fx_pis').value.replace(/\D/g,'') || '49',
+      serie: el.querySelector('#fx_serie').value.replace(/\D/g,''),
+      ativo: el.querySelector('#fx_ativo').checked
+    });
+    delete DB.config.fiscal.chave;           // a chave não vai para a nuvem
+    guardarChaveFiscal(el.querySelector('#fx_chave').value);
+    saveDB(); toast('Cupom fiscal: configurações salvas');
+    testarCupomFiscal();
   });
   renderEspacoDoAparelho();
   carregarHistoricoDaNuvem();

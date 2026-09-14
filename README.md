@@ -63,6 +63,13 @@ só lê o histórico. Em Configurações → "Histórico na nuvem" dá para volt
 Pedidos da loja virtual entram com `estoqueBaixado: false`; quem dá baixa no estoque é o app da loja, na
 primeira vez que vê o pedido. A vitrine mostra como disponível `estoque − pedidos ainda não baixados`.
 
+## Cupom fiscal (NFC-e)
+
+`api/nfce.js` é uma função serverless (Vercel) que lê a venda na nuvem, monta a NFC-e e emite pela API da
+Focus NFe. Ações: `emitir`, `consultar`, `cancelar`, `danfe` (POST JSON com `chave` = `FISCAL_SENHA`) e um
+`GET` de diagnóstico. Variáveis de ambiente: `FOCUS_NFE_TOKEN`, `FOCUS_NFE_AMBIENTE` (`homologacao`/`producao`),
+`FISCAL_SENHA`. O resultado (número, chave, link do DANFE) fica em `sale.nfce`. Detalhes no LEIA-ME.txt.
+
 ## Testes
 
 ```bash

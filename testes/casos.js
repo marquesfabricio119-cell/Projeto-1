@@ -392,6 +392,72 @@ caso('nuvem recusando (401) não passa por gravado', async ()=>{
   igual(temPendencia, true); igual(falhouAoEnviar, true); igual(ultimoErroNuvem.status, 401);
 });
 
+/* ============ cupom fiscal (NFC-e) ============ */
+const nfce = requireNode(raizDoProjeto + '/api/nfce.js');
+function bancoFiscal(){
+  const d = bancoDeTeste();
+  d.config.fiscal = Object.assign({}, defaultDB().config.fiscal, { ativo:true, cnpj:'12.345.678/0001-90' });
+  d.products[0].ncm = '61044200';
+  d.sales = [{ id:'v123456', date:'2026-09-14T13:00:00.000Z', payment:'PIX', discount: 5, total: 85, status:'concluida', origin:'pdv', canceled:false,
+               items:[{ productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:2, price:30, barcode:'000001' },
+                      { productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, price:30 }] }];
+  return d;
+}
+caso('NFC-e: itens, NCM, desconto rateado e forma de pagamento saem certos', ()=>{
+  const d = bancoFiscal();
+  const { nota, total } = nfce.montarNfce(d, d.sales[0], { dataEmissao:'2026-09-14T10:00:00-03:00', cpf:'123.456.789-09', nomeCliente:'Ana' });
+  igual(nota.cnpj_emitente, '12345678000190');
+  igual(nota.itens.length, 2);
+  igual(nota.itens[0].codigo_ncm, '61044200', 'NCM da peça');
+  igual(nota.itens[1].codigo_ncm, '61091000', 'NCM padrão quando a peça não tem');
+  igual(nota.itens[0].descricao, 'Blusa P Preto'); igual(nota.itens[1].descricao, 'Saia', 'Único/Padrão não vai na descrição');
+  igual(nota.itens[0].valor_bruto, 60); igual(nota.itens[1].valor_bruto, 30);
+  igual(nota.itens[0].valor_desconto, 3.33); igual(nota.itens[1].valor_desconto, 1.67, 'a última peça fecha a conta');
+  igual(nota.itens[0].icms_situacao_tributaria, '102'); igual(nota.itens[0].pis_situacao_tributaria, '49'); igual(nota.itens[0].cfop, '5102');
+  igual(nota.formas_pagamento, [{ forma_pagamento:'17', valor_pagamento: 85 }]);
+  igual(total, 85);
+  igual(nota.cpf_destinatario, '12345678909'); igual(nota.nome_destinatario, 'Ana');
+  igual(nota.presenca_comprador, '1'); igual(nota.data_emissao, '2026-09-14T10:00:00-03:00');
+});
+caso('NFC-e: códigos de pagamento e erros de cadastro', ()=>{
+  igual(['Dinheiro','PIX','Crédito','Débito','Cartão de crédito','outra'].map(nfce.codigoDaForma), ['01','17','03','04','03','99']);
+  const semCnpj = bancoFiscal(); semCnpj.config.fiscal.cnpj = '';
+  assert.throws(()=>nfce.montarNfce(semCnpj, semCnpj.sales[0]), /CNPJ/);
+  const ncmRuim = bancoFiscal(); ncmRuim.products[0].ncm = '123';
+  assert.throws(()=>nfce.montarNfce(ncmRuim, ncmRuim.sales[0]), /NCM/);
+  const semCpf = bancoFiscal();
+  verifica(!('cpf_destinatario' in nfce.montarNfce(semCpf, semCpf.sales[0]).nota), 'sem CPF não identifica');
+});
+caso('NFC-e: a função recusa chave errada e emite com a certa (provedor simulado)', async ()=>{
+  process.env.FISCAL_SENHA = 'segredo'; process.env.FOCUS_NFE_TOKEN = 'tok'; process.env.FOCUS_NFE_AMBIENTE = 'homologacao';
+  const d = bancoFiscal();
+  const chamadas = [];
+  definirFetch(async (url, opts)=>{
+    chamadas.push([opts.method||'GET', String(url)]);
+    if(String(url).includes('/rest/v1/')) return resposta(200, [{ data: d }]);
+    if(String(url).includes('/v2/nfce/venda-v123456') && !opts.method) return resposta(404, {});
+    if(String(url).includes('/v2/nfce?ref=') && opts.method === 'POST'){
+      const corpo = JSON.parse(opts.body);
+      igual(corpo.itens.length, 2); igual(corpo.formas_pagamento[0].valor_pagamento, 85);
+      verifica(opts.headers.Authorization.startsWith('Basic '), 'token vai em Basic');
+      return resposta(201, { status:'autorizado', status_sefaz:'100', mensagem_sefaz:'Autorizado o uso da NF-e', chave_nfe:'NFe3526', numero:'42', serie:'1', caminho_danfe:'/arquivos/x.html', qrcode_url:'https://q' });
+    }
+    return resposta(500, {});
+  });
+  const roda = corpo => new Promise(res=>{ const out = { headers:{}, setHeader(k,v){ this.headers[k]=v; }, end(b){ res({ status: this.statusCode, corpo: JSON.parse(b) }); } };
+    nfce({ method:'POST', body: corpo }, out); });
+  const errada = await roda({ acao:'emitir', vendaId:'v123456', chave:'x' });
+  igual(errada.status, 401);
+  const certa = await roda({ acao:'emitir', vendaId:'v123456', chave:'segredo' });
+  igual(certa.status, 200); igual(certa.corpo.nfce.status, 'autorizado'); igual(certa.corpo.nfce.numero, '42');
+  igual(certa.corpo.nfce.danfe, 'https://homologacao.focusnfe.com.br/arquivos/x.html', 'link do cupom completo');
+  igual(certa.corpo.nfce.ambiente, 'homologacao');
+  const semVenda = await roda({ acao:'emitir', vendaId:'nao-existe', chave:'segredo' });
+  igual(semVenda.status, 400); verifica(/não encontrada/.test(semVenda.corpo.erro));
+  const info = await new Promise(res=>{ nfce({ method:'GET' }, { headers:{}, setHeader(){}, end(b){ res(JSON.parse(b)); } }); });
+  igual(info.tokenConfigurado, true); igual(info.chaveConfigurada, true);
+});
+
 /* ============ roda tudo ============ */
 (async ()=>{
   for(const c of filaDeCasos){

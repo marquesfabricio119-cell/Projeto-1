@@ -59,6 +59,8 @@ vm.runInThisContext(fs.readFileSync(path.join(raiz, 'app.js'), 'utf8'), { filena
 /* Os nomes do app.js ficam no escopo léxico global; para os testes
    enxergarem, eles também rodam por runInThisContext. */
 globalThis.assert = assert;
+globalThis.requireNode = require;
+globalThis.raizDoProjeto = raiz;
 globalThis.chamadasFetch = () => chamadasFetch;
 globalThis.limparFetch = () => { chamadasFetch = []; };
 globalThis.definirFetch = fn => { respostaFetch = fn; };

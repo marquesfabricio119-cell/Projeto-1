@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 56 - gerado em 08/09/2026
+Versao 57 - gerado em 14/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,21 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 57
+------------------------
+CUPOM FISCAL (NFC-e). Veja a secao "CUPOM FISCAL" mais abaixo.
+  - Nova funcao no servidor: api/nfce.js (roda no Vercel). Emite, consulta
+    e cancela a NFC-e pela Focus NFe, lendo a venda direto da nuvem.
+  - Configuracoes > Cupom fiscal: CNPJ, NCM padrao, CFOP, CSOSN,
+    PIS/COFINS, serie, chave de emissao (so no aparelho) e botao de teste.
+  - PDV: campo "CPF na nota". Depois da venda: "Emitir cupom fiscal".
+  - Vendas: botao "Emitir NFC-e", "Cupom" (abre o DANFE), "Cancelar
+    NFC-e" e a situacao da nota ao lado do status. Venda com cupom
+    autorizado nao pode ser editada nem cancelada sem cancelar a nota.
+  - Produtos > Mais opcoes: campo NCM por peca (vazio = NCM padrao).
+  - vercel.json: /api nunca fica em cache.
 
 
 O QUE MUDOU NA VERSAO 56
@@ -202,6 +217,55 @@ Tabela: loja_roupas_db (+ loja_roupas_historico, com as versoes)
 Pasta das fotos: fotos
 A chave que o sistema usa e a PUBLICAVEL (sb_publishable_...).
 Nenhuma chave secreta esta neste pacote, e nem deve estar.
+
+
+CUPOM FISCAL (NFC-e)
+--------------------
+O cupom fiscal e a NFC-e, autorizada pela SEFAZ do estado. O site nao
+fala com a SEFAZ (precisa de certificado digital e XML assinado): quem
+faz isso e a Focus NFe (focusnfe.com.br), um provedor que cobra uma
+mensalidade. O caminho e:
+
+    sistema -> /api/nfce (Vercel) -> Focus NFe -> SEFAZ
+
+O QUE VOCE PRECISA PROVIDENCIAR (uma vez so):
+  1. Certificado digital A1 (e-CNPJ) da loja, arquivo .pfx com senha.
+     Compra-se numa certificadora (Serasa, Certisign, Soluti...), com o
+     CNPJ e o documento do responsavel. Vale 1 ano.
+  2. Inscricao Estadual ativa e credenciamento para NFC-e na SEFAZ do
+     seu estado. No portal da SEFAZ gere o CSC (Codigo de Seguranca do
+     Contribuinte) e o ID Token. O contador faz isso em minutos.
+  3. Conta na Focus NFe: cadastre a empresa (CNPJ), envie o certificado
+     .pfx e informe o CSC no painel deles. Pegue o TOKEN da API. Eles tem
+     ambiente de homologacao (testes, sem valor fiscal) e producao.
+  4. No Vercel (Settings > Environment Variables do projeto projeto-1):
+       FOCUS_NFE_TOKEN     = o token da Focus NFe
+       FOCUS_NFE_AMBIENTE  = homologacao (para testar) ou producao
+       FISCAL_SENHA        = ja esta configurada (chave de emissao)
+     Depois de mexer nas variaveis, faca um "Redeploy" no Vercel.
+  5. No sistema, Configuracoes > Cupom fiscal: CNPJ, NCM padrao, chave
+     de emissao (a mesma FISCAL_SENHA, em cada aparelho que emite),
+     marque "Ativar" e clique em "Testar ligacao fiscal". Tudo verde =
+     pode emitir.
+  6. Emita algumas notas em HOMOLOGACAO, confira com o contador (NCM,
+     CSOSN 102, CST PIS/COFINS 49, CFOP 5102 sao os padroes do Simples
+     Nacional para venda no balcao) e so entao troque para producao.
+
+NO DIA A DIA:
+  - PDV: se a cliente quiser CPF na nota, digite antes de finalizar.
+  - Depois da venda, toque em "Emitir cupom fiscal". O cupom (DANFE
+    NFC-e) abre para imprimir ou mandar pelo WhatsApp.
+  - Em Vendas, "Emitir NFC-e" para vendas antigas sem cupom; "Cupom"
+    abre o cupom; "Cancelar NFC-e" cancela na SEFAZ (a maioria dos
+    estados so aceita em ate 30 minutos; depois disso e com o contador).
+  - A nota e montada a partir da venda que esta NA NUVEM: espere o selo
+    "salvo" antes de emitir.
+
+SEGURANCA:
+  - O token da Focus NFe fica so no Vercel, nunca no site.
+  - Ninguem emite sem a chave de emissao (FISCAL_SENHA), e so para vendas
+    que existem na nuvem, com o valor que esta la.
+  - Se a chave vazar, troque a FISCAL_SENHA no Vercel e nos aparelhos.
 
 
 COMO RESTAURAR OS DADOS
