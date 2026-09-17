@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 58 - gerado em 17/09/2026
+Versao 59 - gerado em 18/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,28 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 59
+------------------------
+"ERRO AO BIPAR": O PDV RECUSAVA A PECA QUANDO O SISTEMA MARCAVA ESTOQUE 0.
+O historico da nuvem mostrou o que houve em 17/09 entre 21:26 e 21:39: a
+atendente bipava um "Conjunto Canelado", o sistema dizia "sem estoque" e
+bloqueava. A peca estava na mao dela. Para cobrar, ela cadastrou pecas
+novas no meio da venda e refez vendas (tres apagadas). O numero do sistema
+estava errado porque cada cor e uma peca separada com estoque 1, e uma
+venda anterior baixou a cor errada.
+  - A PECA NA MAO MANDA: bipou, entra no carrinho. Se o sistema marca 0 (ou
+    menos do que esta no carrinho), toca um bipe duplo, avisa na tela e
+    marca o item com "sistema marca 0 em estoque". A venda segue.
+  - O estoque nunca fica negativo, e cada item guarda quanto baixou de
+    verdade: cancelar a venda nao inventa estoque que nao existia.
+  - Procurando pelo nome (ou pela cor) no PDV, as pecas zeradas aparecem,
+    com a etiqueta "0 no sistema". Antes sumiam, e a loja cadastrava de novo.
+  - Editar venda tambem nao bloqueia mais por estoque; so avisa.
+  - Erros de extensoes do navegador ("Script error.") nao viram mais aviso
+    vermelho no caixa.
+Depois de vender uma peca com o aviso, acerte a contagem em Estoque.
 
 
 O QUE MUDOU NA VERSAO 58

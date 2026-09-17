@@ -392,6 +392,34 @@ caso('nuvem recusando (401) não passa por gravado', async ()=>{
   igual(temPendencia, true); igual(falhouAoEnviar, true); igual(ultimoErroNuvem.status, 401);
 });
 
+/* ============ vender com o estoque do sistema zerado ============ */
+caso('peça na mão manda: vende com estoque 0 no sistema, sem negativo e sem inventar estoque no cancelamento', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  SESSION = { id:'u1', user:'admin', name:'Administrador', role:'admin' };
+  DB.products[1].variations[0].stock = 0;                       // a Saia está "zerada" no sistema
+  cart = []; pdvDiscount = 0; pdvCpf = ''; pdvCustomer = ''; pdvPayment = 'PIX';
+  addToCart(DB.products[1], DB.products[1].variations[0]);      // bipou a Saia
+  addToCart(DB.products[0], DB.products[0].variations[1]);      // e uma Blusa M (tem 2)
+  igual(cart.map(i=>i.qty), [1, 1], 'as duas entraram no carrinho');
+  finalizeSale();
+  const v = DB.sales[DB.sales.length-1];
+  igual(v.items.map(i=>i.baixou), [0, 1], 'a Saia não baixou nada, a Blusa baixou 1');
+  igual(DB.products[1].variations[0].stock, 0, 'estoque nunca fica negativo');
+  igual(DB.products[0].variations[1].stock, 1);
+  igual(v.total, 80);
+  cancelSale(v.id);
+  igual(DB.products[1].variations[0].stock, 0, 'cancelar não inventa uma Saia que o sistema não tinha');
+  igual(DB.products[0].variations[1].stock, 2, 'a Blusa volta');
+});
+caso('junção de aparelhos respeita o que cada venda baixou de verdade', ()=>{
+  const A = bancoDeTeste(); A.products[1].variations[0].stock = 0;
+  A.sales.push({ id:'vA', origin:'pdv', status:'concluida', canceled:false, total:50, items:[{ productId:'p2', size:'Único', color:'Padrão', qty:1, price:50, baixou:0 }] });
+  const B = bancoDeTeste(); B.products[1].variations[0].stock = 0;
+  igual(juntarBancos(B, A).products[1].variations[0].stock, 0);
+  const C = bancoDeTeste();                                       // C ainda via 1 em estoque
+  igual(juntarBancos(C, A).products[1].variations[0].stock, 1, 'a venda que não baixou nada não tira estoque de ninguém');
+});
+
 /* ============ leitor de código de barras ============ */
 caso('bipe: código exato, com Caps Lock, e código no fim de um campo sujo', ()=>{
   DB = bancoDeTeste(); DB.products[0].variations[0].barcode = 'EC000007'; migrateDB();

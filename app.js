@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "58";
+const APP_VERSION = "59";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -448,7 +448,7 @@ function aplicarPedidosDaLoja(){
       (s.items||[]).forEach(i=>{
         const p = DB.products.find(x=>x.id===i.productId);
         const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-        if(v) v.stock = Math.max(0, Number(v.stock||0) - Number(i.qty||0));
+        if(v){ const tem = Math.max(0, Number(v.stock)||0); i.baixou = Math.min(Number(i.qty||0), tem); v.stock = tem - i.baixou; }
         /* Congela o custo da peça no pedido, como o PDV faz, para o lucro
            desta venda não mudar quando o custo da peça mudar. */
         if(i.cost === undefined && p) i.cost = Number(p.cost)||0;
@@ -1032,7 +1032,7 @@ function efeitoDasVendas(vendas){
     if(s.origin === 'loja' && !s.estoqueBaixado) return;   // o pedido do site só baixa quando o sistema o aplica
     (s.items||[]).forEach(i=>{
       const k = String(i.productId) + '|' + (i.size||'') + '|' + (i.color||'');
-      m.set(k, (m.get(k)||0) + (Number(i.qty)||0));
+      m.set(k, (m.get(k)||0) + (i.baixou === undefined ? (Number(i.qty)||0) : (Number(i.baixou)||0)));
     });
   });
   return m;
@@ -3213,7 +3213,7 @@ function somDoBipe(deuCerto){
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if(!Ctx) return;
     contextoDeSom = contextoDeSom || new Ctx();
-    if(contextoDeSom.state === 'suspended') contextoDeSom.resume();
+    if(contextoDeSom.state === 'suspended'){ const r = contextoDeSom.resume(); if(r && r.catch) r.catch(()=>{}); }
     const tocar = (freq, inicio, dur)=>{
       const osc = contextoDeSom.createOscillator(), ganho = contextoDeSom.createGain();
       osc.type = 'square'; osc.frequency.value = freq;
@@ -3223,7 +3223,8 @@ function somDoBipe(deuCerto){
       osc.connect(ganho); ganho.connect(contextoDeSom.destination);
       osc.start(contextoDeSom.currentTime + inicio); osc.stop(contextoDeSom.currentTime + inicio + dur + 0.02);
     };
-    if(deuCerto) tocar(1320, 0, 0.09);
+    if(deuCerto === 'atencao'){ tocar(1320, 0, 0.07); tocar(990, 0.10, 0.12); }   // entrou, mas olhe a tela
+    else if(deuCerto) tocar(1320, 0, 0.09);
     else { tocar(220, 0, 0.16); tocar(180, 0.18, 0.22); }
   }catch(e){ /* sem som não é motivo para parar a venda */ }
 }
@@ -4048,11 +4049,18 @@ function renderPDV(el){
   renderPDVResults();
   renderCartItems();
 }
+/* Sem busca, a vitrine mostra o que tem estoque. PROCURANDO, mostra tudo —
+   inclusive a peça que o sistema acha que acabou. A atendente procurava a
+   peça que estava na mão dela, não achava (o sistema marcava 0) e acabava
+   cadastrando a peça de novo no meio da venda. */
 function produtosDoPDV(){
   const f = pdvSearch.trim().toLowerCase();
-  return DB.products.filter(p=> p.variations.some(v=>v.stock>0) && (!f || p.name.toLowerCase().includes(f)
-    || (p.sku||'').toLowerCase().includes(f) || (p.category||'').toLowerCase().includes(f)
-    || p.variations.some(v=>(v.barcode||'').toLowerCase() === f)));
+  const lista = DB.products.filter(p=> f
+    ? (p.name.toLowerCase().includes(f) || (p.sku||'').toLowerCase().includes(f) || (p.category||'').toLowerCase().includes(f)
+       || p.variations.some(v=>(v.barcode||'').toLowerCase() === f || (v.color||'').toLowerCase().includes(f)))
+    : p.variations.some(v=>v.stock>0));
+  const tem = p => p.variations.some(v=>v.stock>0) ? 0 : 1;
+  return lista.sort((a,b)=>tem(a) - tem(b));
 }
 function renderPDVResults(){
   const wrap = document.getElementById('pdvResults');
@@ -4061,13 +4069,15 @@ function renderPDVResults(){
   const mostra = t => (!t || t==='Único' || t==='Padrão') ? '' : t;
   wrap.innerHTML = list.map(p=>{
     const comEstoque = p.variations.filter(v=>v.stock>0);
-    const v0 = comEstoque[0] || {};
-    const detalhe = comEstoque.length > 1
-      ? `${comEstoque.length} tamanhos/cores`
+    const zerada = !comEstoque.length;
+    const v0 = comEstoque[0] || p.variations[0] || {};
+    const detalhe = (zerada ? p.variations.length : comEstoque.length) > 1
+      ? `${zerada ? p.variations.length : comEstoque.length} tamanhos/cores`
       : [mostra(v0.size), mostra(v0.color)].filter(Boolean).join(' · ');
     const foto = fotoDaPeca(p);
     return `
-    <div class="pdv-product" onclick="quickAdd('${p.id}')">
+    <div class="pdv-product${zerada ? ' zerada' : ''}" onclick="quickAdd('${p.id}')">
+      ${zerada ? '<span class="tag-zerada">0 no sistema</span>' : ''}
       ${foto ? `<img src="${escapeHtml(foto)}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : `<div class="sem-foto">👗</div>`}
       <div class="pname">${escapeHtml(p.name)}</div>
       ${detalhe ? `<div class="pmeta">${escapeHtml(detalhe)}</div>` : ''}
@@ -4082,10 +4092,12 @@ function renderPDVResults(){
 function quickAdd(pid){
   const p = DB.products.find(x=>x.id===pid);
   if(!p) return;
+  if(p.variations.length === 1){ addToCart(p, p.variations[0]); return; }
   const disponiveis = p.variations.filter(v=>v.stock>0);
-  if(!disponiveis.length){ toast('Sem estoque','error'); return; }
-  if(disponiveis.length === 1){ addToCart(p, disponiveis[0]); return; }
-  escolherVariacao(p, disponiveis, v=>addToCart(p, v));
+  if(disponiveis.length === 1 && !pdvSearch.trim()){ addToCart(p, disponiveis[0]); return; }
+  /* Na escolha entram todas as combinações, as zeradas por último. */
+  const todas = [...p.variations].sort((a,b)=>(a.stock>0?0:1) - (b.stock>0?0:1));
+  escolherVariacao(p, todas, v=>addToCart(p, v));
 }
 function escolherVariacao(p, variacoes, aoEscolher){
   const overlay = document.createElement('div');
@@ -4096,7 +4108,7 @@ function escolherVariacao(p, variacoes, aoEscolher){
     <div class="escolha-variacao">
       ${variacoes.map((v,i)=>`<button type="button" class="btn" data-var="${i}">
         <strong>${escapeHtml(v.size)}${v.color && v.color!=='Padrão' ? ' · '+escapeHtml(v.color) : ''}</strong>
-        <span class="text-muted">${v.stock} em estoque</span></button>`).join('')}
+        <span class="${v.stock>0 ? 'text-muted' : 'text-danger'}">${v.stock>0 ? v.stock + ' em estoque' : '0 no sistema'}</span></button>`).join('')}
     </div>
     <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button></div>
   </div>`;
@@ -4109,16 +4121,29 @@ function escolherVariacao(p, variacoes, aoEscolher){
     if(v) aoEscolher(v);
   }));
 }
+/* A PEÇA NA MÃO MANDA.
+   O PDV recusava a peça quando o estoque do sistema marcava zero. Só que
+   o número do sistema erra (cor trocada numa venda anterior, contagem
+   errada no cadastro) e a peça está ali, na mão da atendente, com a
+   cliente esperando. No dia 17/09 isso fez a loja cadastrar peças novas e
+   refazer vendas no meio do atendimento só para conseguir cobrar. Agora a
+   peça entra no carrinho, o sistema AVISA que o estoque dele não bate, e
+   a venda segue. O estoque nunca fica negativo. */
+function estoqueNoSistema(item){
+  const p = DB.products.find(x=>x.id===item.productId);
+  const v = p && p.variations.find(v=>v.size===item.size && v.color===item.color);
+  return v ? Math.max(0, Number(v.stock)||0) : 0;
+}
 function addToCart(product, variation){
-  if(variation.stock<=0){ somDoBipe(false); toast(product.name + ' está sem estoque no sistema. Ajuste em Estoque se a peça existe.','error'); return; }
+  const noSistema = Math.max(0, Number(variation.stock)||0);
   const existing = cart.find(i=>i.productId===product.id && i.size===variation.size && i.color===variation.color);
-  if(existing){
-    if(existing.qty>=variation.stock){ somDoBipe(false); toast('Só há ' + variation.stock + ' de ' + product.name + ' no estoque','error'); return; }
-    existing.qty++;
-  } else {
-    cart.push({ productId:product.id, name:product.name, size:variation.size, color:variation.color, price:product.price, qty:1, maxStock:variation.stock });
-  }
-  somDoBipe(true);
+  if(existing) existing.qty++;
+  else cart.push({ productId:product.id, name:product.name, size:variation.size, color:variation.color, price:product.price, qty:1, maxStock:noSistema });
+  const noCarrinho = existing ? existing.qty : 1;
+  if(noCarrinho > noSistema){
+    somDoBipe('atencao');
+    toast(product.name + ' ' + variation.size + '/' + variation.color + ': o sistema marca ' + noSistema + ' em estoque. Entrou no carrinho mesmo assim — depois confira em Estoque.','warn');
+  } else somDoBipe(true);
   renderCartItems();
 }
 function cartSubtotal(){ return cart.reduce((a,i)=>a+i.price*i.qty,0); }
@@ -4127,7 +4152,8 @@ function renderCartItems(){
   if(!wrap) return;
   wrap.innerHTML = cart.length ? cart.map((i,idx)=>`
     <div class="cart-item">
-      <div><div class="ci-name">${escapeHtml(i.name)}</div><div class="ci-meta">${escapeHtml(i.size)}/${escapeHtml(i.color)} × ${i.qty} = ${money(i.price*i.qty)}</div></div>
+      <div><div class="ci-name">${escapeHtml(i.name)}</div><div class="ci-meta">${escapeHtml(i.size)}/${escapeHtml(i.color)} × ${i.qty} = ${money(i.price*i.qty)}</div>
+        ${i.qty > estoqueNoSistema(i) ? `<div class="ci-aviso">⚠ sistema marca ${estoqueNoSistema(i)} em estoque</div>` : ''}</div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-icon btn-sm" onclick="changeQty(${idx},-1)">-</button>
         <button class="btn btn-icon btn-sm" onclick="changeQty(${idx},1)">+</button>
@@ -4146,12 +4172,14 @@ function changeQty(idx,delta){
   const i = cart[idx];
   const newQty = i.qty+delta;
   if(newQty<=0){ cart.splice(idx,1); }
-  else if(newQty>i.maxStock){ toast('Estoque insuficiente','error'); return; }
-  else i.qty = newQty;
+  else {
+    i.qty = newQty;
+    if(delta > 0 && newQty > estoqueNoSistema(i)) toast('O sistema marca ' + estoqueNoSistema(i) + ' de ' + i.name + ' em estoque. A quantidade foi aceita mesmo assim.','warn');
+  }
   renderCartItems();
 }
 function removeFromCart(idx){ cart.splice(idx,1); renderCartItems(); }
-function clearCart(){ cart=[]; pdvDiscount=0; renderPDV(document.getElementById('view')); }
+function clearCart(){ cart=[]; pdvDiscount=0; redesenhar(renderPDV); }
 
 function finalizeSale(){
   if(!cart.length){ toast('Carrinho vazio','error'); return; }
@@ -4168,10 +4196,9 @@ function finalizeSale(){
     const p = DB.products.find(x=>x.id===i.productId);
     const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
     if(!v) semEstoque.push(i.name + ' (peça não está mais no cadastro)');
-    else if(v.stock < i.qty) semEstoque.push(`${i.name} ${i.size}/${i.color} (tem ${v.stock}, no carrinho ${i.qty})`);
   });
   if(semEstoque.length){
-    alert('Não dá para fechar esta venda:\n\n· ' + semEstoque.join('\n· ') + '\n\nAjuste o carrinho ou o estoque.');
+    alert('Não dá para fechar esta venda:\n\n· ' + semEstoque.join('\n· ') + '\n\nTire a peça do carrinho e bipe de novo.');
     return;
   }
   // Vender é o que não pode parar. Se o caixa não foi aberto, abre sozinho
@@ -4194,12 +4221,11 @@ function finalizeSale(){
     cpfNota: (pdvCpf||'').replace(/\D/g,'') || undefined,
     seller: SESSION.name, total, status:'concluida', origin:'pdv', canceled:false
   };
-  // baixa estoque
-  cart.forEach(i=>{
-    const p = DB.products.find(x=>x.id===i.productId);
-    const v = p.variations.find(v=>v.size===i.size && v.color===i.color);
-    if(v) v.stock = Math.max(0, v.stock - i.qty);
-  });
+  /* Baixa o estoque, e cada item guarda quanto baixou DE VERDADE. Se o
+     sistema marcava 0 e a peça foi vendida, baixou 0 — e é isso que volta
+     se a venda for cancelada, para o cancelamento não inventar estoque. */
+  mexerNoEstoqueDaVenda(sale.items, -1);
+  sale.items.forEach(i=>{ const p = DB.products.find(x=>x.id===i.productId); if(p) carimbar(p); });
   DB.sales.push(sale);
   /* A venda guarda o número do lançamento financeiro dela. Sem isso, mexer
      na venda depois deixava o Financeiro com o valor antigo, e os dois
@@ -4214,16 +4240,12 @@ function finalizeSale(){
   if(!exigirGravacao('esta venda')){
     DB.sales.pop();
     DB.finance.entries.pop();
-    cart.forEach(i=>{
-      const p = DB.products.find(x=>x.id===i.productId);
-      const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-      if(v) v.stock += i.qty;   // devolve o estoque: a venda não aconteceu
-    });
+    mexerNoEstoqueDaVenda(sale.items, +1);   // devolve o estoque: a venda não aconteceu
     toast('A venda NÃO foi salva. O carrinho continua aqui para você refazer.','error');
     return;
   }
   cart=[]; pdvDiscount=0; pdvCustomer=''; pdvCpf='';
-  renderPDV(document.getElementById('view'));
+  redesenhar(renderPDV);
   mostrarOfertaDeRecibo(sale);
   toast('Venda finalizada!');
 }
@@ -4491,7 +4513,16 @@ function mexerNoEstoqueDaVenda(itens, sinal){
   (itens||[]).forEach(i=>{
     const p = DB.products.find(x=>x.id===i.productId);
     const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-    if(v) v.stock = Math.max(0, v.stock + sinal * Number(i.qty||0));
+    if(!v) return;
+    const qtd = Number(i.qty||0);
+    const tem = Math.max(0, Number(v.stock)||0);
+    if(sinal > 0){
+      /* devolve o que saiu de verdade (vendas antigas não guardavam: vale a quantidade) */
+      v.stock = tem + (i.baixou === undefined ? qtd : Math.max(0, Number(i.baixou)||0));
+    } else {
+      i.baixou = Math.min(qtd, tem);
+      v.stock = tem - i.baixou;
+    }
   });
 }
 
@@ -4634,15 +4665,11 @@ function openSaleModal(id){
     itens.forEach(i=>{
       const p = DB.products.find(x=>x.id===i.productId);
       const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-      if(v && v.stock < i.qty) faltou.push(`${i.name} ${i.size}/${i.color} (tem ${v.stock})`);
+      if(v && v.stock < i.qty) faltou.push(`${i.name} ${i.size}/${i.color} (sistema marca ${v.stock})`);
     });
-    if(faltou.length){
-      mexerNoEstoqueDaVenda(s.items, -1);          // desfaz a devolução
-      alert('Não há estoque para essa quantidade:\n\n· ' + faltou.join('\n· ') +
-            '\n\nAjuste o estoque em Estoque, ou reduza a quantidade aqui.');
-      return;
-    }
+    /* Não bloqueia: a venda já aconteceu no balcão. Só avisa. */
     mexerNoEstoqueDaVenda(itens, -1);
+    if(faltou.length) toast('Estoque do sistema não cobre: ' + faltou.join('; ') + '. A venda foi salva; confira em Estoque.','warn');
 
     const data = overlay.querySelector('#v_data').value;
     s.items = itens;
@@ -5683,7 +5710,7 @@ document.addEventListener('keydown', e=>{
       }
     }
     scanBuffer='';
-  } else if(e.key.length===1){
+  } else if(e.key && e.key.length===1){
     scanBuffer += e.key;
   }
 });
@@ -5698,7 +5725,11 @@ document.addEventListener('keydown', e=>{
 window.addEventListener('online', ()=>enviarFotosPendentes());
 
 window.addEventListener('error', e=>{
-  if(e && e.message) toast('Erro: '+e.message, 'error');
+  /* "Script error." e avisos do ResizeObserver vêm de extensões e do
+     próprio navegador, não do sistema: mostrá-los só assustava o caixa. */
+  if(!e || !e.message || /^Script error\.?$/i.test(e.message) || /ResizeObserver/i.test(e.message)) return;
+  console.error(e.error || e.message);
+  toast('Erro: '+e.message, 'error');
 });
 
 document.addEventListener('DOMContentLoaded', ()=>{

@@ -323,6 +323,10 @@ table td .btn{margin:1px 0}
 }
 .pdv-product:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:var(--shadow)}
 .pdv-product img{width:100%;aspect-ratio:1/1;height:auto;object-fit:cover;border-radius:10px;background:var(--surface-3)}
+.pdv-product{position:relative}
+.pdv-product.zerada{opacity:.72}
+.pdv-product .tag-zerada{position:absolute;top:16px;left:16px;z-index:1;background:var(--warning-bg);color:var(--warning);border:1px solid #F3DDB0;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px}
+.cart-item .ci-aviso{font-size:11px;font-weight:600;color:var(--warning);margin-top:2px}
 .pdv-product .pname{font-size:13px;font-weight:600;margin-top:9px;line-height:1.3}
 .pdv-product .pmeta{font-size:11.5px;color:var(--muted);margin-top:2px}
 .pdv-product .pprice{font-family:var(--font-title);font-size:15px;font-weight:800;color:var(--text);margin-top:5px;letter-spacing:-.02em}
