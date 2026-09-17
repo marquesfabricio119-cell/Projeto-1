@@ -420,6 +420,25 @@ caso('junção de aparelhos respeita o que cada venda baixou de verdade', ()=>{
   igual(juntarBancos(C, A).products[1].variations[0].stock, 1, 'a venda que não baixou nada não tira estoque de ninguém');
 });
 
+caso('preço mudado no carrinho vale só na venda, e a venda guarda o do cadastro', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  SESSION = { id:'u1', user:'admin', name:'Administrador', role:'admin' };
+  cart = []; pdvDiscount = 0; pdvCpf = ''; pdvCustomer = ''; pdvPayment = 'Dinheiro';
+  addToCart(DB.products[0], DB.products[0].variations[0]);      // Blusa, R$ 30 no cadastro
+  addToCart(DB.products[1], DB.products[1].variations[0]);      // Saia, R$ 50
+  igual(precoMudou(cart[0]), false);
+  cart[0].price = 25;                                           // o que o botão do carrinho faz
+  igual(precoMudou(cart[0]), true);
+  igual(cartSubtotal(), 75);
+  finalizeSale();
+  const v = DB.sales[DB.sales.length-1];
+  igual(v.total, 75);
+  igual(v.items[0].price, 25); igual(v.items[0].precoCadastro, 30, 'a venda lembra o preço do cadastro');
+  verifica(!('precoCadastro' in v.items[1]), 'peça sem mudança não carrega o campo');
+  igual(DB.products[0].price, 30, 'o cadastro não muda');
+  igual(DB.finance.entries[DB.finance.entries.length-1].amount, 75, 'o Financeiro recebe o valor cobrado');
+});
+
 /* ============ leitor de código de barras ============ */
 caso('bipe: código exato, com Caps Lock, e código no fim de um campo sujo', ()=>{
   DB = bancoDeTeste(); DB.products[0].variations[0].barcode = 'EC000007'; migrateDB();

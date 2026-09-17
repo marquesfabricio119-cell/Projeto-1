@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 59 - gerado em 18/09/2026
+Versao 60 - gerado em 18/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,15 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 60
+------------------------
+PRECO NA HORA DA VENDA. Cada peca no carrinho do PDV tem um botao com o
+preco ("R$ 120,00 cada"). Tocou, digita o preco cobrado e aplica. Vale so
+para aquela venda: o cadastro nao muda, e a venda guarda os dois valores
+(cobrado e de cadastro). Recibo, Financeiro, Balanco e cupom fiscal usam o
+valor cobrado. O campo Desconto continua existindo para desconto no total.
 
 
 O QUE MUDOU NA VERSAO 59

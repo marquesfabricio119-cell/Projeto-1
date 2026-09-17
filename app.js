@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "59";
+const APP_VERSION = "60";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -4138,7 +4138,7 @@ function addToCart(product, variation){
   const noSistema = Math.max(0, Number(variation.stock)||0);
   const existing = cart.find(i=>i.productId===product.id && i.size===variation.size && i.color===variation.color);
   if(existing) existing.qty++;
-  else cart.push({ productId:product.id, name:product.name, size:variation.size, color:variation.color, price:product.price, qty:1, maxStock:noSistema });
+  else cart.push({ productId:product.id, name:product.name, size:variation.size, color:variation.color, price:Number(product.price)||0, precoCadastro:Number(product.price)||0, qty:1, maxStock:noSistema });
   const noCarrinho = existing ? existing.qty : 1;
   if(noCarrinho > noSistema){
     somDoBipe('atencao');
@@ -4153,6 +4153,8 @@ function renderCartItems(){
   wrap.innerHTML = cart.length ? cart.map((i,idx)=>`
     <div class="cart-item">
       <div><div class="ci-name">${escapeHtml(i.name)}</div><div class="ci-meta">${escapeHtml(i.size)}/${escapeHtml(i.color)} × ${i.qty} = ${money(i.price*i.qty)}</div>
+        <button type="button" class="ci-preco${precoMudou(i) ? ' mudou' : ''}" onclick="editarPrecoNoCarrinho(${idx})" title="Mudar o preço desta peça só nesta venda">
+          ${money(i.price)} cada${precoMudou(i) ? ` <s>${money(i.precoCadastro)}</s>` : ''} ✎</button>
         ${i.qty > estoqueNoSistema(i) ? `<div class="ci-aviso">⚠ sistema marca ${estoqueNoSistema(i)} em estoque</div>` : ''}</div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-icon btn-sm" onclick="changeQty(${idx},-1)">-</button>
@@ -4167,6 +4169,49 @@ function renderCartItems(){
   if(linhas[1]) linhas[1].textContent = '-' + money(pdvDiscount);
   const total = document.querySelector('.cart-totals .total span:last-child');
   if(total) total.textContent = money(Math.max(0,cartSubtotal()-pdvDiscount));
+}
+/* PREÇO NA HORA DA VENDA.
+   A loja cobra, às vezes, um preço diferente do cadastro (promoção do dia,
+   peça com defeito, combinado com a cliente). Sem um lugar para isso, a
+   atendente usava o campo Desconto para "chegar" no valor — e errava a
+   conta: no dia 17/09 a mesma venda foi refeita a R$ 20, R$ 120 e R$ 100.
+   Aqui o preço da peça muda SÓ NESTA VENDA. O cadastro fica como está, e a
+   venda guarda os dois valores. */
+function precoMudou(i){ return i.precoCadastro !== undefined && Math.abs(Number(i.price) - Number(i.precoCadastro)) > 0.004; }
+function editarPrecoNoCarrinho(idx){
+  const i = cart[idx];
+  if(!i) return;
+  const cadastro = i.precoCadastro !== undefined ? Number(i.precoCadastro) : Number(i.price);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:400px">
+    <h2>Preço nesta venda</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">${escapeHtml(i.name)} ${escapeHtml(i.size)}/${escapeHtml(i.color)} — no cadastro: <strong>${money(cadastro)}</strong>. Mudar aqui vale só para esta venda.</p>
+    <div class="field"><label>Preço de cada peça (R$)</label>
+      <input type="number" id="pc_valor" step="0.01" min="0" inputmode="decimal" value="${Number(i.price)||0}"></div>
+    <div class="modal-actions">
+      ${precoMudou(i) ? '<button class="btn" id="pc_voltar" style="margin-right:auto">Voltar ao do cadastro</button>' : ''}
+      <button class="btn" id="pc_cancelar">Cancelar</button>
+      <button class="btn btn-accent" id="pc_aplicar">Aplicar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const campo = overlay.querySelector('#pc_valor');
+  const fechar = ()=>{ overlay.remove(); document.getElementById('pdvSearchInput')?.focus(); };
+  const aplicar = ()=>{
+    const v = Number(String(campo.value).replace(',', '.'));
+    if(!(v >= 0) || campo.value === ''){ toast('Digite um preço válido','error'); return; }
+    if(i.precoCadastro === undefined) i.precoCadastro = cadastro;
+    i.price = Math.round(v * 100) / 100;
+    fechar(); renderCartItems();
+    if(precoMudou(i)) toast('Preço desta venda: ' + money(i.price) + ' (cadastro ' + money(cadastro) + ')');
+  };
+  overlay.querySelector('#pc_aplicar').addEventListener('click', aplicar);
+  overlay.querySelector('#pc_cancelar').addEventListener('click', fechar);
+  overlay.querySelector('#pc_voltar')?.addEventListener('click', ()=>{ i.price = cadastro; fechar(); renderCartItems(); });
+  campo.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); aplicar(); } if(e.key === 'Escape') fechar(); });
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) fechar(); });
+  campo.focus(); campo.select();
 }
 function changeQty(idx,delta){
   const i = cart[idx];
@@ -4207,15 +4252,18 @@ function finalizeSale(){
   if(!DB.cashRegister.open){
     DB.cashRegister = { open:true, openedAt: todayISO(), openingAmount:0, movements:[], closedHistory: DB.cashRegister.closedHistory || [] };
   }
-  const total = Math.max(0, cartSubtotal()-pdvDiscount);
+  /* em centavos exatos: 30 + 29,99 dava 59,989999999999995 no banco */
+  const total = Math.round(Math.max(0, cartSubtotal()-pdvDiscount) * 100) / 100;
   const sale = {
     id: uid(), date: todayISO(),
     items: cart.map(i=>{
       const prod = DB.products.find(x=>x.id===i.productId);
       /* guardamos o custo daqui, congelado: se amanhã o custo da peça mudar,
          o lucro desta venda não pode mudar junto. */
-      return { productId:i.productId, name:i.name, size:i.size, color:i.color,
+      const item = { productId:i.productId, name:i.name, size:i.size, color:i.color,
                price:i.price, qty:i.qty, cost: prod ? Number(prod.cost)||0 : 0 };
+      if(precoMudou(i)) item.precoCadastro = Number(i.precoCadastro);
+      return item;
     }),
     discount: pdvDiscount, payment: pdvPayment, customerId: pdvCustomer || null,
     cpfNota: (pdvCpf||'').replace(/\D/g,'') || undefined,
