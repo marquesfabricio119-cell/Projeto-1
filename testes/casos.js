@@ -392,6 +392,20 @@ caso('nuvem recusando (401) não passa por gravado', async ()=>{
   igual(temPendencia, true); igual(falhouAoEnviar, true); igual(ultimoErroNuvem.status, 401);
 });
 
+/* ============ leitor de código de barras ============ */
+caso('bipe: código exato, com Caps Lock, e código no fim de um campo sujo', ()=>{
+  DB = bancoDeTeste(); DB.products[0].variations[0].barcode = 'EC000007'; migrateDB();
+  igual(findVariationByBarcode('000002').variation.size, 'M');
+  igual(findVariationByBarcode(' 000002 ').variation.size, 'M', 'espaços em volta');
+  igual(findVariationByBarcode('ec000007').variation.size, 'P', 'leitor com Caps Lock trocado');
+  igual(findVariationByBarcode('999999'), null);
+  igual(findVariationByBarcode(''), null);
+  igual(acharCodigoNoFim('999999000003').product.name, 'Saia', 'sobra de um bipe errado + bipe novo');
+  igual(acharCodigoNoFim('999999000002000003').product.name, 'Saia', 'vale o último lido');
+  igual(acharCodigoNoFim('000003'), null, 'código exato não é "no fim"');
+  igual(acharCodigoNoFim('blusa'), null);
+});
+
 /* ============ cupom fiscal (NFC-e) ============ */
 const nfce = requireNode(raizDoProjeto + '/api/nfce.js');
 function bancoFiscal(){

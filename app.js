@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "57";
+const APP_VERSION = "58";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -3178,23 +3178,65 @@ function renderEstoque(el){
   renderStockTable();
 }
 function setEstoqueMode(m){ estoqueMode = (estoqueMode===m) ? null : m; renderEstoque(document.getElementById('view')); }
+/* Compara sem diferenciar maiúsculas e sem espaços em volta: leitor com
+   Caps Lock ligado mandava "ec000007" e a peça "EC000007" não era achada. */
 function findVariationByBarcode(code){
+  const alvo = String(code||'').trim().toLowerCase();
+  if(!alvo) return null;
   for(const p of DB.products){
     for(const v of p.variations){
-      if(v.barcode && v.barcode===code) return {product:p, variation:v};
+      if(v.barcode && String(v.barcode).trim().toLowerCase() === alvo) return {product:p, variation:v};
     }
   }
   return null;
 }
+/* O código que está no FIM do texto. Se sobrou lixo no campo e o leitor
+   digitou por cima, o que ele acabou de ler é o final. Fica o código mais
+   comprido que casar, e só códigos com 4 caracteres ou mais. */
+function acharCodigoNoFim(texto){
+  const t = String(texto||'').trim().toLowerCase();
+  let melhor = null;
+  for(const p of DB.products){
+    for(const v of p.variations){
+      const c = String(v.barcode||'').trim().toLowerCase();
+      if(c.length >= 4 && t.length > c.length && t.endsWith(c) && (!melhor || c.length > melhor.c.length)) melhor = { c, product:p, variation:v };
+    }
+  }
+  return melhor ? { product: melhor.product, variation: melhor.variation } : null;
+}
+/* O bipe que se ouve. Um tom curto e agudo quando a peça entra, um grave
+   quando o código não existe: no balcão ninguém olha para a tela a cada
+   peça, e sem som um bipe perdido só era notado na hora de cobrar. */
+let contextoDeSom = null;
+function somDoBipe(deuCerto){
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    contextoDeSom = contextoDeSom || new Ctx();
+    if(contextoDeSom.state === 'suspended') contextoDeSom.resume();
+    const tocar = (freq, inicio, dur)=>{
+      const osc = contextoDeSom.createOscillator(), ganho = contextoDeSom.createGain();
+      osc.type = 'square'; osc.frequency.value = freq;
+      ganho.gain.setValueAtTime(0.0001, contextoDeSom.currentTime + inicio);
+      ganho.gain.exponentialRampToValueAtTime(0.12, contextoDeSom.currentTime + inicio + 0.01);
+      ganho.gain.exponentialRampToValueAtTime(0.0001, contextoDeSom.currentTime + inicio + dur);
+      osc.connect(ganho); ganho.connect(contextoDeSom.destination);
+      osc.start(contextoDeSom.currentTime + inicio); osc.stop(contextoDeSom.currentTime + inicio + dur + 0.02);
+    };
+    if(deuCerto) tocar(1320, 0, 0.09);
+    else { tocar(220, 0, 0.16); tocar(180, 0.18, 0.22); }
+  }catch(e){ /* sem som não é motivo para parar a venda */ }
+}
 function handleBipe(code){
   const msg = document.getElementById('bipeMsg');
   if(!code) return;
-  const found = findVariationByBarcode(code);
-  if(!found){ if(msg) msg.innerHTML = `<span class="text-danger">Código "${escapeHtml(code)}" não encontrado</span>`; return; }
+  const found = findVariationByBarcode(code) || acharCodigoNoFim(code);
+  if(!found){ somDoBipe(false); if(msg) msg.innerHTML = `<span class="text-danger">Código "${escapeHtml(code)}" não encontrado</span>`; return; }
   const { product, variation } = found;
   if(estoqueMode==='entrada') variation.stock = Number(variation.stock||0)+1;
   else {
     if(Number(variation.stock||0) <= 0){
+      somDoBipe(false);
       if(msg) msg.innerHTML = `<span class="text-danger">${escapeHtml(product.name)} (${escapeHtml(variation.size)}/${escapeHtml(variation.color)}) já está zerada</span>`;
       return;
     }
@@ -3202,6 +3244,7 @@ function handleBipe(code){
   }
   carimbar(product);
   saveDB();
+  somDoBipe(true);
   if(msg) msg.innerHTML = `<span class="text-success">${estoqueMode==='entrada'?'+1':'-1'} — ${escapeHtml(product.name)} (${escapeHtml(variation.size)}/${escapeHtml(variation.color)}) → estoque: ${variation.stock}</span>`;
   renderStockTable();
 }
@@ -3928,30 +3971,67 @@ function renderPDV(el){
     <div id="linkDoPdf"></div>`;
 
   const input = el.querySelector('#pdvSearchInput');
-  input.addEventListener('input', e=>{ pdvSearch=e.target.value; renderPDVResults(); });
+  /* O BIPE NO PDV.
+     O leitor é um teclado muito rápido: digita o código e manda Enter.
+     Três coisas quebravam isso, e as três estão tratadas aqui:
+       1. Um bipe não encontrado deixava o texto no campo, e todos os
+          bipes seguintes grudavam nele ("999999000013000014"): nada mais
+          bipava até alguém apagar o campo à mão. Agora o campo é limpo, e
+          mesmo com sobra de texto o código do FIM do campo é reconhecido.
+       2. Com 188 peças, redesenhar a vitrine a cada tecla travava a
+          leitura em aparelho lento. O desenho espera o leitor terminar.
+       3. Leitor configurado sem Enter (ou com Tab) não fazia nada. Código
+          exato digitado na velocidade de leitor entra sozinho. */
+  let desenhoPendente = null, entradaAutomatica = null, teclas = [];
+  const agendarDesenho = ()=>{ clearTimeout(desenhoPendente); desenhoPendente = setTimeout(renderPDVResults, 90); };
+  const limparCampo = ()=>{ pdvSearch=''; input.value=''; teclas = []; clearTimeout(entradaAutomatica); clearTimeout(desenhoPendente); renderPDVResults(); input.focus(); };
+  const veioDeLeitor = ()=>{
+    /* as últimas 4+ teclas chegaram com menos de 60 ms entre elas */
+    if(teclas.length < 4) return false;
+    const ult = teclas.slice(-6);
+    return (ult[ult.length-1] - ult[0]) / (ult.length-1) < 60;
+  };
+  const tentarBipe = (origem)=>{
+    clearTimeout(entradaAutomatica);
+    const texto = input.value.trim();
+    if(!texto) return false;
+    let found = findVariationByBarcode(texto) || acharCodigoNoFim(texto);
+    if(found){ addToCart(found.product, found.variation); limparCampo(); return true; }
+    if(origem === 'auto') return false;
+    /* Não é código de barras: se a busca por nome deixou UMA peça na tela,
+       Enter é ela. */
+    const lista = produtosDoPDV();
+    if(lista.length === 1){ quickAdd(lista[0].id); limparCampo(); return true; }
+    somDoBipe(false);
+    const pareceCodigo = /\d/.test(texto) && !/\s/.test(texto);
+    if(pareceCodigo || veioDeLeitor()){
+      toast('Código ' + texto.slice(-12) + ' não encontrado. Confira se a etiqueta é de uma peça cadastrada.','error');
+      limparCampo();                      // o próximo bipe começa do zero
+    } else {
+      toast(lista.length ? 'Toque na peça que quer vender' : 'Nenhuma peça com esse nome','error');
+      input.select();                     // o que for digitado agora substitui
+    }
+    return false;
+  };
+  input.addEventListener('input', e=>{
+    pdvSearch = e.target.value;
+    teclas.push(performance.now()); if(teclas.length > 40) teclas = teclas.slice(-20);
+    agendarDesenho();
+    /* Leitor sem Enter no fim: código exato, digitado em velocidade de
+       leitor, entra sozinho depois de um instante parado. */
+    clearTimeout(entradaAutomatica);
+    entradaAutomatica = setTimeout(()=>{ if(veioDeLeitor()) tentarBipe('auto'); }, 280);
+  });
   input.addEventListener('keydown', e=>{
-    if(e.key==='Enter'){
-      e.preventDefault();
-      const code = pdvSearch.trim();
-      if(!code) return;
-      const found = findVariationByBarcode(code);
-      if(found){ addToCart(found.product, found.variation); }
-      else {
-        /* Não é código de barras: se a busca por nome deixou UMA peça na
-           tela, Enter é ela. Antes qualquer Enter apagava o que estava
-           digitado e dizia "código não encontrado" — para quem procurava
-           por nome, parecia que o PDV não achava nada. */
-        const lista = produtosDoPDV();
-        if(lista.length === 1){ quickAdd(lista[0].id); }
-        else { toast(lista.length ? 'Toque na peça que quer vender' : 'Nenhuma peça com esse nome ou código','error'); return; }
-      }
-      pdvSearch=''; input.value=''; renderPDVResults(); input.focus();
+    if(e.key === 'Enter'){ e.preventDefault(); tentarBipe('enter'); }
+    else if(e.key === 'Tab' && input.value.trim() && (findVariationByBarcode(input.value.trim()) || acharCodigoNoFim(input.value.trim()))){
+      e.preventDefault(); tentarBipe('enter');         // leitor configurado com Tab no fim
     }
   });
   el.querySelector('#pdvCamBtn').addEventListener('click', ()=>openScanner(code=>{
     const found = findVariationByBarcode(code);
     if(found) addToCart(found.product, found.variation);
-    else toast('Código não encontrado','error');
+    else { somDoBipe(false); toast('Código ' + code + ' não encontrado','error'); }
     input.focus();
   }));
   input.focus();
@@ -4030,14 +4110,15 @@ function escolherVariacao(p, variacoes, aoEscolher){
   }));
 }
 function addToCart(product, variation){
-  if(variation.stock<=0){ toast('Sem estoque para essa variação','error'); return; }
+  if(variation.stock<=0){ somDoBipe(false); toast(product.name + ' está sem estoque no sistema. Ajuste em Estoque se a peça existe.','error'); return; }
   const existing = cart.find(i=>i.productId===product.id && i.size===variation.size && i.color===variation.color);
   if(existing){
-    if(existing.qty>=variation.stock){ toast('Estoque insuficiente','error'); return; }
+    if(existing.qty>=variation.stock){ somDoBipe(false); toast('Só há ' + variation.stock + ' de ' + product.name + ' no estoque','error'); return; }
     existing.qty++;
   } else {
     cart.push({ productId:product.id, name:product.name, size:variation.size, color:variation.color, price:product.price, qty:1, maxStock:variation.stock });
   }
+  somDoBipe(true);
   renderCartItems();
 }
 function cartSubtotal(){ return cart.reduce((a,i)=>a+i.price*i.qty,0); }
@@ -5583,14 +5664,20 @@ document.addEventListener('keydown', e=>{
   if(inField){ scanBuffer=''; return; }
   if(!SESSION || (currentRoute!=='pdv' && !estoqueMode)) return;
   const now = Date.now();
-  if(now - scanLastTime > 80) scanBuffer = '';
+  /* Leitor Bluetooth no celular é mais lento que o USB: até ~120 ms entre
+     as teclas. Com 80 ms o código chegava picado e nunca era reconhecido. */
+  if(now - scanLastTime > 150) scanBuffer = '';
   scanLastTime = now;
   if(e.key==='Enter'){
     if(scanBuffer.length>=3){
+      /* O foco pode estar num botão (forma de pagamento, "+"): o Enter do
+         leitor não pode clicar nele de novo. */
+      e.preventDefault();
+      if(temFormularioAberto()){ scanBuffer=''; return; }
       if(currentRoute==='pdv'){
-        const found = findVariationByBarcode(scanBuffer);
+        const found = findVariationByBarcode(scanBuffer) || acharCodigoNoFim(scanBuffer);
         if(found) addToCart(found.product, found.variation);
-        else toast('Código não encontrado','error');
+        else { somDoBipe(false); toast('Código ' + scanBuffer.slice(-12) + ' não encontrado','error'); }
       } else if(estoqueMode){
         handleBipe(scanBuffer);
       }

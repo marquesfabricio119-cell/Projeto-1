@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 57 - gerado em 14/09/2026
+Versao 58 - gerado em 17/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,27 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 58
+------------------------
+O BIPE PAROU NO PDV. Defeito da versao 49: quando UM bipe nao era
+encontrado (etiqueta antiga, leitura errada), o texto ficava no campo de
+busca e todos os bipes seguintes grudavam nele ("999999000013000014").
+Dali em diante nada bipava ate alguem apagar o campo a mao.
+  - Bipe nao encontrado limpa o campo, diz qual codigo foi lido e toca um
+    som grave. O proximo bipe comeca do zero.
+  - Mesmo com sobra de texto no campo, o codigo do FIM e reconhecido.
+  - Som: bipe agudo quando a peca entra, grave quando o codigo nao existe
+    ou a peca esta sem estoque (PDV, Estoque por bipe e camera).
+  - Leitor sem Enter no fim (ou com Tab) tambem funciona: codigo exato
+    digitado na velocidade de leitor entra sozinho.
+  - Leitor Bluetooth, mais lento, passa a ser reconhecido quando o foco
+    esta fora do campo (tolerancia de 80 para 150 ms entre teclas), e o
+    Enter do leitor nao clica mais no botao que estiver em foco.
+  - Caps Lock ligado nao atrapalha mais codigos antigos com letras.
+  - Com 188 pecas, a vitrine do PDV era redesenhada a cada tecla do
+    leitor; agora espera o leitor terminar.
 
 
 O QUE MUDOU NA VERSAO 57
