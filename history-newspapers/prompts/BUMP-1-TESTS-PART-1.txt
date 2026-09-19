@@ -1,0 +1,314 @@
+BATCH TASK — generate ALL 11 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom worksheet that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules, rounded boxes with a dark outline. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white. ONE small full-color painted illustration per page (museum-painting style), never a photo.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines for students to write on. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Tests & Quizzes · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT A — full-width deep wine red header bar with the unit line in cream serif capitals; a small round painted illustration (about 1.2 inches) sitting at the right end of the header; the name/date/score line directly under the header; each PART introduced by an antique gold bar with dark text; multiple-choice options in two columns (A and B on the left, C and D on the right).
+LAYOUT B — header inside a cream cartouche framed by a double antique gold rule; a small square painted illustration (about 1.2 inches) at the left end of the cartouche; the name/date/score line under the cartouche; each PART introduced by a thin wine red rule with small centered capitals; multiple-choice options stacked in one single column inside a light rounded box.
+LAYOUT C — full-width deep wine red header bar, and directly beneath it a full-width painted illustration strip about 1 inch tall; the name/date/score line under the strip; each PART introduced by a dark rounded tab on the left; multiple-choice options in two columns.
+
+=== PAGES ===
+
+PAGE 1 — file name: test-01-civ.jpg — LAYOUT A
+Illustration: a Sumerian clay tablet covered with wedge-shaped marks lying next to a reed stylus on a stone table, warm oil-painting style. No writing that reads as modern letters.
+Header: "UNIT TEST · FIRST CIVILIZATIONS"
+Line under the header, three fields side by side: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART bar: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "What change began with the Farming Revolution?"
+A. "People built the first pyramids"  B. "People began to grow their own food"  C. "People learned to write"  D. "People sailed across the ocean"
+2. "Where was the world's first writing invented?"
+A. "Egypt"  B. "China"  C. "Sumer"  D. "Greece"
+3. "What is the name of Sumer's wedge-shaped writing?"
+A. "Cuneiform"  B. "Hieroglyphs"  C. "Oracle bones"  D. "Latin"
+4. "How many laws are in Hammurabi's Code?"
+A. "12"  B. "100"  C. "282"  D. "1,000"
+5. "The Great Pyramid was built as a tomb for which pharaoh?"
+A. "Tutankhamun"  B. "Ramses II"  C. "Cleopatra"  D. "Khufu"
+6. "Who became China's first emperor in 221 BCE?"
+A. "Confucius"  B. "Qin Shi Huang"  C. "Kublai Khan"  D. "Zheng He"
+7. "What guards the First Emperor's tomb?"
+A. "An army of clay soldiers"  B. "A wall of gold"  C. "A stone sphinx"  D. "A ring of towers"
+8. "Who opened the tomb of Tutankhamun in 1922?"
+A. "Napoleon Bonaparte"  B. "Howard Carter"  C. "Heinrich Schliemann"  D. "Marco Polo"
+PART bar: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Cuneiform"   "____ 2. Hammurabi"   "____ 3. Khufu"   "____ 4. Howard Carter"
+Right column: "A. Pharaoh buried in the Great Pyramid"   "B. Wedge-shaped writing from Sumer"   "C. Archaeologist who opened Tut's tomb"   "D. King who had Babylon's laws carved"
+PART bar: "PART 3 · SHORT ANSWER (8 points)"
+"1. Explain two ways farming changed how people lived." then 3 empty ruled lines.
+"2. Why did it matter that Hammurabi's laws were written where everyone could see them?" then 3 empty ruled lines.
+
+PAGE 2 — file name: test-02-gr.jpg — LAYOUT B
+Illustration: a Greek amphora painted with black figures standing beside a small olive branch on a stone shelf, museum oil-painting style.
+Header: "UNIT TEST · GREECE & ROME"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART rule: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "What does the word democracy mean?"
+A. "Rule by the people"  B. "Rule by one king"  C. "Rule by the army"  D. "Rule by priests"
+2. "Which city is called the birthplace of democracy?"
+A. "Sparta"  B. "Rome"  C. "Athens"  D. "Troy"
+3. "At Marathon in 490 BCE, Athens defeated the army of"
+A. "Persia"  B. "Rome"  C. "Egypt"  D. "Macedonia"
+4. "Alexander the Great was king of"
+A. "Athens"  B. "Macedonia"  C. "Persia"  D. "Sparta"
+5. "What happened on the Ides of March in 44 BCE?"
+A. "Rome became a republic"  B. "Athens voted for war"  C. "Julius Caesar was killed"  D. "The Colosseum opened"
+6. "Which volcano buried Pompeii in 79 CE?"
+A. "Mount Etna"  B. "Mount Olympus"  C. "Mount Vesuvius"  D. "Mount Athos"
+7. "In the legend, how did Greek soldiers get inside Troy?"
+A. "Hidden in a wooden horse"  B. "Through a secret tunnel"  C. "By climbing the walls"  D. "Dressed as merchants"
+8. "What did crowds watch in the Colosseum?"
+A. "Senate debates"  B. "Gladiator games and shows"  C. "Olympic races"  D. "Plays by Shakespeare"
+PART rule: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Marathon"   "____ 2. Alexander the Great"   "____ 3. Ides of March"   "____ 4. Vesuvius"
+Right column: "A. Volcano that buried Pompeii"   "B. Athenian victory over Persia, 490 BCE"   "C. Day Julius Caesar was killed"   "D. Macedonian king who defeated Persia"
+PART rule: "PART 3 · SHORT ANSWER (8 points)"
+"1. How was Athenian democracy different from rule by a king?" then 3 empty ruled lines.
+"2. Why does Pompeii teach us so much about daily Roman life?" then 3 empty ruled lines.
+
+PAGE 3 — file name: test-03-emp.jpg — LAYOUT C
+Illustration strip: terraced stone walls of a mountain city in the Andes under morning mist, with llamas on a grassy terrace, painted style. No modern buildings, no flags.
+Header: "UNIT TEST · EMPIRES OF ASIA, AFRICA & THE AMERICAS"
+Line under the strip: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART tab: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "Mansa Musa ruled which West African empire?"
+A. "Kush"  B. "Mali"  C. "Egypt"  D. "Aksum"
+2. "Where did Mansa Musa travel in 1324?"
+A. "To Mecca"  B. "To Rome"  C. "To China"  D. "To Spain"
+3. "Who united the Mongol tribes in 1206?"
+A. "Kublai Khan"  B. "Timur"  C. "Genghis Khan"  D. "Attila"
+4. "The Aztecs built Tenochtitlan"
+A. "On an island in a lake"  B. "Deep in a rain forest"  C. "On a desert coast"  D. "Inside a mountain cave"
+5. "Machu Picchu was built high in which mountains?"
+A. "The Alps"  B. "The Andes"  C. "The Himalayas"  D. "The Rockies"
+6. "Zheng He is remembered for"
+A. "Building the Great Wall"  B. "Leading huge fleets overseas"  C. "Inventing paper"  D. "Conquering India"
+7. "Why was the Taj Mahal built?"
+A. "As a tomb for the emperor's wife"  B. "As a fort on the border"  C. "As a market for traders"  D. "As a school for princes"
+8. "Which emperor ordered the Taj Mahal built?"
+A. "Akbar"  B. "Babur"  C. "Suleiman"  D. "Shah Jahan"
+PART tab: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Mansa Musa"   "____ 2. Genghis Khan"   "____ 3. Tenochtitlan"   "____ 4. Zheng He"
+Right column: "A. United the Mongol tribes in 1206"   "B. Chinese admiral of the treasure fleet"   "C. Mali ruler famous for his gold"   "D. Aztec capital built on a lake"
+PART tab: "PART 3 · SHORT ANSWER (8 points)"
+"1. Why did Mansa Musa's journey make Mali famous far beyond Africa?" then 3 empty ruled lines.
+"2. Name one thing the Inca did well as builders, and explain why it mattered." then 3 empty ruled lines.
+
+PAGE 4 — file name: test-04-med.jpg — LAYOUT A
+Illustration: an open illuminated manuscript page with gold leaf and a small painted castle in the margin, resting on a wooden desk, painted style.
+Header: "UNIT TEST · THE MIDDLE AGES"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART bar: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "In 793, Viking raiders attacked a monastery at"
+A. "Lindisfarne"  B. "Paris"  C. "Rome"  D. "Dublin"
+2. "Vikings sailed from which part of Europe?"
+A. "Spain"  B. "Scandinavia"  C. "Italy"  D. "Greece"
+3. "Who was crowned emperor on Christmas Day in 800?"
+A. "William the Conqueror"  B. "Charles Martel"  C. "Charlemagne"  D. "Otto the Great"
+4. "Which king agreed to Magna Carta in 1215?"
+A. "Henry VIII"  B. "Richard the Lionheart"  C. "Louis IX"  D. "King John"
+5. "What was the main idea of Magna Carta?"
+A. "The king must obey the law"  B. "The king owns all land"  C. "Only knights may own swords"  D. "The church chooses the king"
+6. "What was the Black Death?"
+A. "A long war"  B. "A deadly plague"  C. "A great famine"  D. "A winter storm"
+7. "How did the Black Death reach Europe in 1347?"
+A. "Along trade routes and ships"  B. "Through royal armies"  C. "From a poisoned well"  D. "With returning pilgrims only"
+8. "Joan of Arc helped end the siege of which city in 1429?"
+A. "Paris"  B. "Calais"  C. "Orleans"  D. "Rouen"
+PART bar: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Lindisfarne"   "____ 2. Charlemagne"   "____ 3. Magna Carta"   "____ 4. Joan of Arc"
+Right column: "A. Charter that limited a king's power"   "B. Monastery raided by Vikings in 793"   "C. Teenager who led French troops at Orleans"   "D. Crowned emperor on Christmas Day, 800"
+PART bar: "PART 3 · SHORT ANSWER (8 points)"
+"1. Why do people still talk about Magna Carta today?" then 3 empty ruled lines.
+"2. Describe two ways the Black Death changed life in Europe." then 3 empty ruled lines.
+
+PAGE 5 — file name: test-05-ren.jpg — LAYOUT B
+Illustration: an open printed book beside a tray of small metal movable-type letters and an inked roller on a workshop bench, painted style.
+Header: "UNIT TEST · RENAISSANCE & EXPLORATION"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART rule: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "What did Johannes Gutenberg build around 1455?"
+A. "A printing press with movable type"  B. "The first paper mill"  C. "A new kind of telescope"  D. "The first public library"
+2. "What was Gutenberg's most famous printed book?"
+A. "A world atlas"  B. "The Bible"  C. "A law code"  D. "A book of plays"
+3. "Which portrait did Leonardo da Vinci begin around 1503?"
+A. "The Last Supper"  B. "The Night Watch"  C. "The Mona Lisa"  D. "The Birth of Venus"
+4. "Martin Luther's 95 Theses protested against"
+A. "The sale of indulgences"  B. "The use of Latin"  C. "The printing of books"  D. "The building of cathedrals"
+5. "Who began the first voyage around the world?"
+A. "Christopher Columbus"  B. "Vasco da Gama"  C. "Francis Drake"  D. "Ferdinand Magellan"
+6. "What tool did Galileo point at the night sky in 1610?"
+A. "A telescope"  B. "A microscope"  C. "A compass"  D. "A sundial"
+7. "Galileo saw four moons circling which planet?"
+A. "Mars"  B. "Jupiter"  C. "Venus"  D. "Saturn"
+8. "Where did Michelangelo paint his famous ceiling?"
+A. "Notre-Dame in Paris"  B. "The Parthenon in Athens"  C. "The Sistine Chapel in Rome"  D. "Saint Mark's in Venice"
+PART rule: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Gutenberg"   "____ 2. Martin Luther"   "____ 3. Magellan"   "____ 4. Galileo"
+Right column: "A. Monk who wrote the 95 Theses"   "B. Saw four moons circling Jupiter"   "C. Printed Europe's first movable-type Bible"   "D. Began the first voyage around the world"
+PART rule: "PART 3 · SHORT ANSWER (8 points)"
+"1. How did the printing press change the way ideas spread?" then 3 empty ruled lines.
+"2. Why did Galileo's discoveries surprise so many people?" then 3 empty ruled lines.
+
+PAGE 6 — file name: test-06-rev.jpg — LAYOUT C
+Illustration strip: an early steam locomotive with a tall smokestack pulling open wagons past a brick viaduct, small crowd waving from a distance, painted style. No modern signals, no national flags.
+Header: "UNIT TEST · THE AGE OF REVOLUTIONS"
+Line under the strip: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART tab: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "The Declaration of Independence was adopted in"
+A. "1776"  B. "1789"  C. "1804"  D. "1819"
+2. "Who wrote the main draft of the Declaration of Independence?"
+A. "Benjamin Franklin"  B. "Thomas Jefferson"  C. "George Washington"  D. "John Adams"
+3. "What was the Bastille?"
+A. "A royal palace"  B. "A cathedral"  C. "A prison and fortress"  D. "A grain market"
+4. "The storming of the Bastille in 1789 marked the start of"
+A. "The French Revolution"  B. "The Reign of Terror"  C. "The Napoleonic Wars"  D. "The Congress of Vienna"
+5. "What title did Napoleon take in 1804?"
+A. "King of France"  B. "First Consul"  C. "Emperor of the French"  D. "President of the Republic"
+6. "In 1804, Haiti won its freedom from"
+A. "Spain"  B. "Britain"  C. "Portugal"  D. "France"
+7. "Simon Bolivar led independence wars against"
+A. "France"  B. "Spain"  C. "Britain"  D. "Portugal"
+8. "What powered the first railroad locomotives?"
+A. "Horses"  B. "Water wheels"  C. "Steam from burning coal"  D. "Electric motors"
+PART tab: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Bastille"   "____ 2. Thomas Jefferson"   "____ 3. Toussaint Louverture"   "____ 4. Simon Bolivar"
+Right column: "A. Main author of the Declaration of Independence"   "B. Called the Liberator in South America"   "C. Paris prison stormed in 1789"   "D. Leader of the Haitian Revolution"
+PART tab: "PART 3 · SHORT ANSWER (8 points)"
+"1. Why is the Haitian Revolution important in world history?" then 3 empty ruled lines.
+"2. How did steam power change travel and trade?" then 3 empty ruled lines.
+
+PAGE 7 — file name: test-07-ww1.jpg — LAYOUT A
+Illustration: a brass pocket watch, a folded letter and a pair of round spectacles on a worn wooden table, soft lamplight, painted style. No weapons, no uniforms, no flags.
+Header: "UNIT TEST · IMPERIALISM & WORLD WAR I"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART bar: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "What caused the Titanic to sink in 1912?"
+A. "It struck an iceberg"  B. "A storm broke the hull"  C. "A fire in the engines"  D. "It ran aground"
+2. "The Titanic was sailing to which city?"
+A. "London"  B. "New York"  C. "Boston"  D. "Halifax"
+3. "Who was assassinated in Sarajevo in 1914?"
+A. "Czar Nicholas II"  B. "Kaiser Wilhelm II"  C. "Archduke Franz Ferdinand"  D. "King George V"
+4. "The assassination in Sarajevo helped start"
+A. "The Crimean War"  B. "World War I"  C. "The Russian Civil War"  D. "World War II"
+5. "Soldiers on the Western Front fought mainly from"
+A. "Castles"  B. "Ships"  C. "Trenches"  D. "Hilltop forts"
+6. "During the Christmas Truce of 1914, soldiers"
+A. "Signed a peace treaty"  B. "Stopped fighting and met peacefully"  C. "Went home for a week"  D. "Attacked at midnight"
+7. "The Russian Revolution of 1917 ended the rule of"
+A. "The kaiser"  B. "The sultan"  C. "The czar"  D. "The shah"
+8. "When did the Armistice stop the fighting?"
+A. "July 4, 1918"  B. "June 28, 1919"  C. "May 8, 1945"  D. "November 11, 1918"
+PART bar: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Franz Ferdinand"   "____ 2. No man's land"   "____ 3. Christmas Truce"   "____ 4. Armistice"
+Right column: "A. Brief 1914 peace between enemy soldiers"   "B. Archduke killed at Sarajevo in 1914"   "C. Agreement that stopped the fighting in 1918"   "D. Ground between two trench lines"
+PART bar: "PART 3 · SHORT ANSWER (8 points)"
+"1. Describe two hardships soldiers faced in the trenches." then 3 empty ruled lines.
+"2. Why did the Christmas Truce surprise commanders on both sides?" then 3 empty ruled lines.
+
+PAGE 8 — file name: test-08-ww2.jpg — LAYOUT B
+Illustration: a wooden 1940s radio set on a kitchen table with a folded newspaper and a teacup beside it, warm lamplight, painted style. No readable headlines, no flags, no uniforms, no political symbols of any kind.
+Header: "UNIT TEST · THE WORLD AT WAR"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART rule: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "The stock market crash of 1929 helped begin"
+A. "The Great Depression"  B. "The Cold War"  C. "The Gold Rush"  D. "The Industrial Revolution"
+2. "World War II began in Europe when Germany invaded"
+A. "France"  B. "Poland"  C. "Russia"  D. "Britain"
+3. "The Battle of Britain in 1940 was fought mainly"
+A. "In the air"  B. "At sea"  C. "In the desert"  D. "In the mountains"
+4. "Who defended British skies in 1940?"
+A. "The Royal Navy"  B. "The Royal Air Force"  C. "The French Air Force"  D. "The U.S. Army"
+5. "Pearl Harbor was attacked on"
+A. "September 1, 1939"  B. "June 6, 1944"  C. "December 7, 1941"  D. "May 8, 1945"
+6. "The attack on Pearl Harbor brought which country into the war?"
+A. "Canada"  B. "The Soviet Union"  C. "The United States"  D. "Italy"
+7. "Where did the D-Day landings take place in 1944?"
+A. "Sicily"  B. "Normandy"  C. "Dunkirk"  D. "Crete"
+8. "When was Victory in Europe Day celebrated?"
+A. "May 1944"  B. "August 1944"  C. "May 1945"  D. "December 1945"
+PART rule: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Great Depression"   "____ 2. Battle of Britain"   "____ 3. Pearl Harbor"   "____ 4. D-Day"
+Right column: "A. Allied landings in Normandy, 1944"   "B. Hard times after the 1929 crash"   "C. U.S. naval base attacked in 1941"   "D. Air battle over Britain in 1940"
+PART rule: "PART 3 · SHORT ANSWER (8 points)"
+"1. Explain why Pearl Harbor was a turning point for the United States." then 3 empty ruled lines.
+"2. Why was D-Day so important to the Allies?" then 3 empty ruled lines.
+
+PAGE 9 — file name: test-09-mod.jpg — LAYOUT C
+Illustration strip: a small polished metal satellite with four long antennas drifting above the curve of the Earth against a starry sky, painted style. No agency logos, no lettering, no flags.
+Header: "UNIT TEST · THE COLD WAR & THE MODERN WORLD"
+Line under the strip: "Name: __________________________"   "Date: ____________"   "Score: ______ / 20"
+PART tab: "PART 1 · MULTIPLE CHOICE (8 points)" with a small italic line under it: "Circle the best answer."
+1. "In 1947, India won independence from"
+A. "France"  B. "Britain"  C. "Portugal"  D. "The Netherlands"
+2. "Which leader used nonviolent protest in India's independence movement?"
+A. "Mohandas Gandhi"  B. "Nelson Mandela"  C. "Sun Yat-sen"  D. "Ho Chi Minh"
+3. "Sputnik, launched in 1957, was the first"
+A. "Satellite in orbit"  B. "Rocket ever built"  C. "Space station"  D. "Moon landing"
+4. "Which country launched Sputnik?"
+A. "The United States"  B. "The Soviet Union"  C. "Germany"  D. "China"
+5. "Who was the first person to walk on the Moon?"
+A. "Yuri Gagarin"  B. "Buzz Aldrin"  C. "Neil Armstrong"  D. "John Glenn"
+6. "Which mission first landed people on the Moon?"
+A. "Apollo 11"  B. "Apollo 13"  C. "Gemini 4"  D. "Vostok 1"
+7. "In what year did the Berlin Wall fall?"
+A. "1961"  B. "1975"  C. "1989"  D. "1994"
+8. "Nelson Mandela was elected president of"
+A. "Ghana"  B. "Kenya"  C. "Nigeria"  D. "South Africa"
+PART tab: "PART 2 · MATCHING (4 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Gandhi"   "____ 2. Sputnik"   "____ 3. Apollo 11"   "____ 4. Nelson Mandela"
+Right column: "A. First satellite sent into orbit"   "B. Elected South Africa's president in 1994"   "C. Led India's nonviolent independence movement"   "D. Mission that first landed people on the Moon"
+PART tab: "PART 3 · SHORT ANSWER (8 points)"
+"1. Why did the launch of Sputnik both worry and excite the world?" then 3 empty ruled lines.
+"2. What did the fall of the Berlin Wall mean for Germany?" then 3 empty ruled lines.
+
+PAGE 10 — file name: test-10-inv.jpg — LAYOUT A
+This is a SHORTER test. Use the same layout, with more white space between sections.
+Illustration: an early wooden biplane with fabric wings flying low over an empty windswept beach, painted style. No modern aircraft, no lettering on the wings.
+Header: "UNIT TEST · INVENTIONS THAT CHANGED THE WORLD"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 10"
+PART bar: "PART 1 · MULTIPLE CHOICE (5 points)" with a small italic line under it: "Circle the best answer."
+1. "In which country was paper first made?"
+A. "Egypt"  B. "China"  C. "Greece"  D. "India"
+2. "Who is credited with China's papermaking process in 105 CE?"
+A. "Cai Lun"  B. "Confucius"  C. "Zheng He"  D. "Qin Shi Huang"
+3. "In 1796, Edward Jenner created the first"
+A. "Antibiotic"  B. "Microscope"  C. "Vaccine"  D. "X-ray machine"
+4. "Jenner's vaccine protected people against"
+A. "Smallpox"  B. "Polio"  C. "Malaria"  D. "Measles"
+5. "The Wright brothers made the first powered airplane flight in"
+A. "1869"  B. "1903"  C. "1912"  D. "1927"
+PART bar: "PART 2 · MATCHING (2 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Cai Lun"   "____ 2. Edward Jenner"
+Right column: "A. Doctor who made the first vaccine"   "B. Credited with China's papermaking process"
+PART bar: "PART 3 · SHORT ANSWER (3 points)"
+"1. Choose one invention from this unit. Explain how it changed everyday life." then 4 empty ruled lines.
+
+PAGE 11 — file name: test-11-wom.jpg — LAYOUT B
+This is a SHORTER test. Use the same layout, with more white space between sections.
+Illustration: a laboratory glass flask and a rack of test tubes on a dark wooden bench beside an open notebook and a brass lamp, faint blue-green glow in the flask, painted style. No portraits, no lettering in the notebook.
+Header: "UNIT TEST · WOMEN WHO MADE HISTORY"
+Line under the header: "Name: __________________________"   "Date: ____________"   "Score: ______ / 10"
+PART rule: "PART 1 · MULTIPLE CHOICE (5 points)" with a small italic line under it: "Circle the best answer."
+1. "Cleopatra ruled which ancient kingdom?"
+A. "Persia"  B. "Egypt"  C. "Babylon"  D. "Kush"
+2. "Cleopatra began her rule in"
+A. "331 BCE"  B. "51 BCE"  C. "44 CE"  D. "79 CE"
+3. "Marie Curie won Nobel Prizes in which two fields?"
+A. "Physics and chemistry"  B. "Physics and medicine"  C. "Chemistry and literature"  D. "Medicine and peace"
+4. "Marie Curie won her second Nobel Prize in 1911 in"
+A. "Physics"  B. "Chemistry"  C. "Medicine"  D. "Mathematics"
+5. "Which elements did Marie Curie help discover?"
+A. "Oxygen and hydrogen"  B. "Helium and neon"  C. "Polonium and radium"  D. "Uranium and gold"
+PART rule: "PART 2 · MATCHING (2 points)" with a small italic line under it: "Write the letter on the line."
+Left column: "____ 1. Cleopatra"   "____ 2. Marie Curie"
+Right column: "A. First person to win two Nobel Prizes"   "B. Last ruler of ancient Egypt"
+PART rule: "PART 3 · SHORT ANSWER (3 points)"
+"1. Why is Marie Curie still famous today?" then 4 empty ruled lines.
+
+Generate now ALL the pages of this batch, in sequence, in a single round.

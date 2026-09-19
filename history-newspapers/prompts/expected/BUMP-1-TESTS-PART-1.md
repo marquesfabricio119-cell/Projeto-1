@@ -1,0 +1,648 @@
+# Gabarito de revisao — BUMP 1 · Tests & Quizzes · PART 1 (as 11 provas)
+
+Compare cada imagem gerada com a lista abaixo. Todo texto entre aspas deve aparecer na pagina,
+com a grafia exata. Rodape obrigatorio em todas as paginas:
+
+> `World History Newspapers · Classroom Archive`   |   *italico a direita:* `Tests & Quizzes · for classroom use`
+
+## PAGE 1 — `test-01-civ.jpg`
+
+- [ ] `UNIT TEST · FIRST CIVILIZATIONS`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `What change began with the Farming Revolution?`
+- [ ] `People built the first pyramids`
+- [ ] `People began to grow their own food`
+- [ ] `People learned to write`
+- [ ] `People sailed across the ocean`
+- [ ] `Where was the world's first writing invented?`
+- [ ] `Egypt`
+- [ ] `China`
+- [ ] `Sumer`
+- [ ] `Greece`
+- [ ] `What is the name of Sumer's wedge-shaped writing?`
+- [ ] `Cuneiform`
+- [ ] `Hieroglyphs`
+- [ ] `Oracle bones`
+- [ ] `Latin`
+- [ ] `How many laws are in Hammurabi's Code?`
+- [ ] `12`
+- [ ] `100`
+- [ ] `282`
+- [ ] `1,000`
+- [ ] `The Great Pyramid was built as a tomb for which pharaoh?`
+- [ ] `Tutankhamun`
+- [ ] `Ramses II`
+- [ ] `Cleopatra`
+- [ ] `Khufu`
+- [ ] `Who became China's first emperor in 221 BCE?`
+- [ ] `Confucius`
+- [ ] `Qin Shi Huang`
+- [ ] `Kublai Khan`
+- [ ] `Zheng He`
+- [ ] `What guards the First Emperor's tomb?`
+- [ ] `An army of clay soldiers`
+- [ ] `A wall of gold`
+- [ ] `A stone sphinx`
+- [ ] `A ring of towers`
+- [ ] `Who opened the tomb of Tutankhamun in 1922?`
+- [ ] `Napoleon Bonaparte`
+- [ ] `Howard Carter`
+- [ ] `Heinrich Schliemann`
+- [ ] `Marco Polo`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Cuneiform`
+- [ ] `____ 2. Hammurabi`
+- [ ] `____ 3. Khufu`
+- [ ] `____ 4. Howard Carter`
+- [ ] `A. Pharaoh buried in the Great Pyramid`
+- [ ] `B. Wedge-shaped writing from Sumer`
+- [ ] `C. Archaeologist who opened Tut's tomb`
+- [ ] `D. King who had Babylon's laws carved`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Explain two ways farming changed how people lived.`
+- [ ] `2. Why did it matter that Hammurabi's laws were written where everyone could see them?`
+
+## PAGE 2 — `test-02-gr.jpg`
+
+- [ ] `UNIT TEST · GREECE & ROME`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `What does the word democracy mean?`
+- [ ] `Rule by the people`
+- [ ] `Rule by one king`
+- [ ] `Rule by the army`
+- [ ] `Rule by priests`
+- [ ] `Which city is called the birthplace of democracy?`
+- [ ] `Sparta`
+- [ ] `Rome`
+- [ ] `Athens`
+- [ ] `Troy`
+- [ ] `At Marathon in 490 BCE, Athens defeated the army of`
+- [ ] `Persia`
+- [ ] `Rome`
+- [ ] `Egypt`
+- [ ] `Macedonia`
+- [ ] `Alexander the Great was king of`
+- [ ] `Athens`
+- [ ] `Macedonia`
+- [ ] `Persia`
+- [ ] `Sparta`
+- [ ] `What happened on the Ides of March in 44 BCE?`
+- [ ] `Rome became a republic`
+- [ ] `Athens voted for war`
+- [ ] `Julius Caesar was killed`
+- [ ] `The Colosseum opened`
+- [ ] `Which volcano buried Pompeii in 79 CE?`
+- [ ] `Mount Etna`
+- [ ] `Mount Olympus`
+- [ ] `Mount Vesuvius`
+- [ ] `Mount Athos`
+- [ ] `In the legend, how did Greek soldiers get inside Troy?`
+- [ ] `Hidden in a wooden horse`
+- [ ] `Through a secret tunnel`
+- [ ] `By climbing the walls`
+- [ ] `Dressed as merchants`
+- [ ] `What did crowds watch in the Colosseum?`
+- [ ] `Senate debates`
+- [ ] `Gladiator games and shows`
+- [ ] `Olympic races`
+- [ ] `Plays by Shakespeare`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Marathon`
+- [ ] `____ 2. Alexander the Great`
+- [ ] `____ 3. Ides of March`
+- [ ] `____ 4. Vesuvius`
+- [ ] `A. Volcano that buried Pompeii`
+- [ ] `B. Athenian victory over Persia, 490 BCE`
+- [ ] `C. Day Julius Caesar was killed`
+- [ ] `D. Macedonian king who defeated Persia`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. How was Athenian democracy different from rule by a king?`
+- [ ] `2. Why does Pompeii teach us so much about daily Roman life?`
+
+## PAGE 3 — `test-03-emp.jpg`
+
+- [ ] `UNIT TEST · EMPIRES OF ASIA, AFRICA & THE AMERICAS`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `Mansa Musa ruled which West African empire?`
+- [ ] `Kush`
+- [ ] `Mali`
+- [ ] `Egypt`
+- [ ] `Aksum`
+- [ ] `Where did Mansa Musa travel in 1324?`
+- [ ] `To Mecca`
+- [ ] `To Rome`
+- [ ] `To China`
+- [ ] `To Spain`
+- [ ] `Who united the Mongol tribes in 1206?`
+- [ ] `Kublai Khan`
+- [ ] `Timur`
+- [ ] `Genghis Khan`
+- [ ] `Attila`
+- [ ] `The Aztecs built Tenochtitlan`
+- [ ] `On an island in a lake`
+- [ ] `Deep in a rain forest`
+- [ ] `On a desert coast`
+- [ ] `Inside a mountain cave`
+- [ ] `Machu Picchu was built high in which mountains?`
+- [ ] `The Alps`
+- [ ] `The Andes`
+- [ ] `The Himalayas`
+- [ ] `The Rockies`
+- [ ] `Zheng He is remembered for`
+- [ ] `Building the Great Wall`
+- [ ] `Leading huge fleets overseas`
+- [ ] `Inventing paper`
+- [ ] `Conquering India`
+- [ ] `Why was the Taj Mahal built?`
+- [ ] `As a tomb for the emperor's wife`
+- [ ] `As a fort on the border`
+- [ ] `As a market for traders`
+- [ ] `As a school for princes`
+- [ ] `Which emperor ordered the Taj Mahal built?`
+- [ ] `Akbar`
+- [ ] `Babur`
+- [ ] `Suleiman`
+- [ ] `Shah Jahan`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Mansa Musa`
+- [ ] `____ 2. Genghis Khan`
+- [ ] `____ 3. Tenochtitlan`
+- [ ] `____ 4. Zheng He`
+- [ ] `A. United the Mongol tribes in 1206`
+- [ ] `B. Chinese admiral of the treasure fleet`
+- [ ] `C. Mali ruler famous for his gold`
+- [ ] `D. Aztec capital built on a lake`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Why did Mansa Musa's journey make Mali famous far beyond Africa?`
+- [ ] `2. Name one thing the Inca did well as builders, and explain why it mattered.`
+
+## PAGE 4 — `test-04-med.jpg`
+
+- [ ] `UNIT TEST · THE MIDDLE AGES`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `In 793, Viking raiders attacked a monastery at`
+- [ ] `Lindisfarne`
+- [ ] `Paris`
+- [ ] `Rome`
+- [ ] `Dublin`
+- [ ] `Vikings sailed from which part of Europe?`
+- [ ] `Spain`
+- [ ] `Scandinavia`
+- [ ] `Italy`
+- [ ] `Greece`
+- [ ] `Who was crowned emperor on Christmas Day in 800?`
+- [ ] `William the Conqueror`
+- [ ] `Charles Martel`
+- [ ] `Charlemagne`
+- [ ] `Otto the Great`
+- [ ] `Which king agreed to Magna Carta in 1215?`
+- [ ] `Henry VIII`
+- [ ] `Richard the Lionheart`
+- [ ] `Louis IX`
+- [ ] `King John`
+- [ ] `What was the main idea of Magna Carta?`
+- [ ] `The king must obey the law`
+- [ ] `The king owns all land`
+- [ ] `Only knights may own swords`
+- [ ] `The church chooses the king`
+- [ ] `What was the Black Death?`
+- [ ] `A long war`
+- [ ] `A deadly plague`
+- [ ] `A great famine`
+- [ ] `A winter storm`
+- [ ] `How did the Black Death reach Europe in 1347?`
+- [ ] `Along trade routes and ships`
+- [ ] `Through royal armies`
+- [ ] `From a poisoned well`
+- [ ] `With returning pilgrims only`
+- [ ] `Joan of Arc helped end the siege of which city in 1429?`
+- [ ] `Paris`
+- [ ] `Calais`
+- [ ] `Orleans`
+- [ ] `Rouen`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Lindisfarne`
+- [ ] `____ 2. Charlemagne`
+- [ ] `____ 3. Magna Carta`
+- [ ] `____ 4. Joan of Arc`
+- [ ] `A. Charter that limited a king's power`
+- [ ] `B. Monastery raided by Vikings in 793`
+- [ ] `C. Teenager who led French troops at Orleans`
+- [ ] `D. Crowned emperor on Christmas Day, 800`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Why do people still talk about Magna Carta today?`
+- [ ] `2. Describe two ways the Black Death changed life in Europe.`
+
+## PAGE 5 — `test-05-ren.jpg`
+
+- [ ] `UNIT TEST · RENAISSANCE & EXPLORATION`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `What did Johannes Gutenberg build around 1455?`
+- [ ] `A printing press with movable type`
+- [ ] `The first paper mill`
+- [ ] `A new kind of telescope`
+- [ ] `The first public library`
+- [ ] `What was Gutenberg's most famous printed book?`
+- [ ] `A world atlas`
+- [ ] `The Bible`
+- [ ] `A law code`
+- [ ] `A book of plays`
+- [ ] `Which portrait did Leonardo da Vinci begin around 1503?`
+- [ ] `The Last Supper`
+- [ ] `The Night Watch`
+- [ ] `The Mona Lisa`
+- [ ] `The Birth of Venus`
+- [ ] `Martin Luther's 95 Theses protested against`
+- [ ] `The sale of indulgences`
+- [ ] `The use of Latin`
+- [ ] `The printing of books`
+- [ ] `The building of cathedrals`
+- [ ] `Who began the first voyage around the world?`
+- [ ] `Christopher Columbus`
+- [ ] `Vasco da Gama`
+- [ ] `Francis Drake`
+- [ ] `Ferdinand Magellan`
+- [ ] `What tool did Galileo point at the night sky in 1610?`
+- [ ] `A telescope`
+- [ ] `A microscope`
+- [ ] `A compass`
+- [ ] `A sundial`
+- [ ] `Galileo saw four moons circling which planet?`
+- [ ] `Mars`
+- [ ] `Jupiter`
+- [ ] `Venus`
+- [ ] `Saturn`
+- [ ] `Where did Michelangelo paint his famous ceiling?`
+- [ ] `Notre-Dame in Paris`
+- [ ] `The Parthenon in Athens`
+- [ ] `The Sistine Chapel in Rome`
+- [ ] `Saint Mark's in Venice`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Gutenberg`
+- [ ] `____ 2. Martin Luther`
+- [ ] `____ 3. Magellan`
+- [ ] `____ 4. Galileo`
+- [ ] `A. Monk who wrote the 95 Theses`
+- [ ] `B. Saw four moons circling Jupiter`
+- [ ] `C. Printed Europe's first movable-type Bible`
+- [ ] `D. Began the first voyage around the world`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. How did the printing press change the way ideas spread?`
+- [ ] `2. Why did Galileo's discoveries surprise so many people?`
+
+## PAGE 6 — `test-06-rev.jpg`
+
+- [ ] `UNIT TEST · THE AGE OF REVOLUTIONS`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `The Declaration of Independence was adopted in`
+- [ ] `1776`
+- [ ] `1789`
+- [ ] `1804`
+- [ ] `1819`
+- [ ] `Who wrote the main draft of the Declaration of Independence?`
+- [ ] `Benjamin Franklin`
+- [ ] `Thomas Jefferson`
+- [ ] `George Washington`
+- [ ] `John Adams`
+- [ ] `What was the Bastille?`
+- [ ] `A royal palace`
+- [ ] `A cathedral`
+- [ ] `A prison and fortress`
+- [ ] `A grain market`
+- [ ] `The storming of the Bastille in 1789 marked the start of`
+- [ ] `The French Revolution`
+- [ ] `The Reign of Terror`
+- [ ] `The Napoleonic Wars`
+- [ ] `The Congress of Vienna`
+- [ ] `What title did Napoleon take in 1804?`
+- [ ] `King of France`
+- [ ] `First Consul`
+- [ ] `Emperor of the French`
+- [ ] `President of the Republic`
+- [ ] `In 1804, Haiti won its freedom from`
+- [ ] `Spain`
+- [ ] `Britain`
+- [ ] `Portugal`
+- [ ] `France`
+- [ ] `Simon Bolivar led independence wars against`
+- [ ] `France`
+- [ ] `Spain`
+- [ ] `Britain`
+- [ ] `Portugal`
+- [ ] `What powered the first railroad locomotives?`
+- [ ] `Horses`
+- [ ] `Water wheels`
+- [ ] `Steam from burning coal`
+- [ ] `Electric motors`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Bastille`
+- [ ] `____ 2. Thomas Jefferson`
+- [ ] `____ 3. Toussaint Louverture`
+- [ ] `____ 4. Simon Bolivar`
+- [ ] `A. Main author of the Declaration of Independence`
+- [ ] `B. Called the Liberator in South America`
+- [ ] `C. Paris prison stormed in 1789`
+- [ ] `D. Leader of the Haitian Revolution`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Why is the Haitian Revolution important in world history?`
+- [ ] `2. How did steam power change travel and trade?`
+
+## PAGE 7 — `test-07-ww1.jpg`
+
+- [ ] `UNIT TEST · IMPERIALISM & WORLD WAR I`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `What caused the Titanic to sink in 1912?`
+- [ ] `It struck an iceberg`
+- [ ] `A storm broke the hull`
+- [ ] `A fire in the engines`
+- [ ] `It ran aground`
+- [ ] `The Titanic was sailing to which city?`
+- [ ] `London`
+- [ ] `New York`
+- [ ] `Boston`
+- [ ] `Halifax`
+- [ ] `Who was assassinated in Sarajevo in 1914?`
+- [ ] `Czar Nicholas II`
+- [ ] `Kaiser Wilhelm II`
+- [ ] `Archduke Franz Ferdinand`
+- [ ] `King George V`
+- [ ] `The assassination in Sarajevo helped start`
+- [ ] `The Crimean War`
+- [ ] `World War I`
+- [ ] `The Russian Civil War`
+- [ ] `World War II`
+- [ ] `Soldiers on the Western Front fought mainly from`
+- [ ] `Castles`
+- [ ] `Ships`
+- [ ] `Trenches`
+- [ ] `Hilltop forts`
+- [ ] `During the Christmas Truce of 1914, soldiers`
+- [ ] `Signed a peace treaty`
+- [ ] `Stopped fighting and met peacefully`
+- [ ] `Went home for a week`
+- [ ] `Attacked at midnight`
+- [ ] `The Russian Revolution of 1917 ended the rule of`
+- [ ] `The kaiser`
+- [ ] `The sultan`
+- [ ] `The czar`
+- [ ] `The shah`
+- [ ] `When did the Armistice stop the fighting?`
+- [ ] `July 4, 1918`
+- [ ] `June 28, 1919`
+- [ ] `May 8, 1945`
+- [ ] `November 11, 1918`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Franz Ferdinand`
+- [ ] `____ 2. No man's land`
+- [ ] `____ 3. Christmas Truce`
+- [ ] `____ 4. Armistice`
+- [ ] `A. Brief 1914 peace between enemy soldiers`
+- [ ] `B. Archduke killed at Sarajevo in 1914`
+- [ ] `C. Agreement that stopped the fighting in 1918`
+- [ ] `D. Ground between two trench lines`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Describe two hardships soldiers faced in the trenches.`
+- [ ] `2. Why did the Christmas Truce surprise commanders on both sides?`
+
+## PAGE 8 — `test-08-ww2.jpg`
+
+- [ ] `UNIT TEST · THE WORLD AT WAR`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `The stock market crash of 1929 helped begin`
+- [ ] `The Great Depression`
+- [ ] `The Cold War`
+- [ ] `The Gold Rush`
+- [ ] `The Industrial Revolution`
+- [ ] `World War II began in Europe when Germany invaded`
+- [ ] `France`
+- [ ] `Poland`
+- [ ] `Russia`
+- [ ] `Britain`
+- [ ] `The Battle of Britain in 1940 was fought mainly`
+- [ ] `In the air`
+- [ ] `At sea`
+- [ ] `In the desert`
+- [ ] `In the mountains`
+- [ ] `Who defended British skies in 1940?`
+- [ ] `The Royal Navy`
+- [ ] `The Royal Air Force`
+- [ ] `The French Air Force`
+- [ ] `The U.S. Army`
+- [ ] `Pearl Harbor was attacked on`
+- [ ] `September 1, 1939`
+- [ ] `June 6, 1944`
+- [ ] `December 7, 1941`
+- [ ] `May 8, 1945`
+- [ ] `The attack on Pearl Harbor brought which country into the war?`
+- [ ] `Canada`
+- [ ] `The Soviet Union`
+- [ ] `The United States`
+- [ ] `Italy`
+- [ ] `Where did the D-Day landings take place in 1944?`
+- [ ] `Sicily`
+- [ ] `Normandy`
+- [ ] `Dunkirk`
+- [ ] `Crete`
+- [ ] `When was Victory in Europe Day celebrated?`
+- [ ] `May 1944`
+- [ ] `August 1944`
+- [ ] `May 1945`
+- [ ] `December 1945`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Great Depression`
+- [ ] `____ 2. Battle of Britain`
+- [ ] `____ 3. Pearl Harbor`
+- [ ] `____ 4. D-Day`
+- [ ] `A. Allied landings in Normandy, 1944`
+- [ ] `B. Hard times after the 1929 crash`
+- [ ] `C. U.S. naval base attacked in 1941`
+- [ ] `D. Air battle over Britain in 1940`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Explain why Pearl Harbor was a turning point for the United States.`
+- [ ] `2. Why was D-Day so important to the Allies?`
+
+## PAGE 9 — `test-09-mod.jpg`
+
+- [ ] `UNIT TEST · THE COLD WAR & THE MODERN WORLD`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 20`
+- [ ] `PART 1 · MULTIPLE CHOICE (8 points)`
+- [ ] `Circle the best answer.`
+- [ ] `In 1947, India won independence from`
+- [ ] `France`
+- [ ] `Britain`
+- [ ] `Portugal`
+- [ ] `The Netherlands`
+- [ ] `Which leader used nonviolent protest in India's independence movement?`
+- [ ] `Mohandas Gandhi`
+- [ ] `Nelson Mandela`
+- [ ] `Sun Yat-sen`
+- [ ] `Ho Chi Minh`
+- [ ] `Sputnik, launched in 1957, was the first`
+- [ ] `Satellite in orbit`
+- [ ] `Rocket ever built`
+- [ ] `Space station`
+- [ ] `Moon landing`
+- [ ] `Which country launched Sputnik?`
+- [ ] `The United States`
+- [ ] `The Soviet Union`
+- [ ] `Germany`
+- [ ] `China`
+- [ ] `Who was the first person to walk on the Moon?`
+- [ ] `Yuri Gagarin`
+- [ ] `Buzz Aldrin`
+- [ ] `Neil Armstrong`
+- [ ] `John Glenn`
+- [ ] `Which mission first landed people on the Moon?`
+- [ ] `Apollo 11`
+- [ ] `Apollo 13`
+- [ ] `Gemini 4`
+- [ ] `Vostok 1`
+- [ ] `In what year did the Berlin Wall fall?`
+- [ ] `1961`
+- [ ] `1975`
+- [ ] `1989`
+- [ ] `1994`
+- [ ] `Nelson Mandela was elected president of`
+- [ ] `Ghana`
+- [ ] `Kenya`
+- [ ] `Nigeria`
+- [ ] `South Africa`
+- [ ] `PART 2 · MATCHING (4 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Gandhi`
+- [ ] `____ 2. Sputnik`
+- [ ] `____ 3. Apollo 11`
+- [ ] `____ 4. Nelson Mandela`
+- [ ] `A. First satellite sent into orbit`
+- [ ] `B. Elected South Africa's president in 1994`
+- [ ] `C. Led India's nonviolent independence movement`
+- [ ] `D. Mission that first landed people on the Moon`
+- [ ] `PART 3 · SHORT ANSWER (8 points)`
+- [ ] `1. Why did the launch of Sputnik both worry and excite the world?`
+- [ ] `2. What did the fall of the Berlin Wall mean for Germany?`
+
+## PAGE 10 — `test-10-inv.jpg`
+
+- [ ] `UNIT TEST · INVENTIONS THAT CHANGED THE WORLD`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 10`
+- [ ] `PART 1 · MULTIPLE CHOICE (5 points)`
+- [ ] `Circle the best answer.`
+- [ ] `In which country was paper first made?`
+- [ ] `Egypt`
+- [ ] `China`
+- [ ] `Greece`
+- [ ] `India`
+- [ ] `Who is credited with China's papermaking process in 105 CE?`
+- [ ] `Cai Lun`
+- [ ] `Confucius`
+- [ ] `Zheng He`
+- [ ] `Qin Shi Huang`
+- [ ] `In 1796, Edward Jenner created the first`
+- [ ] `Antibiotic`
+- [ ] `Microscope`
+- [ ] `Vaccine`
+- [ ] `X-ray machine`
+- [ ] `Jenner's vaccine protected people against`
+- [ ] `Smallpox`
+- [ ] `Polio`
+- [ ] `Malaria`
+- [ ] `Measles`
+- [ ] `The Wright brothers made the first powered airplane flight in`
+- [ ] `1869`
+- [ ] `1903`
+- [ ] `1912`
+- [ ] `1927`
+- [ ] `PART 2 · MATCHING (2 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Cai Lun`
+- [ ] `____ 2. Edward Jenner`
+- [ ] `A. Doctor who made the first vaccine`
+- [ ] `B. Credited with China's papermaking process`
+- [ ] `PART 3 · SHORT ANSWER (3 points)`
+- [ ] `1. Choose one invention from this unit. Explain how it changed everyday life.`
+
+## PAGE 11 — `test-11-wom.jpg`
+
+- [ ] `UNIT TEST · WOMEN WHO MADE HISTORY`
+- [ ] `Name: __________________________`
+- [ ] `Date: ____________`
+- [ ] `Score: ______ / 10`
+- [ ] `PART 1 · MULTIPLE CHOICE (5 points)`
+- [ ] `Circle the best answer.`
+- [ ] `Cleopatra ruled which ancient kingdom?`
+- [ ] `Persia`
+- [ ] `Egypt`
+- [ ] `Babylon`
+- [ ] `Kush`
+- [ ] `Cleopatra began her rule in`
+- [ ] `331 BCE`
+- [ ] `51 BCE`
+- [ ] `44 CE`
+- [ ] `79 CE`
+- [ ] `Marie Curie won Nobel Prizes in which two fields?`
+- [ ] `Physics and chemistry`
+- [ ] `Physics and medicine`
+- [ ] `Chemistry and literature`
+- [ ] `Medicine and peace`
+- [ ] `Marie Curie won her second Nobel Prize in 1911 in`
+- [ ] `Physics`
+- [ ] `Chemistry`
+- [ ] `Medicine`
+- [ ] `Mathematics`
+- [ ] `Which elements did Marie Curie help discover?`
+- [ ] `Oxygen and hydrogen`
+- [ ] `Helium and neon`
+- [ ] `Polonium and radium`
+- [ ] `Uranium and gold`
+- [ ] `PART 2 · MATCHING (2 points)`
+- [ ] `Write the letter on the line.`
+- [ ] `____ 1. Cleopatra`
+- [ ] `____ 2. Marie Curie`
+- [ ] `A. First person to win two Nobel Prizes`
+- [ ] `B. Last ruler of ancient Egypt`
+- [ ] `PART 3 · SHORT ANSWER (3 points)`
+- [ ] `1. Why is Marie Curie still famous today?`

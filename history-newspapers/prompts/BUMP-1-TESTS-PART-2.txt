@@ -1,0 +1,188 @@
+BATCH TASK — generate ALL 11 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom worksheet that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules, rounded boxes with a dark outline. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white. ONE small full-color painted illustration per page (museum-painting style), never a photo.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines for students to write on. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Tests & Quizzes · for classroom use". No other logos, no watermark.
+
+=== THESE ARE ANSWER-KEY PAGES ===
+- NO student writing lines anywhere on these pages. Nothing is left blank.
+- The one painted illustration on each page is a small antique gold ornament (a laurel sprig, a wreath, or a scrollwork flourish, about 1 inch wide) centered under the header. Nothing else is illustrated.
+- Answers are shown as small rounded chips with a dark outline, each holding one question number and one letter.
+- The sample responses are printed in italic serif, in full, exactly as written.
+
+=== TWO LAYOUTS (use the one named on each page) ===
+LAYOUT KEY-A — full-width deep wine red header bar in cream serif capitals; gold ornament centered beneath it; the unit line centered in small gold capitals; each section introduced by an antique gold bar with dark text; the multiple-choice chips arranged in two rows of four.
+LAYOUT KEY-B — header inside a cream cartouche framed by a double antique gold rule; gold ornament centered beneath the cartouche; the unit line centered in small wine red capitals; each section introduced by a thin wine red rule with small centered capitals; the multiple-choice chips arranged in one row of four above a second row of four, inside a light rounded box.
+
+=== PAGES ===
+
+PAGE 1 — file name: test-01-civ-key.jpg — LAYOUT KEY-A
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · FIRST CIVILIZATIONS"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. B"  "2. C"  "3. A"  "4. C"  "5. D"  "6. B"  "7. A"  "8. B"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. D"  "3. A"  "4. C"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Farming let people stay in one place instead of following wild herds. Villages grew into towns, food could be stored, and people began to do different jobs."
+"2. Everyone could see the same rules. Judges had to use the same law in every case, and people knew what to expect before they acted."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: have students build a four-event class timeline, from farming to the first emperor."
+
+PAGE 2 — file name: test-02-gr-key.jpg — LAYOUT KEY-B
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · GREECE & ROME"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. C"  "3. A"  "4. B"  "5. C"  "6. C"  "7. A"  "8. B"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. D"  "3. C"  "4. A"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. In Athens, citizens met in an assembly and voted on laws themselves. Under a king, one person decided everything and the people had no vote."
+"2. Ash from Vesuvius covered Pompeii quickly and sealed it. Houses, shops, streets, and everyday objects stayed in place for archaeologists to find."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: reread Democracy Is Born in Athens and list together who could vote and who could not."
+
+PAGE 3 — file name: test-03-emp-key.jpg — LAYOUT KEY-A
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · EMPIRES OF ASIA, AFRICA & THE AMERICAS"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. B"  "2. A"  "3. C"  "4. A"  "5. B"  "6. B"  "7. A"  "8. D"
+Section: "PART 2 · MATCHING"
+Chips: "1. C"  "2. A"  "3. D"  "4. B"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. He traveled with an enormous caravan and gave away gold along the way. Travelers and mapmakers carried stories of Mali's wealth across Africa, the Middle East, and Europe."
+"2. Inca builders cut stones so exactly that walls held together without mortar. Their stonework and terraces survived earthquakes and made farming possible on steep slopes."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: mark Mali, Mongolia, Mexico, Peru, China, and India on a class map, one per edition."
+
+PAGE 4 — file name: test-04-med-key.jpg — LAYOUT KEY-B
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · THE MIDDLE AGES"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. B"  "3. C"  "4. D"  "5. A"  "6. B"  "7. A"  "8. C"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. D"  "3. A"  "4. C"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Magna Carta said that even a king had to follow the law. That idea grew into later ideas about rights, fair trials, and limits on government power."
+"2. So many people died that workers became scarce and could ask for better pay. Villages emptied, trade slowed, and many people began to question old authorities."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: sort the five editions into power cards and daily-life cards, then retell each in one sentence."
+
+PAGE 5 — file name: test-05-ren-key.jpg — LAYOUT KEY-A
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · RENAISSANCE & EXPLORATION"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. B"  "3. C"  "4. A"  "5. D"  "6. A"  "7. B"  "8. C"
+Section: "PART 2 · MATCHING"
+Chips: "1. C"  "2. A"  "3. D"  "4. B"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Books could be copied quickly and cheaply instead of by hand. More people learned to read, and new ideas crossed Europe in months instead of years."
+"2. Most people believed everything in the sky circled the Earth. Galileo showed moons circling Jupiter, which meant not everything moved around the Earth."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: pair each figure with one invention or idea, then ask who it reached and how."
+
+PAGE 6 — file name: test-06-rev-key.jpg — LAYOUT KEY-B
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · THE AGE OF REVOLUTIONS"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. B"  "3. C"  "4. A"  "5. C"  "6. D"  "7. B"  "8. C"
+Section: "PART 2 · MATCHING"
+Chips: "1. C"  "2. A"  "3. D"  "4. B"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Enslaved people rose up and defeated a powerful European army. Haiti became the first nation created by a successful revolt of enslaved people, and it inspired others."
+"2. Steam engines moved trains and ships on a schedule, without depending on wind or animals. Goods and people traveled farther, faster, and much more cheaply."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: chart each revolution as cause, event, and result before students rewrite Part 3."
+
+PAGE 7 — file name: test-07-ww1-key.jpg — LAYOUT KEY-A
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · IMPERIALISM & WORLD WAR I"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. B"  "3. C"  "4. B"  "5. C"  "6. B"  "7. C"  "8. D"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. D"  "3. A"  "4. C"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Trenches were cold, wet, and crowded, and mud made every movement hard. Rats and lice spread illness, sleep was rare, and shelling could come at any hour."
+"2. Both sides had been ordered to fight, yet soldiers walked out unarmed to sing, trade small gifts, and bury the dead. Commanders feared the men would stop obeying orders."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: reread Life in the Trenches and list five details students can use in Part 3."
+
+PAGE 8 — file name: test-08-ww2-key.jpg — LAYOUT KEY-B
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · THE WORLD AT WAR"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. A"  "2. B"  "3. A"  "4. B"  "5. C"  "6. C"  "7. B"  "8. C"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. D"  "3. C"  "4. A"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. Before the attack the United States had stayed out of the fighting. After Pearl Harbor it entered the war, and its factories and soldiers changed the balance on both fronts."
+"2. D-Day put Allied armies back into Western Europe in great numbers. It opened a new front against Germany and began the advance that ended the war in Europe."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: build a 1929 to 1945 timeline strip, then ask where each question belongs on it."
+
+PAGE 9 — file name: test-09-mod-key.jpg — LAYOUT KEY-A
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · THE COLD WAR & THE MODERN WORLD"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. B"  "2. A"  "3. A"  "4. B"  "5. C"  "6. A"  "7. C"  "8. D"
+Section: "PART 2 · MATCHING"
+Chips: "1. C"  "2. A"  "3. D"  "4. B"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSES"
+"1. It proved that people could place an object in orbit, which thrilled scientists everywhere. It also showed the Soviet Union had rockets that could reach very far, which alarmed the United States."
+"2. Families and friends separated for twenty-eight years could cross freely again. Less than a year later, East and West Germany became one country."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 25 minutes."
+"Scoring: 8 + 4 + 8 = 20 points. Give partial credit in Part 3."
+"Reteach: compare Sputnik and the Moon Landing side by side as a class chart."
+
+PAGE 10 — file name: test-10-inv-key.jpg — LAYOUT KEY-B
+This key is for a shorter test. Use the same layout with more white space.
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · INVENTIONS THAT CHANGED THE WORLD"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. B"  "2. A"  "3. C"  "4. A"  "5. B"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. A"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSE"
+"1. Paper gave people a light, cheap way to record and share words. Schools, books, and records spread far beyond China and made learning easier to pass on."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 15 minutes."
+"Scoring: 5 + 2 + 3 = 10 points. Accept any of the three inventions in Part 3."
+"Reteach: have students name the one problem each invention solved."
+
+PAGE 11 — file name: test-11-wom-key.jpg — LAYOUT KEY-A
+This key is for a shorter test. Use the same layout with more white space.
+Header: "ANSWER KEY & TEACHER NOTES"
+Unit line: "UNIT TEST · WOMEN WHO MADE HISTORY"
+Section: "PART 1 · MULTIPLE CHOICE"
+Chips: "1. B"  "2. B"  "3. A"  "4. B"  "5. C"
+Section: "PART 2 · MATCHING"
+Chips: "1. B"  "2. A"
+Section: "PART 3 · SHORT ANSWER · SAMPLE RESPONSE"
+"1. She helped discover two new elements and led the study of radioactivity. She was the first woman to win a Nobel Prize and the only person to win in two different sciences."
+Box with a dark outline, titled "TEACHER NOTES", three bullet lines:
+"Suggested time: 15 minutes."
+"Scoring: 5 + 2 + 3 = 10 points. Give partial credit in Part 3."
+"Reteach: students list three facts about each woman before rewriting the short answer."
+
+Generate now ALL the pages of this batch, in sequence, in a single round.
