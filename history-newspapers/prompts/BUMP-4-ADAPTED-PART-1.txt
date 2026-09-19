@@ -1,0 +1,247 @@
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: large, clear, SANS-SERIF typography throughout (no serif fonts anywhere on these pages). Simple, friendly classroom design matching "World History Newspapers": light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents used sparingly, thick rounded boxes with soft dark outlines, generous white space. This material is for special education, autism support, English learners, and struggling readers, so keep every page UNCROWDED: large text, short lines, one idea per box, plenty of empty space. PRINTER-FRIENDLY: mostly white/cream space with dark text.
+- ILLUSTRATION: on READ pages only, one large, warm, full-color painted illustration (museum-painting style, never a photo), filling about half the page, simple and easy to "read" at a glance — clear shapes, calm background, no small details that are hard to see.
+- ICONS: small simple flat icons (not painted, bold outline, single flat color fill, one consistent icon style across the whole batch) next to the WHO/WHERE/WHEN boxes, the KEY WORDS, the CIRCLE THE ANSWER options, and the MATCH pictures.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes, extra headings, metaphors, or irony. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms. War content is always shown gently and from a distance — no weapons in use, no combat, no visible harm to any person.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Adapted History · for classroom use". No other logos, no watermark.
+
+=== FOUR LAYOUTS (use the one named on each page) ===
+READ LAYOUT R-A — the painted illustration fills the top half of the page. Below it, the title in very large bold sans-serif capitals. Under the title, three rounded boxes side by side, each with a small icon: WHO, WHERE, WHEN. Below that, the reading text in large text with wide line spacing, one short sentence per line. At the bottom, three KEY WORDS boxes in a row, each with its icon, the word in bold, and its short definition.
+READ LAYOUT R-B — the painted illustration fills the left half of the page, top to bottom. On the right half: the title in very large bold sans-serif capitals, then the three WHO / WHERE / WHEN boxes stacked vertically, each with its icon. Below the illustration and the right column, spanning the full width, the reading text in large text with wide line spacing. At the very bottom, three KEY WORDS boxes in a row, each with its icon, the word in bold, and its short definition.
+WORK LAYOUT W-A — top section "CIRCLE THE ANSWER" with the three questions stacked, each showing its two icon-and-text options side by side inside a light rounded box (student circles one). Middle section "MATCH": a left column with three words, a right column with three icons in scrambled order, thin dotted guide lines ready for the student to connect word to icon. Lower section "YES or NO": three statements stacked, each with two empty circles labeled YES and NO to its right. Bottom section "DRAW OR WRITE": a large empty rounded box with two empty ruled lines beneath it.
+WORK LAYOUT W-B — top section "MATCH": a left column with three words, a right column with three icons in scrambled order, thin dotted guide lines ready for the student to connect word to icon. Middle section "CIRCLE THE ANSWER" with the three questions stacked, each showing its two icon-and-text options side by side inside a light rounded box (student circles one). Lower section "YES or NO": three statements stacked, each with two empty circles labeled YES and NO to its right. Bottom section "DRAW OR WRITE": a large empty rounded box with two empty ruled lines beneath it.
+
+=== PAGES ===
+
+PAGE 1 — file name: adapted-01-civ-great-pyramid-read.jpg — LAYOUT R-A
+Illustration: a massive sand-colored stone pyramid glowing in warm sunlight, small figures of workers pulling a stone block up a long ramp in the foreground, clear blue sky, painted style
+Title: "THE GREAT PYRAMID"
+WHO box (icon: person silhouette): "WHO" / "Egyptian workers and King Khufu"
+WHERE box (icon: map pin): "WHERE" / "Giza, Egypt"
+WHEN box (icon: small clock): "WHEN" / "About 2560 BCE"
+Reading text, one short sentence per line:
+"Workers build a giant pyramid in Egypt."
+"The pyramid is a tomb for the king."
+"Workers cut huge blocks of stone."
+"They move the blocks with ramps and ropes."
+"The pyramid still stands today."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Pyramid" (icon: a simple triangle-shaped stone shape) — "A giant stone building"
+"Tomb" (icon: a plain stone box) — "A place for the dead"
+"Pharaoh" (icon: a small gold crown) — "The king of Egypt"
+
+PAGE 2 — file name: adapted-01-civ-great-pyramid-work.jpg — LAYOUT W-A
+Header: "THE GREAT PYRAMID · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What is the pyramid?"
+   Option A (icon: a small castle tower): "A castle"
+   Option B (icon: a plain stone box): "A tomb"
+2. "Who built the pyramid?"
+   Option A (icon: two simple worker figures with tools): "Egyptian workers"
+   Option B (icon: a helmeted figure): "Roman soldiers"
+3. "Where is the Great Pyramid?"
+   Option A (icon: a classical column): "Athens, Greece"
+   Option B (icon: a triangle shape): "Giza, Egypt"
+MATCH — draw a line from each word to its matching icon:
+Words: "Pyramid"  "Pharaoh"  "Tomb"
+Icons (scrambled order): a small triangle shape; a small gold crown; a plain stone box
+YES or NO — circle one for each:
+1. "The pyramid is very old."
+2. "Workers built the pyramid with ramps."
+3. "The pyramid is made of wood."
+DRAW OR WRITE: "Draw or write about the Great Pyramid."
+
+PAGE 3 — file name: adapted-02-civ-tut-tomb-read.jpg — LAYOUT R-B
+Illustration: an archaeologist in simple clothing kneeling with a small lamp before a newly opened stone doorway, golden objects glinting faintly in the dark opening, painted style
+Title: "THE TOMB OF TUTANKHAMUN"
+WHO box (icon: person silhouette): "WHO" / "Howard Carter, an archaeologist"
+WHERE box (icon: map pin): "WHERE" / "Valley of the Kings, Egypt"
+WHEN box (icon: small clock): "WHEN" / "1922"
+Reading text, one short sentence per line:
+"Howard Carter looks for a hidden tomb."
+"He finds a hidden door in the sand."
+"Carter opens the door very carefully."
+"Inside, he finds gold and treasure."
+"The tomb belonged to a young king."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Archaeologist" (icon: a small magnifying glass) — "A person who studies old things"
+"Tomb" (icon: a plain stone box) — "A place for the dead"
+"Treasure" (icon: a small pile of gold coins) — "Gold and precious objects"
+
+PAGE 4 — file name: adapted-02-civ-tut-tomb-work.jpg — LAYOUT W-B
+Header: "THE TOMB OF TUTANKHAMUN · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "Who opened the hidden tomb?"
+   Option A (icon: a magnifying glass): "Howard Carter"
+   Option B (icon: a small gold crown): "King Khufu"
+2. "What did Carter find inside?"
+   Option A (icon: an empty box outline): "An empty room"
+   Option B (icon: a small gem): "Gold and treasure"
+3. "Where was the tomb?"
+   Option A (icon: a desert dune shape): "Valley of the Kings"
+   Option B (icon: a snowy mountain): "The Alps"
+MATCH — draw a line from each word to its matching icon:
+Words: "Archaeologist"  "Tomb"  "Treasure"
+Icons (scrambled order): a magnifying glass; a plain stone box; a small pile of gold coins
+YES or NO — circle one for each:
+1. "Howard Carter found the tomb in 1922."
+2. "The tomb was full of gold."
+3. "Carter found the tomb underwater."
+DRAW OR WRITE: "Draw or write about the tomb of Tutankhamun."
+
+PAGE 5 — file name: adapted-03-gr-pompeii-read.jpg — LAYOUT R-A
+Illustration: a calm painted view of a smoking mountain in the distance above a small stone-roofed town, soft gray ash drifting gently in the sky, no people in danger shown up close, painted style
+Title: "VESUVIUS BURIES POMPEII"
+WHO box (icon: person silhouette): "WHO" / "The people of Pompeii"
+WHERE box (icon: map pin): "WHERE" / "Pompeii, near Mount Vesuvius, Italy"
+WHEN box (icon: small clock): "WHEN" / "79 CE"
+Reading text, one short sentence per line:
+"Mount Vesuvius is a big volcano."
+"One day, the volcano erupts loudly."
+"Ash falls and covers the city."
+"The city of Pompeii is buried."
+"Today, people can visit and learn about it."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Volcano" (icon: a small mountain with a puff of smoke) — "A mountain that can erupt"
+"Erupt" (icon: a small burst shape) — "To burst out suddenly"
+"Ash" (icon: a small gray cloud) — "Gray dust from a volcano"
+
+PAGE 6 — file name: adapted-03-gr-pompeii-work.jpg — LAYOUT W-A
+Header: "VESUVIUS BURIES POMPEII · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What is Mount Vesuvius?"
+   Option A (icon: a flowing river): "A river"
+   Option B (icon: a smoking mountain): "A volcano"
+2. "What covered the city of Pompeii?"
+   Option A (icon: a gray dust cloud): "Ash"
+   Option B (icon: blue water waves): "Water"
+3. "Where is Pompeii?"
+   Option A (icon: a pyramid shape): "Near Egypt"
+   Option B (icon: a boot-shaped outline): "Near Italy"
+MATCH — draw a line from each word to its matching icon:
+Words: "Volcano"  "Ash"  "City"
+Icons (scrambled order): a smoking mountain; a small gray dust cloud; a row of small buildings
+YES or NO — circle one for each:
+1. "Vesuvius is a volcano."
+2. "Pompeii is a city in Italy."
+3. "The volcano never erupted."
+DRAW OR WRITE: "Draw or write about Pompeii and Mount Vesuvius."
+
+PAGE 7 — file name: adapted-04-gr-trojan-horse-read.jpg — LAYOUT R-B
+Illustration: a huge wooden horse statue on wheels standing calmly before the gates of an ancient stone city at dusk, painted style, storybook feel
+Title: "THE LEGEND OF THE TROJAN HORSE"
+WHO box (icon: person silhouette): "WHO" / "Greek soldiers"
+WHERE box (icon: map pin): "WHERE" / "The city of Troy"
+WHEN box (icon: small clock): "WHEN" / "Long ago, in a legend"
+Reading text, one short sentence per line:
+"Greek soldiers build a huge wooden horse."
+"They hide inside the wooden horse."
+"People in Troy pull the horse inside."
+"At night, the soldiers sneak out."
+"This old story is called a legend."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Legend" (icon: a small open storybook) — "An old, famous story"
+"Wooden" (icon: a small wood plank) — "Made from wood"
+"Soldier" (icon: a simple helmet shape) — "A person in an army"
+
+PAGE 8 — file name: adapted-04-gr-trojan-horse-work.jpg — LAYOUT W-B
+Header: "THE LEGEND OF THE TROJAN HORSE · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What did the Greeks build?"
+   Option A (icon: a wooden horse shape): "A giant wooden horse"
+   Option B (icon: a small boat shape): "A giant wooden boat"
+2. "Where did the soldiers hide?"
+   Option A (icon: a cave opening): "Inside a cave"
+   Option B (icon: a horse shape with a small door): "Inside the horse"
+3. "What is this story called?"
+   Option A (icon: an open storybook): "A legend"
+   Option B (icon: a folded newspaper): "A news report"
+MATCH — draw a line from each word to its matching icon:
+Words: "Legend"  "Horse"  "Soldier"
+Icons (scrambled order): a small open storybook; a simple wooden horse shape; a simple helmet shape
+YES or NO — circle one for each:
+1. "The horse was made of wood."
+2. "Soldiers hid inside the horse."
+3. "The horse could really gallop."
+DRAW OR WRITE: "Draw or write about the Trojan Horse."
+
+PAGE 9 — file name: adapted-05-emp-mansa-musa-read.jpg — LAYOUT R-A
+Illustration: a richly dressed West African king riding at the front of a long line of camels loaded with gold, warm golden desert light, painted style, no modern flags
+Title: "MANSA MUSA'S GOLDEN JOURNEY"
+WHO box (icon: person silhouette): "WHO" / "Mansa Musa, King of Mali"
+WHERE box (icon: map pin): "WHERE" / "From Mali to Mecca"
+WHEN box (icon: small clock): "WHEN" / "1324"
+Reading text, one short sentence per line:
+"Mansa Musa is a rich African king."
+"He travels far to the city of Mecca."
+"He brings gold, camels, and many people."
+"Mansa Musa gives gold to people he meets."
+"The whole world hears about his gold."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"King" (icon: a small gold crown) — "A ruler of a kingdom"
+"Gold" (icon: a small gold bar) — "A shiny, valuable metal"
+"Journey" (icon: a small winding path) — "A long trip"
+
+PAGE 10 — file name: adapted-05-emp-mansa-musa-work.jpg — LAYOUT W-A
+Header: "MANSA MUSA'S GOLDEN JOURNEY · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What did Mansa Musa rule?"
+   Option A (icon: a small pyramid): "The kingdom of Egypt"
+   Option B (icon: a crown over a map shape): "The kingdom of Mali"
+2. "Where did Mansa Musa travel?"
+   Option A (icon: a small domed building): "To Mecca"
+   Option B (icon: a castle tower): "To Paris"
+3. "What did he give away?"
+   Option A (icon: a stack of paper): "Paper"
+   Option B (icon: a gold bar): "Gold"
+MATCH — draw a line from each word to its matching icon:
+Words: "King"  "Gold"  "Journey"
+Icons (scrambled order): a small gold crown; a small gold bar; a winding path
+YES or NO — circle one for each:
+1. "Mansa Musa was a king."
+2. "He traveled with camels and gold."
+3. "Mansa Musa stayed home his whole life."
+DRAW OR WRITE: "Draw or write about Mansa Musa's journey."
+
+PAGE 11 — file name: adapted-06-emp-machu-picchu-read.jpg — LAYOUT R-B
+Illustration: a stone mountaintop city with terraced green steps and neat stone walls under bright misty peaks, small llamas grazing on a terrace, painted style
+Title: "THE INCA BUILD MACHU PICCHU"
+WHO box (icon: person silhouette): "WHO" / "The Inca people"
+WHERE box (icon: map pin): "WHERE" / "High in the Andes Mountains, Peru"
+WHEN box (icon: small clock): "WHEN" / "About 1450"
+Reading text, one short sentence per line:
+"The Inca build a city on a mountain."
+"They cut stones to fit perfectly together."
+"The city has many stairs and walls."
+"Farmers grow crops on flat, green steps."
+"Today we call this city Machu Picchu."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Mountain" (icon: a small mountain peak) — "A very tall landform"
+"Stone" (icon: a small gray rock) — "A hard piece of rock"
+"Terrace" (icon: small stepped stairs) — "A flat step on a hill"
+
+PAGE 12 — file name: adapted-06-emp-machu-picchu-work.jpg — LAYOUT W-B
+Header: "THE INCA BUILD MACHU PICCHU · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "Who built Machu Picchu?"
+   Option A (icon: two simple figures in patterned cloth): "The Inca people"
+   Option B (icon: a figure in a toga): "The Romans"
+2. "Where is Machu Picchu?"
+   Option A (icon: sand dunes): "In a flat desert"
+   Option B (icon: tall mountain peaks): "High in the Andes Mountains"
+3. "What did Inca farmers grow?"
+   Option A (icon: a small green plant): "Crops on stone terraces"
+   Option B (icon: a fish shape): "Fish in the ocean"
+MATCH — draw a line from each word to its matching icon:
+Words: "Mountain"  "Stone"  "Terrace"
+Icons (scrambled order): a small mountain peak; a small gray rock block; small stepped stairs
+YES or NO — circle one for each:
+1. "Machu Picchu is high in the mountains."
+2. "The Inca built with cut stone."
+3. "Machu Picchu is next to the ocean."
+DRAW OR WRITE: "Draw or write about Machu Picchu."
+
+Generate now ALL the pages of this batch, in sequence, in a single round.

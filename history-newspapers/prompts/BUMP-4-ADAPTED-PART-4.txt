@@ -1,0 +1,171 @@
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: large, clear, SANS-SERIF typography throughout (no serif fonts anywhere on these pages). Simple, friendly classroom design matching "World History Newspapers": light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents used sparingly, thick rounded boxes with soft dark outlines, generous white space. This material is for special education, autism support, English learners, and struggling readers, so keep every page UNCROWDED: large text, short lines, one idea per box, plenty of empty space. PRINTER-FRIENDLY: mostly white/cream space with dark text.
+- ILLUSTRATION: on READ pages only, one large, warm, full-color painted illustration (museum-painting style, never a photo), filling about half the page, simple and easy to "read" at a glance — clear shapes, calm background, no small details that are hard to see.
+- ICONS: small simple flat icons (not painted, bold outline, single flat color fill, one consistent icon style across the whole batch) next to the WHO/WHERE/WHEN boxes, the KEY WORDS, the CIRCLE THE ANSWER options, and the MATCH pictures.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes, extra headings, metaphors, or irony. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms. War content is always shown gently and from a distance — no weapons in use, no combat, no visible harm to any person.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Adapted History · for classroom use". No other logos, no watermark.
+
+=== FOUR LAYOUTS (use the one named on each page) ===
+READ LAYOUT R-A — the painted illustration fills the top half of the page. Below it, the title in very large bold sans-serif capitals. Under the title, three rounded boxes side by side, each with a small icon: WHO, WHERE, WHEN. Below that, the reading text in large text with wide line spacing, one short sentence per line. At the bottom, three KEY WORDS boxes in a row, each with its icon, the word in bold, and its short definition.
+READ LAYOUT R-B — the painted illustration fills the left half of the page, top to bottom. On the right half: the title in very large bold sans-serif capitals, then the three WHO / WHERE / WHEN boxes stacked vertically, each with its icon. Below the illustration and the right column, spanning the full width, the reading text in large text with wide line spacing. At the very bottom, three KEY WORDS boxes in a row, each with its icon, the word in bold, and its short definition.
+WORK LAYOUT W-A — top section "CIRCLE THE ANSWER" with the three questions stacked, each showing its two icon-and-text options side by side inside a light rounded box (student circles one). Middle section "MATCH": a left column with three words, a right column with three icons in scrambled order, thin dotted guide lines ready for the student to connect word to icon. Lower section "YES or NO": three statements stacked, each with two empty circles labeled YES and NO to its right. Bottom section "DRAW OR WRITE": a large empty rounded box with two empty ruled lines beneath it.
+WORK LAYOUT W-B — top section "MATCH": a left column with three words, a right column with three icons in scrambled order, thin dotted guide lines ready for the student to connect word to icon. Middle section "CIRCLE THE ANSWER" with the three questions stacked, each showing its two icon-and-text options side by side inside a light rounded box (student circles one). Lower section "YES or NO": three statements stacked, each with two empty circles labeled YES and NO to its right. Bottom section "DRAW OR WRITE": a large empty rounded box with two empty ruled lines beneath it.
+
+=== PAGES ===
+
+PAGE 37 — file name: adapted-19-inv-vaccine-read.jpg — LAYOUT R-A
+Illustration: a doctor in simple clothing at a wooden desk with a small glass vial and a notebook, soft window light, painted style, calm and reassuring, no needles shown in use on a person
+Title: "THE FIRST VACCINE"
+WHO box (icon: person silhouette): "WHO" / "Edward Jenner, a doctor"
+WHERE box (icon: map pin): "WHERE" / "England"
+WHEN box (icon: small clock): "WHEN" / "1796"
+Reading text, one short sentence per line:
+"Edward Jenner is a doctor in England."
+"He wants to stop a deadly sickness."
+"Jenner tests a new kind of medicine."
+"He calls this medicine a vaccine."
+"Vaccines help protect people from sickness today."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Vaccine" (icon: a small glass vial) — "Medicine that prevents sickness"
+"Doctor" (icon: a small stethoscope shape) — "A person who treats sick people"
+"Sickness" (icon: a small medical cross) — "An illness that makes people sick"
+
+PAGE 38 — file name: adapted-19-inv-vaccine-work.jpg — LAYOUT W-A
+Header: "THE FIRST VACCINE · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "Who was Edward Jenner?"
+   Option A (icon: a paintbrush): "An artist"
+   Option B (icon: a stethoscope): "A doctor"
+2. "What did he create?"
+   Option A (icon: a small glass vial): "The first vaccine"
+   Option B (icon: a telescope): "The first telescope"
+3. "What do vaccines do?"
+   Option A (icon: a fork): "Help people cook food"
+   Option B (icon: a small shield): "Protect people from sickness"
+MATCH — draw a line from each word to its matching icon:
+Words: "Vaccine"  "Doctor"  "Sickness"
+Icons (scrambled order): a small glass vial; a stethoscope shape; a small medical cross
+YES or NO — circle one for each:
+1. "Edward Jenner was a doctor."
+2. "He created the first vaccine."
+3. "Vaccines make people more sick."
+DRAW OR WRITE: "Draw or write about the first vaccine."
+
+PAGE 39 — file name: adapted-20-inv-first-flight-read.jpg — LAYOUT R-B
+Illustration: a simple wood-and-cloth biplane flying low just above a windswept sandy beach, two small figures watching from the ground, bright open sky, painted style
+Title: "THE FIRST FLIGHT"
+WHO box (icon: person silhouette): "WHO" / "Orville and Wilbur Wright"
+WHERE box (icon: map pin): "WHERE" / "Kitty Hawk, North Carolina"
+WHEN box (icon: small clock): "WHEN" / "1903"
+Reading text, one short sentence per line:
+"The Wright brothers build a small airplane."
+"They test their airplane on a windy beach."
+"Orville flies the plane for a few seconds."
+"It is the first powered flight ever."
+"This flight changes travel forever."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Airplane" (icon: a small plane shape) — "A machine that flies"
+"Brothers" (icon: two small figures) — "Two related family members"
+"Flight" (icon: small wings) — "Traveling through the air"
+
+PAGE 40 — file name: adapted-20-inv-first-flight-work.jpg — LAYOUT W-B
+Header: "THE FIRST FLIGHT · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "Who built the first airplane?"
+   Option A (icon: two figures beside a small plane): "The Wright brothers"
+   Option B (icon: a single crown): "A king"
+2. "Where did they test it?"
+   Option A (icon: a busy city street): "A busy city street"
+   Option B (icon: a beach with wind lines): "Kitty Hawk, North Carolina"
+3. "What did their flight change?"
+   Option A (icon: a small plane trail): "How people travel"
+   Option B (icon: an open book): "How people write"
+MATCH — draw a line from each word to its matching icon:
+Words: "Airplane"  "Brothers"  "Flight"
+Icons (scrambled order): a small plane shape; two small figures; small wings
+YES or NO — circle one for each:
+1. "The Wright brothers built an airplane."
+2. "Their first flight was in 1903."
+3. "They flew to the Moon."
+DRAW OR WRITE: "Draw or write about the first flight."
+
+PAGE 41 — file name: adapted-21-wom-cleopatra-read.jpg — LAYOUT R-A
+Illustration: a regal Egyptian queen in fine robes and a simple gold headdress standing on a palace balcony overlooking the Nile River, warm golden light, painted style
+Title: "CLEOPATRA, QUEEN OF EGYPT"
+WHO box (icon: person silhouette): "WHO" / "Cleopatra, Queen of Egypt"
+WHERE box (icon: map pin): "WHERE" / "Egypt"
+WHEN box (icon: small clock): "WHEN" / "51 BCE"
+Reading text, one short sentence per line:
+"Cleopatra becomes queen of Egypt."
+"She is smart and speaks many languages."
+"Cleopatra works to keep Egypt strong."
+"She meets with powerful Roman leaders."
+"Cleopatra is Egypt's last pharaoh."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Queen" (icon: a small crown) — "A female ruler"
+"Pharaoh" (icon: a small gold headdress) — "The ruler of ancient Egypt"
+"Egypt" (icon: a small pyramid shape) — "An ancient country in Africa"
+
+PAGE 42 — file name: adapted-21-wom-cleopatra-work.jpg — LAYOUT W-A
+Header: "CLEOPATRA, QUEEN OF EGYPT · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What was Cleopatra?"
+   Option A (icon: a helmet): "A Roman soldier"
+   Option B (icon: a small crown): "Queen of Egypt"
+2. "What could Cleopatra do well?"
+   Option A (icon: a small speech bubble): "Speak many languages"
+   Option B (icon: a hammer): "Build houses"
+3. "Where did Cleopatra rule?"
+   Option A (icon: a mountain range): "The Andes"
+   Option B (icon: a small pyramid): "Egypt"
+MATCH — draw a line from each word to its matching icon:
+Words: "Queen"  "Pharaoh"  "Egypt"
+Icons (scrambled order): a small crown; a small gold headdress; a small pyramid shape
+YES or NO — circle one for each:
+1. "Cleopatra ruled Egypt."
+2. "She spoke many languages."
+3. "Cleopatra lived on the Moon."
+DRAW OR WRITE: "Draw or write about Cleopatra."
+
+PAGE 43 — file name: adapted-22-wom-marie-curie-read.jpg — LAYOUT R-B
+Illustration: a scientist in a simple lab coat working at a wooden bench with glowing glass flasks and a notebook, soft blue-green light, painted style
+Title: "MARIE CURIE"
+WHO box (icon: person silhouette): "WHO" / "Marie Curie, a scientist"
+WHERE box (icon: map pin): "WHERE" / "Paris, France"
+WHEN box (icon: small clock): "WHEN" / "1911"
+Reading text, one short sentence per line:
+"Marie Curie is a brilliant scientist."
+"She studies special glowing elements."
+"Curie discovers two new elements."
+"She wins two Nobel Prizes."
+"Marie Curie is the first person to do this."
+KEY WORDS (3 boxes, each: icon + word in bold + definition):
+"Scientist" (icon: a small glass flask) — "A person who studies science"
+"Element" (icon: a small atom symbol) — "A basic kind of matter"
+"Prize" (icon: a small medal) — "An award for great work"
+
+PAGE 44 — file name: adapted-22-wom-marie-curie-work.jpg — LAYOUT W-B
+Header: "MARIE CURIE · PRACTICE"
+CIRCLE THE ANSWER — 3 questions, 2 icon-and-text options each (student circles one):
+1. "What was Marie Curie?"
+   Option A (icon: a glass flask): "A scientist"
+   Option B (icon: a crown): "A queen"
+2. "What did she discover?"
+   Option A (icon: a musical note): "A new song"
+   Option B (icon: a small atom symbol): "Two new elements"
+3. "What did she win?"
+   Option A (icon: a small medal): "Two Nobel Prizes"
+   Option B (icon: a soccer trophy): "A soccer trophy"
+MATCH — draw a line from each word to its matching icon:
+Words: "Scientist"  "Element"  "Prize"
+Icons (scrambled order): a small glass flask; a small atom symbol; a small medal
+YES or NO — circle one for each:
+1. "Marie Curie was a scientist."
+2. "She won two Nobel Prizes."
+3. "Marie Curie was a queen of England."
+DRAW OR WRITE: "Draw or write about Marie Curie."
+
+Generate now ALL the pages of this batch, in sequence, in a single round.
