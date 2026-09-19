@@ -1,0 +1,166 @@
+BATCH TASK — generate ALL 12 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom poster that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white.
+- EACH MILESTONE has: a small round full-color painted illustration (museum-painting style, never a photo, about 0.8 inches across), its date printed in antique gold, and one short line of text under the date. Copy every date and text line EXACTLY as given below — do not shorten, paraphrase, or invent extra words.
+- The connecting line/road/band between milestones is a thin gold or wine-red line. Do not add any date, label, or milestone that is not listed below.
+- TEXT: American English, spelled EXACTLY as given. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms (no modern flags, no modern logos, nothing from outside each milestone's own time period in its own illustration). War and conflict milestones are shown as calm, symbolic small icons (a flag of truce, a quiet map, a folded letter) — never weapons in use, never combat, never a depicted person being harmed.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Illustrated Timelines · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT T-A — VERTICAL LINE: a single gold line runs straight down the center of the page from top to bottom. Milestones alternate left and right of the line as small cards, each connected to the line by a short tick mark, in chronological order from top to bottom. Each card: round illustration, gold date, one line of text.
+LAYOUT T-B — S-ROAD: a single gold line winds down the page in a gentle S-curve from top to bottom, like a road. Milestones sit along the curve in chronological order, alternating left and right of the curve as it bends. Each stop: round illustration, gold date, one line of text.
+LAYOUT T-C — HORIZONTAL BANDS: the page is divided into three equal horizontal bands, stacked top to bottom. Milestones run left to right along each band in chronological order, continuing into the next band down when a band is full. Each stop: round illustration, gold date, one line of text.
+
+=== PAGES ===
+
+PAGE 11 — file name: timeline-11-rev-panorama-age-of-revolutions.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE AGE OF REVOLUTIONS"
+Subtitle (small, under the title): "1776 CE - 1830 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1776 CE" | text: "The Declaration of Independence is adopted" | round illustration: a small quill and parchment
+- date (gold): "1789 CE" | text: "The storming of the Bastille begins the French Revolution" | round illustration: a small stone fortress tower
+- date (gold): "1804 CE" | text: "Napoleon crowns himself emperor" | round illustration: a small golden laurel crown
+- date (gold): "1804 CE" | text: "Haiti wins its independence" | round illustration: a small palm tree
+- date (gold): "1819 CE" | text: "Simon Bolivar leads South American independence" | round illustration: a small mountain range
+- date (gold): "1830 CE" | text: "Steam trains transform travel" | round illustration: a small steam locomotive
+
+PAGE 12 — file name: timeline-12-rev-focus-french-revolution.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE FRENCH REVOLUTION"
+Subtitle (small, under the title): "1789 CE - 1815 CE"
+Milestones, in this exact chronological order (7 total):
+- date (gold): "1789 CE" | text: "The storming of the Bastille" | round illustration: a small stone fortress tower
+- date (gold): "1791 CE" | text: "France adopts its first constitution" | round illustration: a small bound document
+- date (gold): "1793 CE" | text: "King Louis XVI is executed; the Terror begins" | round illustration: a small broken gold crown
+- date (gold): "1794 CE" | text: "Robespierre is executed; the Terror ends" | round illustration: a small quiet courtroom scroll
+- date (gold): "1799 CE" | text: "Napoleon seizes power in a coup" | round illustration: a small bicorne hat
+- date (gold): "1804 CE" | text: "Napoleon crowns himself emperor" | round illustration: a small golden laurel crown
+- date (gold): "1815 CE" | text: "Napoleon is defeated at Waterloo" | round illustration: a small quiet green field
+
+PAGE 13 — file name: timeline-13-ww1-panorama-imperialism-ww1.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "IMPERIALISM & WORLD WAR I"
+Subtitle (small, under the title): "1912 CE - 1918 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1912 CE" | text: "The Titanic sinks in the Atlantic" | round illustration: a small pale iceberg
+- date (gold): "1914 CE" | text: "Archduke Franz Ferdinand is assassinated in Sarajevo" | round illustration: a small folded newspaper
+- date (gold): "1914 CE" | text: "Soldiers share a Christmas Truce" | round illustration: a small holly sprig
+- date (gold): "1916 CE" | text: "Soldiers endure life in the trenches" | round illustration: a small muddy boot
+- date (gold): "1917 CE" | text: "The Russian Revolution overthrows the czar" | round illustration: a small red banner
+- date (gold): "1918 CE" | text: "The Armistice ends the fighting" | round illustration: a small white flag of truce
+
+PAGE 14 — file name: timeline-14-ww1-focus-world-war-one.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "WORLD WAR I"
+Subtitle (small, under the title): "1914 CE - 1918 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1914 CE" | text: "Archduke Franz Ferdinand is assassinated; war begins" | round illustration: a small folded newspaper
+- date (gold): "1915 CE" | text: "A German U-boat sinks the ship Lusitania" | round illustration: a small ocean liner
+- date (gold): "1916 CE" | text: "The long Battle of the Somme begins" | round illustration: a small muddy boot
+- date (gold): "1917 CE" | text: "The United States enters the war" | round illustration: a small eagle feather quill
+- date (gold): "1918 CE" | text: "A worldwide flu pandemic begins spreading" | round illustration: a small folded handkerchief
+- date (gold): "1918 CE" | text: "The Armistice ends the fighting on November 11" | round illustration: a small white flag of truce
+
+PAGE 15 — file name: timeline-15-ww2-panorama-world-at-war.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE WORLD AT WAR"
+Subtitle (small, under the title): "1929 CE - 1945 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1929 CE" | text: "The stock market crashes, starting the Great Depression" | round illustration: a small empty coin purse
+- date (gold): "1939 CE" | text: "Germany invades Poland; World War II begins" | round illustration: a small folded map
+- date (gold): "1940 CE" | text: "The Battle of Britain is fought in the skies" | round illustration: a small propeller silhouette
+- date (gold): "1941 CE" | text: "Japan attacks Pearl Harbor" | round illustration: a small anchor and dock
+- date (gold): "1944 CE" | text: "Allied forces land at Normandy on D-Day" | round illustration: a small landing craft
+- date (gold): "1945 CE" | text: "World War II ends in victory" | round illustration: a small dove and olive branch
+
+PAGE 16 — file name: timeline-16-ww2-focus-world-war-two.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "WORLD WAR II"
+Subtitle (small, under the title): "1939 CE - 1945 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1939 CE" | text: "Germany invades Poland; World War II begins" | round illustration: a small folded map
+- date (gold): "1940 CE" | text: "British troops are evacuated from Dunkirk" | round illustration: a small fishing boat
+- date (gold): "1941 CE" | text: "Germany invades the Soviet Union" | round illustration: a small snowy horizon
+- date (gold): "1942 CE" | text: "The Battle of Midway turns the war in the Pacific" | round illustration: a small aircraft carrier deck
+- date (gold): "1943 CE" | text: "The Soviets defeat Germany at Stalingrad" | round illustration: a small snow-covered rooftop
+- date (gold): "1945 CE" | text: "World War II ends in victory" | round illustration: a small dove and olive branch
+
+PAGE 17 — file name: timeline-17-mod-panorama-cold-war.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE COLD WAR & THE MODERN WORLD"
+Subtitle (small, under the title): "1947 CE - 1994 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1947 CE" | text: "India wins its independence from Britain" | round illustration: a small spinning wheel
+- date (gold): "1957 CE" | text: "The Soviet Union launches Sputnik" | round illustration: a small silver satellite
+- date (gold): "1962 CE" | text: "The Cuban Missile Crisis alarms the world" | round illustration: a small folded telegram
+- date (gold): "1969 CE" | text: "Astronauts land on the Moon" | round illustration: a small crescent moon
+- date (gold): "1989 CE" | text: "The Berlin Wall falls" | round illustration: a small broken brick wall
+- date (gold): "1994 CE" | text: "Nelson Mandela is elected president of South Africa" | round illustration: a small ballot box
+
+PAGE 18 — file name: timeline-18-mod-focus-space-race.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE SPACE RACE"
+Subtitle (small, under the title): "1957 CE - 1975 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1957 CE" | text: "The Soviet Union launches Sputnik, the first satellite" | round illustration: a small silver satellite
+- date (gold): "1958 CE" | text: "The United States creates NASA" | round illustration: a small rocket silhouette
+- date (gold): "1961 CE" | text: "Yuri Gagarin becomes the first human in space" | round illustration: a small round space helmet
+- date (gold): "1961 CE" | text: "President Kennedy vows to reach the Moon" | round illustration: a small podium and microphone
+- date (gold): "1969 CE" | text: "Apollo 11 lands the first astronauts on the Moon" | round illustration: a small crescent moon
+- date (gold): "1975 CE" | text: "American and Soviet spacecraft dock together in orbit" | round illustration: a small linked spacecraft
+
+PAGE 19 — file name: timeline-19-inv-panorama-inventions.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "INVENTIONS THAT CHANGED THE WORLD"
+Subtitle (small, under the title): "c. 3500 BCE - 1946 CE"
+Milestones, in this exact chronological order (7 total):
+- date (gold): "c. 3500 BCE" | text: "The wheel is invented in Mesopotamia" | round illustration: a small stone wheel
+- date (gold): "105 CE" | text: "Cai Lun improves papermaking in China" | round illustration: a small sheet of paper
+- date (gold): "1796 CE" | text: "Edward Jenner creates the first vaccine" | round illustration: a small glass vial
+- date (gold): "1876 CE" | text: "Alexander Graham Bell patents the telephone" | round illustration: a small brass telephone
+- date (gold): "1903 CE" | text: "The Wright brothers achieve the first powered flight" | round illustration: a small biplane
+- date (gold): "1928 CE" | text: "Alexander Fleming discovers penicillin" | round illustration: a small petri dish
+- date (gold): "1946 CE" | text: "ENIAC, one of the first computers, is switched on" | round illustration: a small blinking control panel
+
+PAGE 20 — file name: timeline-20-inv-focus-communication.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "GETTING THE MESSAGE ACROSS"
+Subtitle (small, under the title): "105 CE - 1969 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "105 CE" | text: "Cai Lun improves papermaking in China" | round illustration: a small sheet of paper
+- date (gold): "c. 1455 CE" | text: "Gutenberg's printing press begins the age of print" | round illustration: a small printing press
+- date (gold): "1876 CE" | text: "Alexander Graham Bell patents the telephone" | round illustration: a small brass telephone
+- date (gold): "1901 CE" | text: "Marconi sends the first transatlantic radio signal" | round illustration: a small radio antenna
+- date (gold): "1926 CE" | text: "The first television demonstration takes place" | round illustration: a small boxy television
+- date (gold): "1969 CE" | text: "ARPANET sends its first message between computers" | round illustration: a small blinking control panel
+
+PAGE 21 — file name: timeline-21-wom-panorama-women-who-made-history.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "WOMEN WHO MADE HISTORY"
+Subtitle (small, under the title): "c. 1479 BCE - 2014 CE"
+Milestones, in this exact chronological order (7 total):
+- date (gold): "c. 1479 BCE" | text: "Hatshepsut becomes pharaoh of Egypt" | round illustration: a small gold pharaoh headdress
+- date (gold): "51 BCE" | text: "Cleopatra becomes queen of Egypt" | round illustration: a small royal diadem
+- date (gold): "690 CE" | text: "Wu Zetian becomes empress of China" | round illustration: a small dragon-carved fan
+- date (gold): "1429 CE" | text: "Joan of Arc leads French troops at Orleans" | round illustration: a small banner and standard
+- date (gold): "1762 CE" | text: "Catherine the Great becomes empress of Russia" | round illustration: a small jeweled crown
+- date (gold): "1911 CE" | text: "Marie Curie wins her second Nobel Prize" | round illustration: a small glass flask
+- date (gold): "2014 CE" | text: "Malala Yousafzai becomes the youngest Nobel Prize winner" | round illustration: a small open book
+
+PAGE 22 — file name: timeline-22-wom-focus-marie-curie.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "MARIE CURIE: A LIFE IN SCIENCE"
+Subtitle (small, under the title): "1867 CE - 1911 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1867 CE" | text: "Marie Curie is born in Warsaw, Poland" | round illustration: a small snowy rooftop
+- date (gold): "1891 CE" | text: "She moves to Paris to study at the Sorbonne" | round illustration: a small travel trunk
+- date (gold): "1898 CE" | text: "Marie and Pierre Curie discover polonium and radium" | round illustration: a small glowing glass flask
+- date (gold): "1903 CE" | text: "Marie Curie wins her first Nobel Prize, in Physics" | round illustration: a small gold medal
+- date (gold): "1906 CE" | text: "She becomes the first woman to teach at the Sorbonne" | round illustration: a small lecture podium
+- date (gold): "1911 CE" | text: "Marie Curie wins a second Nobel Prize, in Chemistry" | round illustration: a small gold medal
+
+Generate now ALL the pages of this batch, in sequence, in a single round.

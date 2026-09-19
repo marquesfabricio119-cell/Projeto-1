@@ -1,0 +1,140 @@
+BATCH TASK — generate ALL 10 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom poster that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white.
+- EACH MILESTONE has: a small round full-color painted illustration (museum-painting style, never a photo, about 0.8 inches across), its date printed in antique gold, and one short line of text under the date. Copy every date and text line EXACTLY as given below — do not shorten, paraphrase, or invent extra words.
+- The connecting line/road/band between milestones is a thin gold or wine-red line. Do not add any date, label, or milestone that is not listed below.
+- TEXT: American English, spelled EXACTLY as given. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms (no modern flags, no modern logos, nothing from outside each milestone's own time period in its own illustration). War and conflict milestones are shown as calm, symbolic small icons (a flag of truce, a quiet map, a folded letter) — never weapons in use, never combat, never a depicted person being harmed.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "Illustrated Timelines · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT T-A — VERTICAL LINE: a single gold line runs straight down the center of the page from top to bottom. Milestones alternate left and right of the line as small cards, each connected to the line by a short tick mark, in chronological order from top to bottom. Each card: round illustration, gold date, one line of text.
+LAYOUT T-B — S-ROAD: a single gold line winds down the page in a gentle S-curve from top to bottom, like a road. Milestones sit along the curve in chronological order, alternating left and right of the curve as it bends. Each stop: round illustration, gold date, one line of text.
+LAYOUT T-C — HORIZONTAL BANDS: the page is divided into three equal horizontal bands, stacked top to bottom. Milestones run left to right along each band in chronological order, continuing into the next band down when a band is full. Each stop: round illustration, gold date, one line of text.
+
+=== PAGES ===
+
+PAGE 1 — file name: timeline-01-civ-panorama-first-civilizations.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "FIRST CIVILIZATIONS"
+Subtitle (small, under the title): "c. 9000 BCE - 1922 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "c. 9000 BCE" | text: "People begin farming in the Fertile Crescent" | round illustration: a small golden wheat sheaf
+- date (gold): "c. 3300 BCE" | text: "Writing is invented in Sumer" | round illustration: a small clay tablet with marks
+- date (gold): "c. 2560 BCE" | text: "The Great Pyramid is built in Egypt" | round illustration: a small sand-colored pyramid
+- date (gold): "c. 1754 BCE" | text: "Hammurabi's Code is carved in Babylon" | round illustration: a small carved stone pillar
+- date (gold): "221 BCE" | text: "Qin Shi Huang becomes first emperor of China" | round illustration: a small clay soldier figure
+- date (gold): "1922 CE" | text: "Tutankhamun's tomb is discovered" | round illustration: a small glinting golden mask
+
+PAGE 2 — file name: timeline-02-civ-focus-ancient-egypt.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "ANCIENT EGYPT"
+Subtitle (small, under the title): "c. 3100 BCE - 1922 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "c. 3100 BCE" | text: "Upper and Lower Egypt are united" | round illustration: a small double crown
+- date (gold): "c. 2560 BCE" | text: "The Great Pyramid of Giza is built" | round illustration: a small sand-colored pyramid
+- date (gold): "c. 1332 BCE" | text: "Tutankhamun becomes pharaoh as a boy" | round illustration: a small golden pharaoh mask
+- date (gold): "c. 1279 BCE" | text: "Ramses II begins his long reign" | round illustration: a small stone obelisk
+- date (gold): "30 BCE" | text: "Cleopatra dies; Egypt becomes part of Rome" | round illustration: a small fading golden diadem
+- date (gold): "1922 CE" | text: "Tutankhamun's tomb is discovered" | round illustration: a small archaeologist lamp
+
+PAGE 3 — file name: timeline-03-gr-panorama-greece-rome.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "GREECE & ROME"
+Subtitle (small, under the title): "776 BCE - 476 CE"
+Milestones, in this exact chronological order (7 total):
+- date (gold): "776 BCE" | text: "The first Olympic Games are held in Greece" | round illustration: a small laurel wreath
+- date (gold): "508 BCE" | text: "Democracy begins in Athens" | round illustration: a small voting pebble and urn
+- date (gold): "490 BCE" | text: "Athens defeats Persia at Marathon" | round illustration: a small running sandal
+- date (gold): "331 BCE" | text: "Alexander the Great conquers Persia" | round illustration: a small bronze helmet
+- date (gold): "44 BCE" | text: "Julius Caesar is assassinated in Rome" | round illustration: a small laurel-crowned bust
+- date (gold): "80 CE" | text: "The Colosseum opens in Rome" | round illustration: a small round amphitheater
+- date (gold): "476 CE" | text: "The Western Roman Empire falls" | round illustration: a small crumbling stone column
+
+PAGE 4 — file name: timeline-04-gr-focus-roman-republic-empire.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE ROMAN REPUBLIC TO EMPIRE"
+Subtitle (small, under the title): "509 BCE - 476 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "509 BCE" | text: "Rome becomes a republic" | round illustration: a small toga and scroll
+- date (gold): "264-146 BCE" | text: "Rome fights the Punic Wars against Carthage" | round illustration: a small wooden warship
+- date (gold): "44 BCE" | text: "Julius Caesar is assassinated" | round illustration: a small laurel-crowned bust
+- date (gold): "27 BCE" | text: "Augustus becomes Rome's first emperor" | round illustration: a small golden eagle standard
+- date (gold): "80 CE" | text: "The Colosseum opens in Rome" | round illustration: a small round amphitheater
+- date (gold): "476 CE" | text: "The Western Roman Empire falls" | round illustration: a small crumbling stone column
+
+PAGE 5 — file name: timeline-05-emp-panorama-empires.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "EMPIRES OF ASIA, AFRICA & THE AMERICAS"
+Subtitle (small, under the title): "1206 CE - 1653 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1206 CE" | text: "Genghis Khan unites the Mongol tribes" | round illustration: a small fur-trimmed helmet
+- date (gold): "1324 CE" | text: "Mansa Musa's golden journey to Mecca" | round illustration: a small gold bar
+- date (gold): "1325 CE" | text: "The Aztecs found the city of Tenochtitlan" | round illustration: a small stone eagle emblem
+- date (gold): "1405 CE" | text: "Zheng He's treasure fleet first sails" | round illustration: a small red-sailed junk ship
+- date (gold): "c. 1450 CE" | text: "The Inca build the city of Machu Picchu" | round illustration: a small terraced mountain
+- date (gold): "1653 CE" | text: "The Taj Mahal is completed in India" | round illustration: a small white domed building
+
+PAGE 6 — file name: timeline-06-emp-focus-mongol-empire.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE MONGOL EMPIRE"
+Subtitle (small, under the title): "1206 CE - 1368 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1206 CE" | text: "Genghis Khan unites the Mongol tribes" | round illustration: a small fur-trimmed helmet
+- date (gold): "1215 CE" | text: "The Mongols capture the city of Beijing" | round illustration: a small walled city gate
+- date (gold): "1227 CE" | text: "Genghis Khan dies; the empire is divided" | round illustration: a small riderless horse
+- date (gold): "1260 CE" | text: "Kublai Khan becomes Great Khan" | round illustration: a small golden seal
+- date (gold): "1271 CE" | text: "Kublai Khan founds the Yuan Dynasty in China" | round illustration: a small dragon-carved throne
+- date (gold): "1368 CE" | text: "The Yuan Dynasty falls; the Ming Dynasty begins" | round illustration: a small red lantern
+
+PAGE 7 — file name: timeline-07-med-panorama-middle-ages.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE MIDDLE AGES"
+Subtitle (small, under the title): "793 CE - 1453 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "793 CE" | text: "Vikings raid the monastery at Lindisfarne" | round illustration: a small striped longship sail
+- date (gold): "800 CE" | text: "Charlemagne is crowned emperor" | round illustration: a small jeweled crown
+- date (gold): "1215 CE" | text: "King John agrees to Magna Carta" | round illustration: a small wax seal and scroll
+- date (gold): "1347 CE" | text: "The Black Death arrives in Europe" | round illustration: a small healer's satchel
+- date (gold): "1429 CE" | text: "Joan of Arc helps lift the siege of Orleans" | round illustration: a small banner and standard
+- date (gold): "1453 CE" | text: "Constantinople falls, ending the Middle Ages" | round illustration: a small domed skyline
+
+PAGE 8 — file name: timeline-08-med-focus-crusades.jpg — LAYOUT T-B
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE CRUSADES"
+Subtitle (small, under the title): "1095 CE - 1291 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1095 CE" | text: "Pope Urban II calls for the First Crusade" | round illustration: a small wax-sealed letter
+- date (gold): "1099 CE" | text: "Crusaders capture the city of Jerusalem" | round illustration: a small stone city gate
+- date (gold): "1147 CE" | text: "The Second Crusade begins" | round illustration: a small ship setting sail
+- date (gold): "1187 CE" | text: "Saladin retakes the city of Jerusalem" | round illustration: a small crescent-topped tower
+- date (gold): "1189 CE" | text: "The Third Crusade begins" | round illustration: a small folded banner
+- date (gold): "1291 CE" | text: "The fall of Acre ends crusader rule there" | round illustration: a small coastal fortress
+
+PAGE 9 — file name: timeline-09-ren-panorama-renaissance-exploration.jpg — LAYOUT T-C
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "RENAISSANCE & EXPLORATION"
+Subtitle (small, under the title): "c. 1455 CE - 1610 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "c. 1455 CE" | text: "Gutenberg prints his first Bible" | round illustration: a small printing press
+- date (gold): "1503 CE" | text: "Leonardo da Vinci begins the Mona Lisa" | round illustration: a small paintbrush and palette
+- date (gold): "1512 CE" | text: "Michelangelo finishes the Sistine Chapel ceiling" | round illustration: a small painted archway
+- date (gold): "1517 CE" | text: "Martin Luther posts his 95 Theses" | round illustration: a small nailed scroll
+- date (gold): "1522 CE" | text: "Magellan's crew completes the first voyage around the world" | round illustration: a small sailing galleon
+- date (gold): "1610 CE" | text: "Galileo turns his telescope to the night sky" | round illustration: a small brass telescope
+
+PAGE 10 — file name: timeline-10-ren-focus-age-of-exploration.jpg — LAYOUT T-A
+Banner (small, top): "ILLUSTRATED TIMELINE"
+Title: "THE AGE OF EXPLORATION"
+Subtitle (small, under the title): "1492 CE - 1522 CE"
+Milestones, in this exact chronological order (6 total):
+- date (gold): "1492 CE" | text: "Columbus reaches the Americas" | round illustration: a small sailing caravel
+- date (gold): "1498 CE" | text: "Vasco da Gama reaches India by sea" | round illustration: a small spice chest
+- date (gold): "1500 CE" | text: "Pedro Alvares Cabral reaches Brazil" | round illustration: a small green coastline
+- date (gold): "1513 CE" | text: "Balboa reaches the Pacific Ocean" | round illustration: a small compass rose
+- date (gold): "1519 CE" | text: "Magellan's expedition sets sail from Spain" | round illustration: a small fleet of small ships
+- date (gold): "1522 CE" | text: "The expedition completes the first voyage around the world" | round illustration: a small sailing globe
+
+Generate now ALL the pages of this batch, in sequence, in a single round.
