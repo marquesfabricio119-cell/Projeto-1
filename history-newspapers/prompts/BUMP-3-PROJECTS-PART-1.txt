@@ -1,0 +1,249 @@
+BATCH TASK — generate ALL 10 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom worksheet that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules, rounded boxes with a dark outline. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white. ONE small full-color painted illustration per page (museum-painting style, never a photo), no bigger than about 1.3 inches, placed next to the banner — this page is text-heavy, so keep the illustration small and let the text stay large and readable.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines for students to write on. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- RUBRIC TABLE: 4 rows (one per criterion) by 4 columns (score levels). Column headers, left to right: "4 · Excellent", "3 · Good", "2 · Developing", "1 · Beginning". Each row shows only the criterion name on the left and four empty boxes to circle or check — do NOT write any description inside the cells, only the row and column labels.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "History Projects · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT P-A — full-width deep wine red banner bar with "HISTORY PROJECT · NN" in cream serif capitals and the small illustration at the right end of the banner; the title in large bold serif just below the banner; three rounded chips in a row (TIME, GROUP, TYPE), each with a small icon; "YOUR MISSION" box below the chips; "STEPS" as a numbered vertical list; "YOU WILL NEED" as a small box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-B — banner as a gold ribbon in the top-left corner reading "HISTORY PROJECT · NN", with the small illustration in the top-right corner; the title centered in large bold serif below them; the three chips (TIME, GROUP, TYPE) stacked vertically on the right side, with "YOUR MISSION" in a box on the left, side by side; "STEPS" as two columns of numbered step cards; "YOU WILL NEED" as a row of small icon chips; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-C — full-width deep wine red banner bar combining "HISTORY PROJECT · NN" and the title on the same bar, with the small illustration at the right end; the three chips (TIME, GROUP, TYPE) as a horizontal strip just under the banner; "YOUR MISSION" box; "STEPS" shown as a vertical numbered path with a thin connecting line between steps; "YOU WILL NEED" box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+
+=== PAGES ===
+
+PAGE 1 — file name: project-01-civ-farming-debate.jpg — LAYOUT P-A
+Illustration (small, icon-sized): two small podium stands facing each other with a raised gavel resting between them, warm tones, painted style
+Banner: "HISTORY PROJECT · 01"
+Title: "Farming vs. Foraging: A Great Debate"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 4 students"
+Chip 3 (icon: small tag): "TYPE: Debate"
+YOUR MISSION box: "Your team will argue one side of a big historical question. Argue whether farming or foraging was the better way of life for early humans."
+STEPS (numbered list):
+1. "Read about both sides of the question."
+2. "Split your team into two smaller teams."
+3. "Gather three strong pieces of evidence."
+4. "Practice your opening argument out loud."
+5. "Debate the other team in front of the class."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Index cards"  "A timer"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Organization"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 2 — file name: project-02-civ-egypt-exhibit.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small glass display case holding a single ancient artifact under a soft spotlight, painted style
+Banner: "HISTORY PROJECT · 02"
+Title: "Design a Museum Exhibit: Treasures of Ancient Egypt"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 3-4 students"
+Chip 3 (icon: small tag): "TYPE: Museum Exhibit"
+YOUR MISSION box: "Your team will design a museum exhibit about this topic. Choose five treasures from ancient Egypt and explain why each one matters."
+STEPS (numbered list):
+1. "Choose five objects or artifacts to display."
+2. "Write a short label for each object."
+3. "Design a title panel for your exhibit."
+4. "Arrange your exhibit on a table or poster."
+5. "Give visitors a two-minute guided tour."
+YOU WILL NEED box (icon bullets):
+"Poster board"  "Markers"  "Printed images"  "Index cards"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Labels"
+Row: "Design"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 3 — file name: project-03-civ-hammurabi-trial.jpg — LAYOUT P-C
+Illustration (small, icon-sized): a small wooden gavel resting on a block beside a closed law book, painted style
+Banner: "HISTORY PROJECT · 03"
+Title: "Was Hammurabi's Code Fair? A Mock Trial"
+Chip 1 (icon: small clock): "TIME: 2-3 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 5-6 students"
+Chip 3 (icon: small tag): "TYPE: Mock Trial"
+YOUR MISSION box: "Your team will put a historical decision on trial. Decide whether Hammurabi's Code of 282 laws was fair to the people of Babylon."
+STEPS (numbered list):
+1. "Assign roles: lawyers, witnesses, and jury."
+2. "Research the facts of the case."
+3. "Write your opening and closing statements."
+4. "Question your witnesses in front of the jury."
+5. "Let the jury decide on a verdict."
+YOU WILL NEED box (icon bullets):
+"Case notes"  "Role cards"  "A gavel (optional)"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Courtroom Roles"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 4 — file name: project-04-civ-map.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small unrolled parchment map with a compass rose in one corner, painted style
+Banner: "HISTORY PROJECT · 04"
+Title: "Map the First Civilizations"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Map Project"
+YOUR MISSION box: "Your team will draw and label a map of this topic. Mark where the first civilizations grew up along rivers around the ancient world."
+STEPS (numbered list):
+1. "Trace or draw the outline of the region."
+2. "Mark five to eight important places."
+3. "Add a title, a compass rose, and a key."
+4. "Color-code your map by topic or time."
+5. "Explain three of your map markers to the class."
+YOU WILL NEED box (icon bullets):
+"Large paper"  "Colored pencils"  "A ruler"  "Reference map"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Labels & Key"
+Row: "Neatness"
+Row: "Explanation"
+"TOTAL ___/16"
+
+PAGE 5 — file name: project-05-civ-pharaoh-interview.jpg — LAYOUT P-B
+Illustration (small, icon-sized): two small empty chairs facing each other with a microphone stand between them, painted style
+Banner: "HISTORY PROJECT · 05"
+Title: "Interview a Pharaoh"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Interview"
+YOUR MISSION box: "You will write and perform an interview with a person from history. Interview a pharaoh about ruling Egypt, building monuments, and life after death."
+STEPS (numbered list):
+1. "Write five interview questions."
+2. "Research how your figure would answer."
+3. "Write the answers in your figure's voice."
+4. "Practice performing the interview with a partner."
+5. "Perform your interview for the class."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "A prop (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Questions"
+Row: "Performance"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 6 — file name: project-06-gr-athens-sparta-debate.jpg — LAYOUT P-C
+Illustration (small, icon-sized): two small podium stands facing each other with a raised gavel resting between them, warm tones, painted style
+Banner: "HISTORY PROJECT · 06"
+Title: "Athens vs. Sparta: A Great Debate"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 4 students"
+Chip 3 (icon: small tag): "TYPE: Debate"
+YOUR MISSION box: "Your team will argue one side of a big historical question. Argue whether Athens or Sparta had the better way of life in ancient Greece."
+STEPS (numbered list):
+1. "Read about both sides of the question."
+2. "Split your team into two smaller teams."
+3. "Gather three strong pieces of evidence."
+4. "Practice your opening argument out loud."
+5. "Debate the other team in front of the class."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Index cards"  "A timer"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Organization"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 7 — file name: project-07-gr-caesar-trial.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small wooden gavel resting on a block beside a closed law book, painted style
+Banner: "HISTORY PROJECT · 07"
+Title: "The Trial of Julius Caesar's Assassins"
+Chip 1 (icon: small clock): "TIME: 2-3 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 5-6 students"
+Chip 3 (icon: small tag): "TYPE: Mock Trial"
+YOUR MISSION box: "Your team will put a historical decision on trial. Decide whether the senators who killed Julius Caesar were right or wrong to do it."
+STEPS (numbered list):
+1. "Assign roles: lawyers, witnesses, and jury."
+2. "Research the facts of the case."
+3. "Write your opening and closing statements."
+4. "Question your witnesses in front of the jury."
+5. "Let the jury decide on a verdict."
+YOU WILL NEED box (icon bullets):
+"Case notes"  "Role cards"  "A gavel (optional)"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Courtroom Roles"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 8 — file name: project-08-gr-rome-exhibit.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small glass display case holding a single ancient artifact under a soft spotlight, painted style
+Banner: "HISTORY PROJECT · 08"
+Title: "Design a Museum Exhibit: Wonders of Ancient Rome"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 3-4 students"
+Chip 3 (icon: small tag): "TYPE: Museum Exhibit"
+YOUR MISSION box: "Your team will design a museum exhibit about this topic. Choose five wonders of ancient Rome and explain why each one still amazes people."
+STEPS (numbered list):
+1. "Choose five objects or artifacts to display."
+2. "Write a short label for each object."
+3. "Design a title panel for your exhibit."
+4. "Arrange your exhibit on a table or poster."
+5. "Give visitors a two-minute guided tour."
+YOU WILL NEED box (icon bullets):
+"Poster board"  "Markers"  "Printed images"  "Index cards"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Labels"
+Row: "Design"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 9 — file name: project-09-gr-mediterranean-map.jpg — LAYOUT P-C
+Illustration (small, icon-sized): a small unrolled parchment map with a compass rose in one corner, painted style
+Banner: "HISTORY PROJECT · 09"
+Title: "Map the Mediterranean World"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Map Project"
+YOUR MISSION box: "Your team will draw and label a map of this topic. Mark the cities, seas, and trade routes of the ancient Mediterranean world."
+STEPS (numbered list):
+1. "Trace or draw the outline of the region."
+2. "Mark five to eight important places."
+3. "Add a title, a compass rose, and a key."
+4. "Color-code your map by topic or time."
+5. "Explain three of your map markers to the class."
+YOU WILL NEED box (icon bullets):
+"Large paper"  "Colored pencils"  "A ruler"  "Reference map"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Labels & Key"
+Row: "Neatness"
+Row: "Explanation"
+"TOTAL ___/16"
+
+PAGE 10 — file name: project-10-gr-colosseum-diary.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small closed diary with a ribbon bookmark beside a plain inkwell, painted style
+Banner: "HISTORY PROJECT · 10"
+Title: "A Day at the Colosseum: Diary Entry"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: Individual"
+Chip 3 (icon: small tag): "TYPE: Diary Entry"
+YOUR MISSION box: "You will write a diary entry as someone living through this event. Write about a day spent watching the games at Rome's great Colosseum."
+STEPS (numbered list):
+1. "Choose who is writing the diary entry."
+2. "List three real facts to include."
+3. "Write today's date at the top."
+4. "Describe one event from your writer's day."
+5. "End with how your writer feels about it."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "Quiet writing time"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Voice & Feeling"
+Row: "Details"
+Row: "Writing Conventions"
+"TOTAL ___/16"
+
+Generate now ALL the pages of this batch, in sequence, in a single round.

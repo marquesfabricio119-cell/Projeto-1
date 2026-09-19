@@ -1,0 +1,249 @@
+BATCH TASK — generate ALL 10 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom worksheet that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules, rounded boxes with a dark outline. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white. ONE small full-color painted illustration per page (museum-painting style, never a photo), no bigger than about 1.3 inches, placed next to the banner — this page is text-heavy, so keep the illustration small and let the text stay large and readable.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines for students to write on. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- RUBRIC TABLE: 4 rows (one per criterion) by 4 columns (score levels). Column headers, left to right: "4 · Excellent", "3 · Good", "2 · Developing", "1 · Beginning". Each row shows only the criterion name on the left and four empty boxes to circle or check — do NOT write any description inside the cells, only the row and column labels.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "History Projects · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT P-A — full-width deep wine red banner bar with "HISTORY PROJECT · NN" in cream serif capitals and the small illustration at the right end of the banner; the title in large bold serif just below the banner; three rounded chips in a row (TIME, GROUP, TYPE), each with a small icon; "YOUR MISSION" box below the chips; "STEPS" as a numbered vertical list; "YOU WILL NEED" as a small box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-B — banner as a gold ribbon in the top-left corner reading "HISTORY PROJECT · NN", with the small illustration in the top-right corner; the title centered in large bold serif below them; the three chips (TIME, GROUP, TYPE) stacked vertically on the right side, with "YOUR MISSION" in a box on the left, side by side; "STEPS" as two columns of numbered step cards; "YOU WILL NEED" as a row of small icon chips; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-C — full-width deep wine red banner bar combining "HISTORY PROJECT · NN" and the title on the same bar, with the small illustration at the right end; the three chips (TIME, GROUP, TYPE) as a horizontal strip just under the banner; "YOUR MISSION" box; "STEPS" shown as a vertical numbered path with a thin connecting line between steps; "YOU WILL NEED" box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+
+=== PAGES ===
+
+PAGE 41 — file name: project-41-mod-space-race-mystery.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small magnifying glass resting on an old folded map, painted style
+Banner: "HISTORY PROJECT · 41"
+Title: "History's Mysteries: Who Really Won the Space Race?"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: History's Mysteries Investigation"
+YOUR MISSION box: "Your team will investigate an unanswered question from history. Investigate who really won the Space Race, and what winning even means."
+STEPS (numbered list):
+1. "Write down the mystery question."
+2. "Gather three clues or pieces of evidence."
+3. "List two possible explanations."
+4. "Choose the explanation your evidence supports most."
+5. "Present your theory and your evidence."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Paper"  "A pen"  "A poster (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Reasoning"
+Row: "Organization"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 42 — file name: project-42-mod-berlin-wall-newspaper.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small vintage printing press with a fresh printed page emerging, painted style
+Banner: "HISTORY PROJECT · 42"
+Title: "Create Your Own Newspaper: The Berlin Wall Falls"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Newspaper Front Page"
+YOUR MISSION box: "Your team will report on this event like a real newspaper. Report on the fall of the Berlin Wall in 1989."
+STEPS (numbered list):
+1. "Write a bold headline for the main story."
+2. "Write a short lead paragraph with the facts."
+3. "Draw or paste an image for the front page."
+4. "Add a second small story or an advertisement."
+5. "Proofread your front page for mistakes."
+YOU WILL NEED box (icon bullets):
+"Large paper"  "Markers or pens"  "A ruler"  "Reference notes"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Headline & Lead"
+Row: "Facts"
+Row: "Layout"
+Row: "Neatness"
+"TOTAL ___/16"
+
+PAGE 43 — file name: project-43-inv-best-invention-debate.jpg — LAYOUT P-C
+Illustration (small, icon-sized): two small podium stands facing each other with a raised gavel resting between them, warm tones, painted style
+Banner: "HISTORY PROJECT · 43"
+Title: "Which Invention Changed the World Most? A Debate"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 4 students"
+Chip 3 (icon: small tag): "TYPE: Debate"
+YOUR MISSION box: "Your team will argue one side of a big historical question. Argue which invention from this unit changed the world the most."
+STEPS (numbered list):
+1. "Read about both sides of the question."
+2. "Split your team into two smaller teams."
+3. "Gather three strong pieces of evidence."
+4. "Practice your opening argument out loud."
+5. "Debate the other team in front of the class."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Index cards"  "A timer"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Organization"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 44 — file name: project-44-inv-exhibit.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small glass display case holding a single ancient artifact under a soft spotlight, painted style
+Banner: "HISTORY PROJECT · 44"
+Title: "Design a Museum Exhibit: Hall of Inventions"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 3-4 students"
+Chip 3 (icon: small tag): "TYPE: Museum Exhibit"
+YOUR MISSION box: "Your team will design a museum exhibit about this topic. Choose five inventions from this unit and explain why each one matters."
+STEPS (numbered list):
+1. "Choose five objects or artifacts to display."
+2. "Write a short label for each object."
+3. "Design a title panel for your exhibit."
+4. "Arrange your exhibit on a table or poster."
+5. "Give visitors a two-minute guided tour."
+YOU WILL NEED box (icon bullets):
+"Poster board"  "Markers"  "Printed images"  "Index cards"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Labels"
+Row: "Design"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 45 — file name: project-45-inv-podcast.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small vintage microphone on a stand with a soft warm glow, painted style
+Banner: "HISTORY PROJECT · 45"
+Title: "Podcast Script: The Invention That Changed My Life"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Podcast Script"
+YOUR MISSION box: "You will write a script for a short history podcast episode. Explain how one invention from this unit still changes daily life today."
+STEPS (numbered list):
+1. "Write a short, catchy introduction."
+2. "Explain three important facts in your own words."
+3. "Add one interesting or surprising detail."
+4. "Write a short closing line for your episode."
+5. "Practice reading your script out loud."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen or computer"  "History notes"  "A timer"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Clarity"
+Row: "Organization"
+Row: "Delivery"
+"TOTAL ___/16"
+
+PAGE 46 — file name: project-46-inv-inventor-interview.jpg — LAYOUT P-C
+Illustration (small, icon-sized): two small empty chairs facing each other with a microphone stand between them, painted style
+Banner: "HISTORY PROJECT · 46"
+Title: "Interview an Inventor"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Interview"
+YOUR MISSION box: "You will write and perform an interview with a person from history. Interview an inventor from this unit about their idea and how it was made."
+STEPS (numbered list):
+1. "Write five interview questions."
+2. "Research how your figure would answer."
+3. "Write the answers in your figure's voice."
+4. "Practice performing the interview with a partner."
+5. "Perform your interview for the class."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "A prop (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Questions"
+Row: "Performance"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 47 — file name: project-47-wom-woman-interview.jpg — LAYOUT P-A
+Illustration (small, icon-sized): two small empty chairs facing each other with a microphone stand between them, painted style
+Banner: "HISTORY PROJECT · 47"
+Title: "Interview a Woman Who Made History"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Interview"
+YOUR MISSION box: "You will write and perform an interview with a person from history. Interview a woman from this unit about her life and her achievements."
+STEPS (numbered list):
+1. "Write five interview questions."
+2. "Research how your figure would answer."
+3. "Write the answers in your figure's voice."
+4. "Practice performing the interview with a partner."
+5. "Perform your interview for the class."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "A prop (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Questions"
+Row: "Performance"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 48 — file name: project-48-wom-exhibit.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small glass display case holding a single ancient artifact under a soft spotlight, painted style
+Banner: "HISTORY PROJECT · 48"
+Title: "Design a Museum Exhibit: Women Who Changed the World"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 3-4 students"
+Chip 3 (icon: small tag): "TYPE: Museum Exhibit"
+YOUR MISSION box: "Your team will design a museum exhibit about this topic. Choose five women from this unit and explain why each one matters."
+STEPS (numbered list):
+1. "Choose five objects or artifacts to display."
+2. "Write a short label for each object."
+3. "Design a title panel for your exhibit."
+4. "Arrange your exhibit on a table or poster."
+5. "Give visitors a two-minute guided tour."
+YOU WILL NEED box (icon bullets):
+"Poster board"  "Markers"  "Printed images"  "Index cards"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Labels"
+Row: "Design"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 49 — file name: project-49-wom-future-girl-letter.jpg — LAYOUT P-C
+Illustration (small, icon-sized): a small folded letter with a wax seal beside a quill pen, painted style
+Banner: "HISTORY PROJECT · 49"
+Title: "Letter to a Future Girl, from a Woman in History"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: Individual or pairs"
+Chip 3 (icon: small tag): "TYPE: Letter from the Past"
+YOUR MISSION box: "You will write a letter as someone who lived through this moment. Write a letter from a woman in this unit to a girl in the future."
+STEPS (numbered list):
+1. "Choose who is writing the letter."
+2. "List three real facts to include."
+3. "Write the letter in the first person."
+4. "Describe what your writer sees, hears, and feels."
+5. "Read your letter out loud to a partner."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "An envelope (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Voice & Feeling"
+Row: "Details"
+Row: "Writing Conventions"
+"TOTAL ___/16"
+
+PAGE 50 — file name: project-50-wom-leaders-chart.jpg — LAYOUT P-A
+Illustration (small, icon-sized): two small framed portraits standing side by side on an easel, painted style
+Banner: "HISTORY PROJECT · 50"
+Title: "Compare Two Women Leaders: A Comparison Chart"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Comparison Chart"
+YOUR MISSION box: "You will compare two people, places, or events from this unit. Compare two women leaders from this unit, and what made each one remarkable."
+STEPS (numbered list):
+1. "Choose the two things you will compare."
+2. "List three facts about each one."
+3. "Find two things they have in common."
+4. "Find two things that make them different."
+5. "Draw your chart neatly with clear labels."
+YOU WILL NEED box (icon bullets):
+"Large paper"  "Markers"  "A ruler"  "History notes"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Similarities"
+Row: "Differences"
+Row: "Neatness"
+"TOTAL ___/16"
+
+Generate now ALL the pages of this batch, in sequence, in a single round.

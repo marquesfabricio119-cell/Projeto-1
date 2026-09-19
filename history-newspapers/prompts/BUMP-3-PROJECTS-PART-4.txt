@@ -1,0 +1,249 @@
+BATCH TASK — generate ALL 10 images of this batch in one go, in the exact order below, one image per page. Read the rules once, then generate every page in sequence without stopping and without asking for confirmation. Label each image only with its file name.
+
+=== RULES FOR EVERY PAGE ===
+- FORMAT: vertical printable page, aspect ratio 2:3, portrait. The page fills the entire image edge to edge (NOT a mockup, no desk, no hands). It will be printed on US Letter paper. Safe margin about 5%.
+- STYLE: a clean, elegant classroom worksheet that matches the "World History Newspapers" brand: light cream paper, deep wine red (#8A2B34) and antique gold (#C1902F) accents, classic serif headings, thin rules, rounded boxes with a dark outline. PRINTER-FRIENDLY: mostly white/cream space and dark text, so it still looks good when a teacher prints it in black and white. ONE small full-color painted illustration per page (museum-painting style, never a photo), no bigger than about 1.3 inches, placed next to the banner — this page is text-heavy, so keep the illustration small and let the text stay large and readable.
+- WRITING LINES: wherever the page says "lines", draw empty ruled lines for students to write on. Leave them EMPTY.
+- TEXT: American English, spelled EXACTLY as given. Copy the text; do not paraphrase, shorten or add words. Do NOT add mottos, slogans, quotes or extra headings. No gibberish filler anywhere. Text must be large and sharp.
+- RUBRIC TABLE: 4 rows (one per criterion) by 4 columns (score levels). Column headers, left to right: "4 · Excellent", "3 · Good", "2 · Developing", "1 · Beginning". Each row shows only the criterion name on the left and four empty boxes to circle or check — do NOT write any description inside the cells, only the row and column labels.
+- Classroom-safe: no blood, no gore, no nudity. No anachronisms.
+- FOOTER on every page: a thin dark bar with "World History Newspapers · Classroom Archive" and, in small italic on the right, "History Projects · for classroom use". No other logos, no watermark.
+
+=== THREE LAYOUTS (use the one named on each page) ===
+LAYOUT P-A — full-width deep wine red banner bar with "HISTORY PROJECT · NN" in cream serif capitals and the small illustration at the right end of the banner; the title in large bold serif just below the banner; three rounded chips in a row (TIME, GROUP, TYPE), each with a small icon; "YOUR MISSION" box below the chips; "STEPS" as a numbered vertical list; "YOU WILL NEED" as a small box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-B — banner as a gold ribbon in the top-left corner reading "HISTORY PROJECT · NN", with the small illustration in the top-right corner; the title centered in large bold serif below them; the three chips (TIME, GROUP, TYPE) stacked vertically on the right side, with "YOUR MISSION" in a box on the left, side by side; "STEPS" as two columns of numbered step cards; "YOU WILL NEED" as a row of small icon chips; the RUBRIC table and "TOTAL ___/16" at the bottom.
+LAYOUT P-C — full-width deep wine red banner bar combining "HISTORY PROJECT · NN" and the title on the same bar, with the small illustration at the right end; the three chips (TIME, GROUP, TYPE) as a horizontal strip just under the banner; "YOUR MISSION" box; "STEPS" shown as a vertical numbered path with a thin connecting line between steps; "YOU WILL NEED" box with icon bullets; the RUBRIC table and "TOTAL ___/16" at the bottom.
+
+=== PAGES ===
+
+PAGE 31 — file name: project-31-ww1-armistice-newspaper.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small vintage printing press with a fresh printed page emerging, painted style
+Banner: "HISTORY PROJECT · 31"
+Title: "Create Your Own Newspaper: Armistice Day Special Edition"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Newspaper Front Page"
+YOUR MISSION box: "Your team will report on this event like a real newspaper. Report on the Armistice that stopped the fighting of World War One in 1918."
+STEPS (numbered list):
+1. "Write a bold headline for the main story."
+2. "Write a short lead paragraph with the facts."
+3. "Draw or paste an image for the front page."
+4. "Add a second small story or an advertisement."
+5. "Proofread your front page for mistakes."
+YOU WILL NEED box (icon bullets):
+"Large paper"  "Markers or pens"  "A ruler"  "Reference notes"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Headline & Lead"
+Row: "Facts"
+Row: "Layout"
+Row: "Neatness"
+"TOTAL ___/16"
+
+PAGE 32 — file name: project-32-ww1-trenches-diary.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small closed diary with a ribbon bookmark beside a plain inkwell, painted style
+Banner: "HISTORY PROJECT · 32"
+Title: "Diary Entry: A Soldier in the Trenches"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: Individual"
+Chip 3 (icon: small tag): "TYPE: Diary Entry"
+YOUR MISSION box: "You will write a diary entry as someone living through this event. Write as a soldier describing daily life in the trenches of World War One."
+STEPS (numbered list):
+1. "Choose who is writing the diary entry."
+2. "List three real facts to include."
+3. "Write today's date at the top."
+4. "Describe one event from your writer's day."
+5. "End with how your writer feels about it."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "Quiet writing time"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Voice & Feeling"
+Row: "Details"
+Row: "Writing Conventions"
+"TOTAL ___/16"
+
+PAGE 33 — file name: project-33-ww1-sarajevo-mystery.jpg — LAYOUT P-C
+Illustration (small, icon-sized): a small magnifying glass resting on an old folded map, painted style
+Banner: "HISTORY PROJECT · 33"
+Title: "History's Mysteries: What Really Happened at Sarajevo?"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: History's Mysteries Investigation"
+YOUR MISSION box: "Your team will investigate an unanswered question from history. Investigate what really happened in Sarajevo in 1914, and why it mattered so much."
+STEPS (numbered list):
+1. "Write down the mystery question."
+2. "Gather three clues or pieces of evidence."
+3. "List two possible explanations."
+4. "Choose the explanation your evidence supports most."
+5. "Present your theory and your evidence."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Paper"  "A pen"  "A poster (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Reasoning"
+Row: "Organization"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 34 — file name: project-34-ww1-christmas-truce-podcast.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small vintage microphone on a stand with a soft warm glow, painted style
+Banner: "HISTORY PROJECT · 34"
+Title: "Podcast Script: The Christmas Truce"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2-3 students"
+Chip 3 (icon: small tag): "TYPE: Podcast Script"
+YOUR MISSION box: "You will write a script for a short history podcast episode. Explain the surprising story of the Christmas Truce of 1914."
+STEPS (numbered list):
+1. "Write a short, catchy introduction."
+2. "Explain three important facts in your own words."
+3. "Add one interesting or surprising detail."
+4. "Write a short closing line for your episode."
+5. "Practice reading your script out loud."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen or computer"  "History notes"  "A timer"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Clarity"
+Row: "Organization"
+Row: "Delivery"
+"TOTAL ___/16"
+
+PAGE 35 — file name: project-35-ww2-atomic-bomb-debate.jpg — LAYOUT P-B
+Illustration (small, icon-sized): two small podium stands facing each other with a raised gavel resting between them, warm tones, painted style
+Banner: "HISTORY PROJECT · 35"
+Title: "Was Dropping the Atomic Bomb Justified? A Debate"
+Chip 1 (icon: small clock): "TIME: 2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 4 students"
+Chip 3 (icon: small tag): "TYPE: Debate"
+YOUR MISSION box: "Your team will argue one side of a big historical question. Argue whether dropping the atomic bomb in 1945 was the right decision."
+STEPS (numbered list):
+1. "Read about both sides of the question."
+2. "Split your team into two smaller teams."
+3. "Gather three strong pieces of evidence."
+4. "Practice your opening argument out loud."
+5. "Debate the other team in front of the class."
+YOU WILL NEED box (icon bullets):
+"History notes"  "Index cards"  "A timer"  "Your voice"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Evidence"
+Row: "Organization"
+Row: "Speaking Skills"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 36 — file name: project-36-ww2-timeline.jpg — LAYOUT P-C
+Illustration (small, icon-sized): a small row of footprints leading along a gently curving dotted path, painted style
+Banner: "HISTORY PROJECT · 36"
+Title: "Living Timeline: The World at War, 1929-1945"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: Whole class"
+Chip 3 (icon: small tag): "TYPE: Living Timeline"
+YOUR MISSION box: "You will become one moment in history for the whole class. Become one event from 1929 to 1945 and find your place in time."
+STEPS (numbered list):
+1. "Choose one event from this unit."
+2. "Write three facts about your event on a card."
+3. "Find your place in time order."
+4. "Stand in a line with your classmates."
+5. "Read your card aloud when it is your turn."
+YOU WILL NEED box (icon bullets):
+"An index card"  "A marker"  "History notes"  "Tape"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Accuracy"
+Row: "Correct Order"
+Row: "Clear Speaking"
+Row: "Participation"
+"TOTAL ___/16"
+
+PAGE 37 — file name: project-37-ww2-soldier-letter.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small folded letter with a wax seal beside a quill pen, painted style
+Banner: "HISTORY PROJECT · 37"
+Title: "Letter Home from a Soldier"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: Individual or pairs"
+Chip 3 (icon: small tag): "TYPE: Letter from the Past"
+YOUR MISSION box: "You will write a letter as someone who lived through this moment. Write a letter home as a soldier serving somewhere in World War Two."
+STEPS (numbered list):
+1. "Choose who is writing the letter."
+2. "List three real facts to include."
+3. "Write the letter in the first person."
+4. "Describe what your writer sees, hears, and feels."
+5. "Read your letter out loud to a partner."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "An envelope (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Voice & Feeling"
+Row: "Details"
+Row: "Writing Conventions"
+"TOTAL ___/16"
+
+PAGE 38 — file name: project-38-ww2-poster-analysis.jpg — LAYOUT P-B
+Illustration (small, icon-sized): a small poster standing on an easel seen from behind, its shapes only faintly visible, painted style
+Banner: "HISTORY PROJECT · 38"
+Title: "Propaganda Poster Analysis: Wartime Home-Front Posters"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Propaganda Poster Analysis"
+YOUR MISSION box: "You will study a real historical poster and explain its message. Study a real wartime home-front poster and figure out who made it and why."
+STEPS (numbered list):
+1. "Look closely at the poster's images and words."
+2. "List what you see, without guessing yet."
+3. "Decide who made the poster and why."
+4. "Explain how the poster tries to persuade people."
+5. "Share your analysis with the class."
+YOU WILL NEED box (icon bullets):
+"A printed poster"  "Paper"  "A pen"  "History notes"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Observation"
+Row: "Historical Context"
+Row: "Analysis"
+Row: "Presentation"
+"TOTAL ___/16"
+
+PAGE 39 — file name: project-39-mod-astronaut-interview.jpg — LAYOUT P-C
+Illustration (small, icon-sized): two small empty chairs facing each other with a microphone stand between them, painted style
+Banner: "HISTORY PROJECT · 39"
+Title: "Interview an Astronaut: Space Race Special"
+Chip 1 (icon: small clock): "TIME: 1-2 class periods"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Interview"
+YOUR MISSION box: "You will write and perform an interview with a person from history. Interview an astronaut from the Space Race about training and traveling to space."
+STEPS (numbered list):
+1. "Write five interview questions."
+2. "Research how your figure would answer."
+3. "Write the answers in your figure's voice."
+4. "Practice performing the interview with a partner."
+5. "Perform your interview for the class."
+YOU WILL NEED box (icon bullets):
+"Paper"  "A pen"  "History notes"  "A prop (optional)"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Historical Accuracy"
+Row: "Questions"
+Row: "Performance"
+Row: "Teamwork"
+"TOTAL ___/16"
+
+PAGE 40 — file name: project-40-mod-cold-war-poster.jpg — LAYOUT P-A
+Illustration (small, icon-sized): a small poster standing on an easel seen from behind, its shapes only faintly visible, painted style
+Banner: "HISTORY PROJECT · 40"
+Title: "Propaganda Poster Analysis: The Cold War"
+Chip 1 (icon: small clock): "TIME: 1 class period"
+Chip 2 (icon: small group-of-people silhouette): "GROUP: 2 students"
+Chip 3 (icon: small tag): "TYPE: Propaganda Poster Analysis"
+YOUR MISSION box: "You will study a real historical poster and explain its message. Study a real Cold War poster and figure out who made it and why."
+STEPS (numbered list):
+1. "Look closely at the poster's images and words."
+2. "List what you see, without guessing yet."
+3. "Decide who made the poster and why."
+4. "Explain how the poster tries to persuade people."
+5. "Share your analysis with the class."
+YOU WILL NEED box (icon bullets):
+"A printed poster"  "Paper"  "A pen"  "History notes"
+RUBRIC table — header row: "4 · Excellent"  "3 · Good"  "2 · Developing"  "1 · Beginning". Row labels (criteria), empty score boxes only, no cell text:
+Row: "Observation"
+Row: "Historical Context"
+Row: "Analysis"
+Row: "Presentation"
+"TOTAL ___/16"
+
+Generate now ALL the pages of this batch, in sequence, in a single round.
