@@ -1,0 +1,40 @@
+DANI MINUTO — site da consultoria + kit de Instagram
+A ponte entre os mundos
+
+O QUE ESTÁ AQUI DENTRO
+----------------------
+previa-offline.html   Abra este arquivo com dois cliques para navegar o site
+                      inteiro sem instalar nada. É uma prévia: os dados ficam
+                      só no seu navegador.
+
+index.html            O site de verdade (página de vendas)
+checkout.html         Contratação e código de acesso
+area.html             Área da cliente
+anamnese.html         O quiz da anamnese
+admin.html            Painel da Dani — senha inicial: dani123
+app.js, quiz.js       O código
+style.css             A identidade visual em CSS
+marca/                Símbolo e logo em SVG
+social/png/           As 18 artes de Instagram, prontas para postar
+social/legendas.md    A legenda de cada arte
+social/marca.md       Paleta, tipografia, bio e princípios da marca
+README.md             Documentação completa do projeto
+
+PARA VER AGORA
+--------------
+Dê dois cliques em previa-offline.html.
+Na barra escura do topo tem um atalho "Ir direto ao quiz".
+Para ver o painel da Dani, use a senha dani123.
+
+PARA COLOCAR NO AR
+------------------
+O site é HTML puro, não precisa de build. As instruções de publicação
+na Vercel estão no README.md, na seção "Publicando na Vercel".
+
+ANTES DE PUBLICAR
+-----------------
+Entre no painel (admin.html) e preencha em Configurações:
+  - Troque a senha do painel. É a primeira coisa.
+  - WhatsApp com o 55 na frente, e a chave PIX.
+  - Nome da marca, assinatura, Instagram e e-mail.
+  - Confira preços e itens de cada protocolo.
