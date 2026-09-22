@@ -2,33 +2,59 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Sistema de gestão (ERP/PDV) da Estilo & Cia — vendas, estoque, financeiro e loja virtual.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Sistema de gestão (ERP/PDV) da Estilo Fashion — vendas, estoque, financeiro e loja virtual.">
 <meta name="robots" content="noindex, nofollow">
-<title>Estilo & Cia — Sistema</title>
-<link rel="icon" href="marca/simbolo.svg" type="image/svg+xml">
+<title>Estilo Fashion — Sistema</title>
+<link rel="icon" href="marca/simbolo.svg?v=60" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://sjuvryprgbkrbzkvnnhw.supabase.co">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="preconnect" href="https://mfywchoecdhbzuiskpwx.supabase.co">
+<!-- A fonte não pode segurar a tela: medimos que o login demorava exatamente
+     o que o servidor do Google demorasse (5 s de atraso = 5 s de tela branca).
+     Assim ela carrega em paralelo e o sistema abre na hora, com a fonte de
+     reserva, trocando sozinho quando a definitiva chega. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+<link rel="stylesheet" href="style.css?v=60">
 </head>
 <body>
 
 <div id="login-screen">
+  <aside class="login-brand">
+    <div class="login-brand-top">
+      <img src="marca/simbolo.svg?v=60" alt="" class="brand-mark">
+      <span id="loginBrandName">Estilo Fashion</span>
+    </div>
+    <div class="login-brand-body">
+      <p class="login-eyebrow">Sistema da loja</p>
+      <h2>Vendas, estoque e caixa<br>no mesmo lugar.</h2>
+      <p class="login-brand-text">Tudo o que a loja faz aqui vai para a nuvem na hora e chega nos outros aparelhos sozinho.</p>
+      <ul class="login-brand-list">
+        <li>PDV com leitor de código de barras</li>
+        <li>Etiquetas prontas para a Brother QL-800</li>
+        <li>Loja virtual com pedidos por PIX</li>
+      </ul>
+    </div>
+    <div class="login-brand-foot" id="loginVersion"></div>
+  </aside>
   <div class="login-card">
-    <img src="marca/simbolo.svg" alt="" class="brand-mark">
-    <h1>Estilo & Cia</h1>
-    <p class="slogan">Estilo que é só seu ✨</p>
-    <form id="loginForm">
+    <h1>Entrar</h1>
+    <p class="slogan">Use o usuário e a senha cadastrados na loja.</p>
+    <form id="loginForm" novalidate>
       <label for="loginUser">Usuário</label>
-      <input id="loginUser" autocomplete="username" required>
+      <input id="loginUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" required>
       <label for="loginPass">Senha</label>
-      <input id="loginPass" type="password" autocomplete="current-password" required>
+      <div class="login-pass">
+        <input id="loginPass" type="password" autocomplete="current-password" autocapitalize="none" required>
+        <button type="button" class="login-eye" id="loginEye" aria-label="Mostrar senha">👁</button>
+      </div>
       <div class="login-error" id="loginError"></div>
-      <button type="submit" class="btn-primary">Entrar</button>
+      <button type="submit" class="btn-primary" id="loginBtn">Entrar</button>
     </form>
-    <div class="login-hint">admin / 1234</div>
+    <button type="button" class="login-help" id="loginHelpBtn">Não consigo entrar</button>
   </div>
 </div>
 
@@ -36,8 +62,8 @@
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img src="marca/simbolo.svg" alt="">
-      <span id="sidebarStoreName">Estilo & Cia</span>
+      <img src="marca/simbolo.svg?v=60" alt="">
+      <span id="sidebarStoreName">Estilo Fashion</span>
     </div>
     <ul class="nav-list" id="navList"></ul>
     <div class="sidebar-footer">
@@ -52,12 +78,17 @@
         <button id="menuToggle" class="btn btn-icon menu-toggle">☰</button>
         <h1 id="viewTitle">Painel</h1>
       </div>
+      <button type="button" id="seloNuvem" class="selo-nuvem salvo" title="Estado da nuvem">☁️ salvo</button>
     </div>
     <div class="view" id="view"></div>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<script src="app.js?v=9"></script>
+<!-- Gera o PDF das etiquetas já no tamanho certo. O Safari do iPhone ignora
+     o tamanho de página pedido pelo site, mas respeita o que vem dentro de
+     um PDF — por isso no celular a impressão sai por aqui. Feito no próprio
+     sistema: sem isso, uma rede ruim na loja deixava o lojista sem etiqueta. -->
+<script src="pdf-etiquetas.js?v=60"></script>
+<script src="app.js?v=60"></script>
 </body>
 </html>
