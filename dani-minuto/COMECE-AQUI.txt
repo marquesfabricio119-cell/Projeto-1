@@ -19,6 +19,8 @@ social/png/           As 18 artes de Instagram, prontas para postar
 social/legendas.md    A legenda de cada arte
 social/marca.md       Paleta, tipografia, bio e princípios da marca
 README.md             Documentação completa do projeto
+PROMPT-DO-PROJETO.md  Texto pronto para colar numa IA e ela entender
+                      o projeto inteiro antes de continuar o trabalho
 
 PARA VER AGORA
 --------------
