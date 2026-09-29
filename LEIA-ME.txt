@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 61 - gerado em 28/09/2026
+Versao 62 - gerado em 28/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,111 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 62
+------------------------
+Revisao completa do sistema (auditoria de todas as telas, da loja virtual,
+da sincronizacao e do cupom fiscal). O que foi encontrado e corrigido:
+
+SINCRONIZACAO ENTRE APARELHOS (o mais importante)
+  - Venda feita sem internet nao se perde mais ao fechar a pagina: o
+    aparelho guarda o recado "tenho coisa para subir" e, ao reabrir, JUNTA
+    com o que os outros aparelhos fizeram em vez de trocar pelo que esta
+    na nuvem.
+  - A decisao de trazer ou nao a nuvem nao depende mais do relogio do
+    aparelho. Celular com hora errada (ou pedido do site feito num celular
+    atrasado) gravava por cima do trabalho dos outros.
+  - Sem conseguir LER a nuvem, nada e gravado nela.
+  - Caixa, configuracoes e nome da loja agora sao juntados: o celular que
+    vendia sem ter visto a abertura do caixa apagava o troco e as sangrias
+    do computador.
+  - Entrada de mercadoria e troca de preco feitas no computador nao sao
+    mais desfeitas pela venda de um celular desatualizado.
+  - Restaurar backup / voltar versao TROCA a loja (antes podia ser juntado
+    com a nuvem e o que se queria desfazer voltava).
+  - Aparelho que abriu vazio nao impoe configuracoes de fabrica a loja.
+  - Formulario aberto nao grava mais num registro "fantasma" quando a
+    nuvem traz novidade no meio da edicao.
+  - Foto enviada nao se perde se a nuvem atualizar durante o envio; foto
+    de peca ainda em cadastro nao e jogada fora.
+
+VENDAS
+  - Editar venda so mexe no estoque da peca cuja quantidade mudou. Antes,
+    trocar so a forma de pagamento podia alterar o estoque.
+  - Venda com devolucao: a peca devolvida nao pode ser tirada nem ficar
+    com quantidade menor que a devolvida (devolvia o estoque duas vezes).
+  - Venda com cupom fiscal autorizado nao pode ser excluida.
+  - A data da venda so muda se o campo for mexido.
+  - Desconto negativo ou maior que a venda nao e aceito; total sempre em
+    centavos exatos.
+  - Cancelar venda de peca cujo tamanho/cor mudou depois: o estoque volta
+    (peca de uma combinacao so) ou o sistema AVISA que nao voltou.
+  - Excluir venda, excluir peca e excluir usuario: so o administrador.
+    Vendedor(a) cancela (o registro fica). "Saldo do mes" no Painel so
+    aparece para o administrador.
+
+BIPE
+  - Codigo bipado com o cursor no campo de preco ou de desconto nao vira
+    mais preco/desconto: a peca entra no carrinho.
+  - "Entrada/Saida por bipe" so funciona na tela de Estoque (ficava ligada
+    nas outras telas e mexia no estoque sem ninguem ver).
+  - Campo de ajuste de estoque apagado sem querer nao zera o estoque.
+
+PERDAS E DEVOLUCOES
+  - Devolucao de venda antiga (fora das 80 mais recentes) mantem a venda.
+  - Bipar a peca com uma venda escolhida mantem o vinculo com a venda.
+  - Valor sugerido da devolucao considera o desconto dado na venda.
+  - Planilha: texto que comeca com = + - @ nao vira formula no Excel.
+
+PECAS
+  - O mesmo codigo de barras em duas pecas e recusado (o caixa vendia a
+    peca errada).
+  - "Mais tamanhos e cores": a linha digitada nao e mais perdida ao salvar.
+  - Estoque negativo ou quebrado nao e aceito.
+
+CAIXA, GASTOS, ABRIR LOJA, RELATORIOS
+  - Fechamento do caixa guarda o resumo (vendas por forma, dinheiro na
+    gaveta, quem fechou) e a tela mostra os ultimos fechamentos.
+  - Sangria maior que a gaveta pede confirmacao.
+  - Gastos: mes invalido nao cria mais gasto "perdido".
+  - Abrir Loja: marcar pago duas vezes nao lanca duas despesas; excluir o
+    item tira a despesa do Financeiro; dois itens iguais lancados pela
+    loja nao sao mais fundidos em um.
+  - Grafico dos 7 dias ocupa a largura certa no computador e no celular.
+  - Sair do sistema limpa o carrinho, o desconto e o CPF de quem saiu.
+
+TELAS
+  - Vendas: botoes menos usados ficam em "Mais" (nao estouram a linha).
+  - No celular as tabelas viram cartoes, sem rolagem lateral.
+  - Zoom de pinca liberado no celular.
+
+LOJA VIRTUAL
+  - Sem PIX nem WhatsApp configurados a vitrine funciona so como catalogo
+    ("Disponivel na loja"), sem aceitar pedido que ninguem receberia.
+  - O pedido usa o preco e o nome DA LOJA, nao os da sacola guardada no
+    celular da cliente; se o preco mudou, ela e avisada.
+  - Pedido nao duplica quando a internet da cliente falha na confirmacao.
+  - O pedido guarda nome, telefone e endereco de entrega dele mesmo (tela
+    de Vendas mostra "Entregar em"). O cadastro de uma cliente existente
+    nao e reescrito por quem digita o telefone dela na vitrine.
+  - Link do WhatsApp ganha o 55 quando o numero foi cadastrado so com DDD.
+
+CUPOM FISCAL (NFC-e)
+  - Rateio do desconto entre as pecas em centavos exatos: o pagamento
+    sempre bate com a soma das pecas (antes a nota podia ser recusada).
+  - Cartao envia o tipo de integracao; "Credito da loja" nao vai como
+    cartao de credito; reemissao depois de cancelamento usa referencia
+    nova.
+
+ETIQUETAS E RECIBO
+  - Medida minima garantida (nao gera etiqueta com desenho fora da fita).
+  - O comeco do codigo de barras cai exatamente num ponto da impressora.
+  - Cor com aspas no nome nao quebra mais a selecao; limite de 500
+    etiquetas por peca.
+  - Recibo de pedido sem tamanho/cor nao imprime "undefined".
+
+TESTES: node testes/rodar.js -> 66 casos, 614 verificacoes.
 
 
 O QUE MUDOU NA VERSAO 61

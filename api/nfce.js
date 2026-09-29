@@ -38,8 +38,45 @@ const FORMAS = { dinheiro:'01', pix:'17', 'crédito':'03', credito:'03', 'débit
 function codigoDaForma(forma){
   const f = String(forma||'').trim().toLowerCase();
   if(FORMAS[f]) return FORMAS[f];
+  /* "Crédito da loja" (vale, crediário) não é cartão de crédito. */
+  if(/(cr[eé]dito|vale).*(loja|troca)|credi[aá]rio/.test(f)) return '05';
   for(const k of Object.keys(FORMAS)) if(f.includes(k)) return FORMAS[k];
   return '99';
+}
+/* O pagamento como a NFC-e pede: cartão leva o tipo de integração (2 =
+   maquininha separada do sistema), e "outros" leva a descrição. */
+function formaDePagamento(forma, valor){
+  const codigo = codigoDaForma(forma);
+  const pagamento = { forma_pagamento: codigo, valor_pagamento: valor };
+  if(codigo === '03' || codigo === '04') pagamento.tipo_integracao = '2';
+  if(codigo === '99') pagamento.descricao_pagamento = String(forma || 'Outros').slice(0, 60);
+  return pagamento;
+}
+/* Rateia o desconto da venda entre as peças EM CENTAVOS INTEIROS, pelo
+   método do maior resto. Arredondar peça por peça e jogar a sobra na
+   última não fechava: a sobra podia ser negativa, ou cair num brinde de
+   R$ 0,00, e a nota era recusada porque o pagamento não batia com a soma
+   das peças. Peça de valor zero não recebe desconto, e nenhuma peça
+   recebe desconto maior do que ela vale. */
+function ratearDesconto(valoresBrutos, descontoTotal){
+  const brutos = valoresBrutos.map(v=>Math.max(0, Math.round((Number(v)||0) * 100)));
+  const soma = brutos.reduce((a,v)=>a + v, 0);
+  let falta = Math.min(soma, Math.max(0, Math.round((Number(descontoTotal)||0) * 100)));
+  const partes = brutos.map(()=>0);
+  if(!soma || !falta) return partes;
+  const exatos = brutos.map(v=>v * falta / soma);
+  exatos.forEach((e, i)=>{ partes[i] = Math.min(brutos[i], Math.floor(e)); });
+  falta -= partes.reduce((a,v)=>a + v, 0);
+  const ordem = exatos.map((e, i)=>({ i, resto: e - Math.floor(e) })).sort((a,b)=>b.resto - a.resto || b.i - a.i);
+  while(falta > 0){
+    let deu = false;
+    for(const { i } of ordem){
+      if(falta <= 0) break;
+      if(partes[i] < brutos[i]){ partes[i]++; falta--; deu = true; }
+    }
+    if(!deu) break;
+  }
+  return partes.map(c=>c / 100);
 }
 
 const arred = v => Math.round((Number(v)||0) * 100) / 100;
@@ -65,17 +102,14 @@ function montarNfce(db, venda, opcoes){
 
   /* O desconto da venda é rateado pelas peças, proporcional ao valor.
      A última peça leva a sobra do arredondamento, para a soma fechar. */
-  const bruto = arred(itens.reduce((a,i)=>a + arred(i.price) * Number(i.qty), 0));
-  const descontoTotal = Math.min(bruto, arred(venda.discount));
-  let descontoDistribuido = 0;
+  const brutos = itens.map(i=>arred(arred(i.price) * Number(i.qty)));
+  const bruto = arred(brutos.reduce((a,v)=>a + v, 0));
+  const descontos = ratearDesconto(brutos, venda.discount);
+  const descontoTotal = arred(descontos.reduce((a,v)=>a + v, 0));
   const linhas = itens.map((i, idx)=>{
     const produto = (db.products||[]).find(p=>String(p.id)===String(i.productId)) || {};
-    const valorBruto = arred(arred(i.price) * Number(i.qty));
-    let desconto = idx === itens.length - 1
-      ? arred(descontoTotal - descontoDistribuido)
-      : arred(descontoTotal * (bruto ? valorBruto / bruto : 0));
-    if(desconto > valorBruto) desconto = valorBruto;
-    descontoDistribuido = arred(descontoDistribuido + desconto);
+    const valorBruto = brutos[idx];
+    const desconto = descontos[idx];
     const ncm = dig(produto.ncm || cfg.ncmPadrao);
     if(ncm.length !== 8) throw new Error('NCM inválido em "' + (produto.name||i.name) + '": precisa de 8 dígitos.');
     const nome = [i.name, i.size && i.size !== 'Único' ? i.size : '', i.color && i.color !== 'Padrão' ? i.color : '']
@@ -102,8 +136,11 @@ function montarNfce(db, venda, opcoes){
     return linha;
   });
 
+  /* O pagamento é a soma do que as peças custaram já com o desconto:
+     assim ele bate com a nota por construção. */
   const total = arred(bruto - descontoTotal);
-  const formas = [{ forma_pagamento: codigoDaForma(venda.payment), valor_pagamento: total }];
+  if(!(total > 0)) throw new Error('Venda de R$ 0,00 não gera cupom fiscal.');
+  const formas = [formaDePagamento(venda.payment, total)];
 
   const nota = {
     natureza_operacao: cfg.naturezaOperacao || 'Venda ao consumidor',
@@ -174,13 +211,29 @@ async function consultar(ref){
   return resumoDaNota(j, ref);
 }
 
+/* A referência da nota desta venda no provedor. A primeira é
+   "venda-<id>"; se o cupom foi cancelado e a venda continua valendo, a
+   nota seguinte precisa de referência nova ("venda-<id>-r2"), porque o
+   provedor não aceita reemitir em cima de uma referência cancelada. */
+function refDaVenda(venda){
+  const guardada = venda && venda.nfce && venda.nfce.ref;
+  const base = 'venda-' + String(venda.id);
+  return guardada && String(guardada).indexOf(base) === 0 ? String(guardada) : base;
+}
+function proximaRef(ref){
+  const m = String(ref).match(/^(.*)-r(\d+)$/);
+  return m ? m[1] + '-r' + (Number(m[2]) + 1) : ref + '-r2';
+}
+
 async function emitir(db, venda, opcoes){
-  const ref = 'venda-' + String(venda.id);
+  let ref = refDaVenda(venda);
   /* Mesma venda, mesma nota: se ela já existe no provedor, devolve a que
      está lá em vez de emitir de novo. */
-  const existente = await consultar(ref);
-  if(existente && existente.status && existente.status !== 'erro_autorizacao' && existente.status !== 'cancelado'){
-    return existente;
+  for(let volta = 0; volta < 6; volta++){
+    const existente = await consultar(ref);
+    if(!existente || !existente.status || existente.status === 'erro_autorizacao') break;
+    if(existente.status !== 'cancelado') return existente;
+    ref = proximaRef(ref);
   }
   const { nota } = montarNfce(db, venda, opcoes);
   const r = await fetch(`${baseDoProvedor()}/v2/nfce?ref=${encodeURIComponent(ref)}`, {
@@ -203,7 +256,7 @@ async function emitir(db, venda, opcoes){
 }
 
 async function cancelar(venda, justificativa){
-  const ref = 'venda-' + String(venda.id);
+  const ref = refDaVenda(venda);
   const just = String(justificativa||'').trim();
   if(just.length < 15) throw new Error('A justificativa precisa ter pelo menos 15 letras.');
   const r = await fetch(`${baseDoProvedor()}/v2/nfce/${encodeURIComponent(ref)}`, {
@@ -266,7 +319,7 @@ async function handler(req, res){
       return responder(res, 200, { ok:true, nfce: nota });
     }
     if(corpo.acao === 'consultar'){
-      const nota = await consultar('venda-' + String(venda.id));
+      const nota = await consultar(refDaVenda(venda));
       return responder(res, 200, { ok:true, nfce: nota });
     }
     if(corpo.acao === 'cancelar'){
@@ -274,7 +327,7 @@ async function handler(req, res){
       return responder(res, 200, { ok:true, nfce: nota });
     }
     if(corpo.acao === 'danfe'){
-      const arq = await baixarDanfe('venda-' + String(venda.id));
+      const arq = await baixarDanfe(refDaVenda(venda));
       res.statusCode = 200;
       res.setHeader('Content-Type', arq.tipo);
       res.setHeader('Cache-Control', 'no-store');
@@ -289,3 +342,5 @@ async function handler(req, res){
 module.exports = handler;
 module.exports.montarNfce = montarNfce;
 module.exports.codigoDaForma = codigoDaForma;
+module.exports.ratearDesconto = ratearDesconto;
+module.exports.proximaRef = proximaRef;

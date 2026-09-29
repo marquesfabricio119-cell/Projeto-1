@@ -236,6 +236,8 @@ function quebrarLinhas(texto, tamanho, negrito, larguraMax){
   const linhas = [];
   let atual = '';
   palavras.forEach(pal=>{
+    /* Palavra sozinha maior que a linha é cortada, senão vaza pela margem. */
+    if(larguraTexto(pal, tamanho, negrito) > larguraMax) pal = cortarParaCaber(pal, tamanho, negrito, larguraMax);
     const tentativa = atual ? atual + ' ' + pal : pal;
     if(larguraTexto(tentativa, tamanho, negrito) <= larguraMax || !atual){
       atual = tentativa;
@@ -496,7 +498,12 @@ function desenharEtiqueta(item, layout, nomeLoja, formatarPreco, opcoes){
         const pontos = Math.max(1, pontosNaLargura(larg / MM_EM_PONTOS, codigo.modulos));
         const modulo = pontos * PONTO_PDF_DA_IMPRESSORA;
         const largura = codigo.modulos * modulo;
-        prims.push({ t:'barras', x: cx - largura / 2, y: topo - b.h, h: b.h, modulo, barras: codigo.barras });
+        /* O começo do código também cai em cima de um ponto da
+           impressora: com as barras inteiras mas o início no meio de um
+           ponto, há leitor de PDF que engorda cada barra e afina cada
+           espaço na hora de imprimir. */
+        const inicio = Math.round((cx - largura / 2) / PONTO_PDF_DA_IMPRESSORA) * PONTO_PDF_DA_IMPRESSORA;
+        prims.push({ t:'barras', x: inicio, y: topo - b.h, h: b.h, modulo, barras: codigo.barras });
       } else b.desenhar(topo, prims);
       topo -= b.h + vao;
     });
@@ -687,16 +694,18 @@ function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData){
   traco();
 
   (sale.items||[]).forEach(i=>{
-    const nome = `${i.name} (${i.size}/${i.color})`;
+    /* Pedido do site pode vir sem tamanho ou cor: nada de "(undefined/undefined)". */
+    const variante = [i.size, i.color].filter(v=>v && v !== 'Único' && v !== 'Padrão').join('/');
+    const nome = (i.name || 'Peça') + (variante ? ` (${variante})` : '');
     quebrarLinhas(nome, 8, false, util).forEach(l=>add(l, 8, false, 'esq'));
-    add(`${i.qty} x ${formatarPreco(i.price)} = ${formatarPreco(i.qty * i.price)}`, 8, false, 'dir');
+    add(cortarParaCaber(`${i.qty} x ${formatarPreco(i.price)} = ${formatarPreco(i.qty * i.price)}`, 8, false, util), 8, false, 'dir');
   });
 
   traco();
   if(Number(sale.discount) > 0) add('Desconto: ' + formatarPreco(sale.discount), 8, false, 'dir');
   add('TOTAL: ' + formatarPreco(sale.total), 12, true, 'dir');
-  add('Pagamento: ' + (sale.payment || '-'), 8, false, 'esq');
-  add('Vendedor(a): ' + (sale.seller || '-'), 8, false, 'esq');
+  add(cortarParaCaber('Pagamento: ' + (sale.payment || '-'), 8, false, util), 8, false, 'esq');
+  add(cortarParaCaber('Vendedor(a): ' + (sale.seller || '-'), 8, false, util), 8, false, 'esq');
   traco();
   add('Obrigado pela preferência!', 8.5, false, 'centro');
 

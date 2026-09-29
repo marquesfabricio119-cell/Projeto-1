@@ -649,6 +649,293 @@ caso('NFC-e: a função recusa chave errada e emite com a certa (provedor simula
   igual(info.tokenConfigurado, true); igual(info.chaveConfigurada, true);
 });
 
+/* ============ versão 62: o que a auditoria achou ============ */
+function aparelhoNovo(){
+  ['estiloCiaDB','estiloCiaDB_ts','estiloCiaDB_pendente','estiloCiaDB_carimboNuvem','estiloCiaDB_semNuvem','estiloCiaDB_substituir','estiloCiaDB_copias']
+    .forEach(k=>localStorage.removeItem(k));
+  clearTimeout(pushTimer);
+  nuvemLida = false; nuvemVaziaConfirmada = false; falhouAoEnviar = false; enviandoAgora = false; SESSION = null;
+}
+function nuvemDeMentira(estado){
+  /* estado = { data, updated_at }: uma linha só, com gravação condicional. */
+  estado.patches = 0;
+  definirFetch(async (url, opts)=>{
+    if(!opts.method) return resposta(200, estado.data ? [{ data: JSON.parse(JSON.stringify(estado.data)), updated_at: estado.updated_at }] : []);
+    const corpo = JSON.parse(opts.body);
+    if(opts.method === 'PATCH'){
+      const cond = decodeURIComponent(url.split('updated_at=eq.')[1].split('&')[0]);
+      if(cond !== estado.updated_at) return resposta(200, []);
+      estado.data = corpo.data; estado.updated_at = corpo.updated_at; estado.patches++;
+      return resposta(200, [{ updated_at: estado.updated_at }]);
+    }
+    if(opts.method === 'POST'){ estado.data = corpo.data; estado.updated_at = corpo.updated_at; return resposta(201, {}); }
+    return resposta(500, {});
+  });
+  return estado;
+}
+const vendaDeTeste = (id, extra) => Object.assign({ id, date: todayISO(), total: 30, origin:'pdv', status:'concluida', payment:'PIX',
+  items:[{ productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, price:30, baixou:1 }] }, extra || {});
+
+caso('venda feita sem internet sobrevive a fechar a página e sobe junto com o que os outros fizeram', async ()=>{
+  aparelhoNovo();
+  DB = bancoDeTeste(); migrateDB(); gravarLocal();
+  lembrarBancoVazio(false); lembrarCarimbo('T1'); lembrarPendencia(false);
+  /* o celular vende sem internet */
+  DB.products[0].variations[0].stock = 4;
+  DB.sales.push(vendaDeTeste('v-celular'));
+  saveDB(); clearTimeout(pushTimer);
+  /* a página é fechada e reaberta */
+  DB = null; temPendencia = false; ultimoCarimboDaNuvem = null;
+  loadDB(); clearTimeout(pushTimer);
+  igual(temPendencia, true, 'o aparelho lembra que tem venda para subir');
+  igual(ultimoCarimboDaNuvem, 'T1', 'e de qual versão da nuvem ele partiu');
+  /* enquanto isso o computador vendeu outra peça e gravou (T2) */
+  const deLa = bancoDeTeste();
+  deLa.products[1].variations[0].stock = 0;
+  deLa.sales = [vendaDeTeste('v-computador', { items:[{ productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, price:50, baixou:1 }] })];
+  const nuvem = nuvemDeMentira({ data: deLa, updated_at: 'T2' });
+  await cloudPull(); clearTimeout(pushTimer);
+  verifica(DB.sales.some(v=>v.id === 'v-celular'), 'a venda do celular não foi trocada pelo que estava na nuvem');
+  verifica(DB.sales.some(v=>v.id === 'v-computador'), 'a venda do computador entrou');
+  igual(DB.products[0].variations[0].stock, 4, 'baixa do celular');
+  igual(DB.products[1].variations[0].stock, 0, 'baixa do computador');
+  await cloudPush(); clearTimeout(pushTimer);
+  igual(temPendencia, false, 'subiu');
+  igual(lerRecado(CHAVE_PENDENTE), null, 'e o recado de pendência saiu do aparelho');
+  verifica(nuvem.data.sales.length === 2, 'a nuvem ficou com as duas vendas');
+});
+
+caso('relógio errado não decide nada: nuvem com carimbo diferente é trazida, com carimbo igual não', async ()=>{
+  aparelhoNovo();
+  DB = bancoDeTeste(); migrateDB(); gravarLocal();
+  lembrarBancoVazio(false); lembrarCarimbo('2026-01-01T10:00:00.000Z'); lembrarPendencia(false);
+  localStorage.setItem(LOCAL_TS_KEY, String(Date.parse('2030-01-01T00:00:00Z')));   // aparelho com a hora lá na frente
+  const deLa = bancoDeTeste(); deLa.products.push({ id:'p3', name:'Vestido', cost:1, price:2, variations:[{ size:'U', color:'X', stock:1, barcode:'000009' }] });
+  nuvemDeMentira({ data: deLa, updated_at: '2026-01-01T09:59:00.000Z' });          // pedido do site, celular da cliente atrasado
+  await cloudPull(); clearTimeout(pushTimer);
+  verifica(DB.products.some(p=>p.id === 'p3'), 'a versão nova da nuvem entrou, mesmo com "hora" mais velha');
+  igual(ultimoCarimboDaNuvem, '2026-01-01T09:59:00.000Z');
+  DB.products = DB.products.filter(p=>p.id !== 'p3');
+  await cloudPull(); clearTimeout(pushTimer);
+  verifica(!DB.products.some(p=>p.id === 'p3'), 'mesma versão: nada é trazido de novo');
+});
+
+caso('aparelho que abriu vazio não impõe caixa, configurações nem nome de fábrica à loja', async ()=>{
+  aparelhoNovo();
+  loadDB(); clearTimeout(pushTimer);
+  igual(bancoVeioVazio, true);
+  saveDB(); clearTimeout(pushTimer);                 // alguém mexeu antes de a nuvem responder
+  DB = null; loadDB(); clearTimeout(pushTimer);      // fechou e abriu de novo
+  igual(bancoVeioVazio, true, 'continua sabendo que nasceu vazio');
+  const deLa = bancoDeTeste(); migrateDB.call(null);
+  deLa.storeName = 'Loja da Maria'; deLa.config = Object.assign({}, defaultDB().config, { pixKey:'chave-da-loja', whatsapp:'11999990000' });
+  deLa.cashRegister = { open:true, openedAt:'2026-09-04T10:00:00.000Z', openingAmount:1000, movements:[], closedHistory:[] };
+  const nuvem = nuvemDeMentira({ data: deLa, updated_at: 'T9' });
+  await cloudPull(); clearTimeout(pushTimer);
+  igual(DB.config.pixKey, 'chave-da-loja'); igual(DB.storeName, 'Loja da Maria');
+  igual(DB.cashRegister.openingAmount, 1000, 'o caixa da loja continua aberto com o troco');
+  igual(DB.products.length, 2);
+  igual(bancoVeioVazio, false);
+  await cloudPush(); clearTimeout(pushTimer);
+  igual(nuvem.data.config.pixKey, 'chave-da-loja', 'e o que subiu não apagou o PIX da loja');
+});
+
+caso('sem conseguir ler a nuvem, nada é gravado nela', async ()=>{
+  aparelhoNovo();
+  DB = bancoDeTeste(); migrateDB();
+  nuvemLida = true; lembrarCarimbo('T1'); lembrarPendencia(true);
+  limparFetch();
+  definirFetch(async (url, opts)=> opts.method ? resposta(200, [{ updated_at:'T2' }]) : resposta(503, {}));
+  await cloudPush(); clearTimeout(pushTimer);
+  igual(chamadasFetch().filter(c=>c.opts.method).length, 0, 'nenhum PATCH nem POST saiu');
+  igual(temPendencia, true); igual(falhouAoEnviar, true);
+});
+
+caso('caixa na junção: abertura, troco e sangria do computador sobrevivem à venda do celular', ()=>{
+  const computador = bancoDeTeste(), celular = bancoDeTeste();
+  computador.cashRegister = { open:true, openedAt:'2026-09-28T12:00:00.000Z', openingAmount:100,
+    movements:[{ id:'m1', type:'sangria', amount:50, note:'banco', date:'2026-09-28T13:00:00.000Z' }], closedHistory:[] };
+  celular.cashRegister = { open:true, automatica:true, openedAt:'2026-09-28T14:00:00.000Z', openingAmount:0, movements:[], closedHistory:[] };
+  const j = juntarBancos(celular, computador);
+  igual(j.cashRegister.openingAmount, 100); igual(j.cashRegister.openedAt, '2026-09-28T12:00:00.000Z');
+  igual(j.cashRegister.movements.length, 1, 'a sangria ficou');
+  verifica(!j.cashRegister.automatica);
+  /* o computador fecha; o celular, que ainda via aberto, grava depois */
+  const fechado = bancoDeTeste();
+  fechado.cashRegister = { open:false, openedAt:null, openingAmount:0, movements:[],
+    closedHistory:[{ openedAt:'2026-09-28T12:00:00.000Z', closedAt:'2026-09-28T20:00:00.000Z', openingAmount:100, totalSales:300, movements:[] }] };
+  const j2 = juntarBancos(j, fechado);
+  igual(j2.cashRegister.open, false, 'sessão fechada num aparelho fica fechada');
+  igual(j2.cashRegister.closedHistory.length, 1);
+  igual(j2.cashRegister.closedHistory[0].movements.length, 1, 'a sangria entra no histórico da sessão');
+  igual(juntarBancos(j2, j).cashRegister.closedHistory.length, 1, 'juntar de novo não dobra o histórico');
+});
+
+caso('configurações: vale o lado mexido por último', ()=>{
+  const a = bancoDeTeste(), b = bancoDeTeste();
+  a.config = Object.assign({}, a.config, { pixKey:'velha', atualizadoEm:'2026-09-01T00:00:00.000Z' });
+  b.config = Object.assign({}, b.config, { pixKey:'nova', atualizadoEm:'2026-09-02T00:00:00.000Z' }); b.storeName = 'Nome Novo';
+  igual(juntarBancos(a, b).config.pixKey, 'nova'); igual(juntarBancos(a, b).storeName, 'Nome Novo');
+  igual(juntarBancos(b, a).config.pixKey, 'nova');
+  delete a.config.atualizadoEm; delete b.config.atualizadoEm;
+  igual(juntarBancos(a, b).config.pixKey, 'velha', 'sem carimbo vale o daqui');
+});
+
+caso('entrada de mercadoria e preço novo do computador não se perdem com a venda do celular', ()=>{
+  aparelhoNovo();
+  SESSION = { id:'u1', name:'Ana', role:'admin' };
+  const base = bancoDeTeste(); base.products[0].variations[0].stock = 10;
+  const computador = JSON.parse(JSON.stringify(base));
+  computador.products[0].variations[0].stock = 20; computador.products[0].price = 60;
+  computador.products[0].atualizadoEm = '2026-09-28T10:00:00.000Z';
+  DB = JSON.parse(JSON.stringify(base)); migrateDB();
+  cart = [{ productId:'p1', name:'Blusa', size:'P', color:'Preto', price:30, qty:1 }];
+  pdvDiscount = 0; pdvPayment = 'PIX'; pdvCustomer = ''; pdvCpf = '';
+  finalizeSale(); clearTimeout(pushTimer);
+  igual(DB.products[0].variations[0].stock, 9);
+  verifica(!DB.products[0].atualizadoEm, 'a venda não carimba a peça');
+  const j = juntarBancos(DB, computador);
+  igual(j.products[0].variations[0].stock, 19, '20 da entrada menos 1 da venda');
+  igual(j.products[0].price, 60);
+  SESSION = null;
+});
+
+caso('formulário aberto continua segurando o registro certo depois de a nuvem trazer novidade', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  const editando = DB.products[0];
+  const deLa = JSON.parse(JSON.stringify(DB));
+  deLa.products[0].price = 99; deLa.products[0].atualizadoEm = todayISO();
+  const antigo = DB;
+  DB = juntarBancos(DB, deLa); manterReferencias(antigo, DB);
+  verifica(DB.products[0] === editando, 'é o mesmo objeto');
+  igual(editando.price, 99, 'com o conteúdo novo');
+});
+
+caso('restaurar backup TROCA a loja: o que foi desfeito não volta pela nuvem', async ()=>{
+  aparelhoNovo();
+  DB = bancoDeTeste(); migrateDB(); gravarLocal(); lembrarBancoVazio(false); lembrarCarimbo('T1');
+  nuvemLida = true;
+  const deLa = bancoDeTeste(); deLa.sales = [vendaDeTeste('venda-errada', { atualizadoEm: todayISO() })];
+  const nuvem = nuvemDeMentira({ data: deLa, updated_at: 'T5' });
+  trocarBancoInteiro(bancoDeTeste());
+  saveDB(); clearTimeout(pushTimer);
+  igual(substituirNaNuvem, true);
+  await cloudPull(); clearTimeout(pushTimer);
+  verifica(!DB.sales.some(v=>v.id === 'venda-errada'), 'a leitura não juntou');
+  await cloudPush(); clearTimeout(pushTimer);
+  igual(temPendencia, false); igual(substituirNaNuvem, false);
+  verifica(!nuvem.data.sales.some(v=>v.id === 'venda-errada'), 'a nuvem ficou igual ao backup');
+  igual(nuvem.patches, 1);
+});
+
+caso('peça do sistema antigo vendida até zerar não ressuscita com o estoque velho', ()=>{
+  DB = { products:[{ id: 7, nome:'T-shirt', precoVenda: 35, variacoes:[{ tam:'M', cor:'Marrom', qtd: 2 }] }] };
+  migrateDB();
+  verifica(!('variacoes' in DB.products[0]) && !('nome' in DB.products[0]), 'os campos antigos saem depois de aproveitados');
+  DB.products[0].variations[0].stock = 0; DB.products[0].variations[0].barcode = '';
+  DB.products[0].price = 0;
+  igual(normalizeDB(), false, 'nada mais para reparar');
+  igual(DB.products[0].variations[0].stock, 0); igual(DB.products[0].price, 0, 'preço zerado de propósito fica zerado');
+});
+
+caso('backup do sistema antigo: clientes e custos de abertura entram antes de a sobra sair', ()=>{
+  DB = { products:[], clients:[{ id:1, nome:'Gisele', tel:'11999' }],
+         abertura:[{ id:1, cat:'Ponto/Aluguel', desc:'Aluguel', pago:true, previsto:1410 }, { id:2, cat:'Outros', desc:'Tinta', pago:false, previsto:80 }],
+         settings:{ storeName:'LÚMINA' }, seq:{}, cash:[] };
+  migrateDB();
+  igual(DB.customers.map(c=>[c.name, c.phone]), [['Gisele','11999']]);
+  igual(DB.storeSetup.items.map(i=>[i.name, i.planned, i.paid]), [['Aluguel',1410,1410],['Tinta',80,0]]);
+  verifica(!('clients' in DB) && !('abertura' in DB) && !('settings' in DB));
+});
+
+caso('dois custos de abertura iguais lançados pela loja são duas compras', ()=>{
+  DB = bancoDeTeste();
+  DB.storeSetup.items = [
+    { id:'a', category:'Móveis', name:'Manequim', planned:300, paid:300, atualizadoEm:'2026-09-01T00:00:00.000Z' },
+    { id:'b', category:'Móveis', name:'Manequim', planned:250, paid:250, atualizadoEm:'2026-09-02T00:00:00.000Z' },
+    { id:'c', category:'Móveis', name:'Arara', planned:100, paid:0 },
+    { id:'d', category:'Móveis', name:'Arara', planned:100, paid:0 } ];
+  migrateDB();
+  igual(DB.storeSetup.items.map(i=>i.id).sort(), ['a','b','c'], 'só a cópia sem carimbo sai');
+});
+
+caso('cancelar venda de peça que ganhou cor depois devolve o estoque (e avisa quando não acha)', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.sales.push(vendaDeTeste('va', { items:[{ productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, price:50, baixou:1 }] }));
+  DB.products[1].variations[0].stock = 0;
+  DB.products[1].variations[0].color = 'Preto';                       // o lojista completou o cadastro
+  igual(mexerNoEstoqueDaVenda(DB.sales[0].items, +1), [], 'achou a peça mesmo com a cor trocada');
+  igual(DB.products[1].variations[0].stock, 1);
+  const sumiu = mexerNoEstoqueDaVenda([{ productId:'p1', name:'Blusa', size:'GG', color:'Rosa', qty:1, baixou:1 }], +1);
+  igual(sumiu.length, 1, 'peça com várias combinações e nenhuma igual: avisa em vez de dizer que devolveu');
+});
+
+caso('excluir venda e peça é do administrador; venda com cupom fiscal não se exclui', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.sales.push(vendaDeTeste('v1'), vendaDeTeste('v2', { nfce:{ status:'autorizado', chave:'35...' } }));
+  SESSION = { id:'u9', name:'Bia', role:'vendedor' };
+  excluirVenda('v1'); deleteProduct('p1');
+  igual(DB.sales.length, 2); igual(DB.products.length, 2);
+  SESSION = { id:'u1', name:'Ana', role:'admin' };
+  excluirVenda('v2');
+  igual(DB.sales.length, 2, 'cupom autorizado segura a venda');
+  excluirVenda('v1'); clearTimeout(pushTimer);
+  igual(DB.sales.map(v=>v.id), ['v2']);
+  SESSION = null;
+});
+
+caso('Abrir Loja: pago voltou a zero e foi marcado de novo → uma despesa só; excluir leva a despesa junto', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.storeSetup.items = [{ id:'s1', category:'Móveis', name:'Balcão', planned:1000, paid:0, atualizadoEm: todayISO() }];
+  markSetupPaid('s1');
+  igual(lancamentosDaAbertura('s1').length, 1);
+  DB.storeSetup.items[0].paid = 0; acertarAberturaNoFinanceiro(DB.storeSetup.items[0]);
+  igual(lancamentosDaAbertura('s1').length, 0, 'voltou a zero: a despesa sai');
+  markSetupPaid('s1');
+  igual(lancamentosDaAbertura('s1').reduce((a,e)=>a + e.amount, 0), 1000);
+  DB.storeSetup.items[0].paid = 400; acertarAberturaNoFinanceiro(DB.storeSetup.items[0]);
+  igual(lancamentosDaAbertura('s1').reduce((a,e)=>a + e.amount, 0), 400);
+  deleteSetup('s1'); clearTimeout(pushTimer);
+  igual(lancamentosDaAbertura('s1').length, 0);
+});
+
+caso('planilha: célula que começa com = + - @ não vira fórmula; número negativo continua número', ()=>{
+  igual(textoSeguroNaPlanilha('=1+1'), "'=1+1"); igual(textoSeguroNaPlanilha('@SUM(A1)'), "'@SUM(A1)");
+  igual(textoSeguroNaPlanilha('-12,50'), '-12,50'); igual(textoSeguroNaPlanilha('Rasgou'), 'Rasgou'); igual(textoSeguroNaPlanilha(null), '');
+});
+
+caso('bipe em campo de dinheiro é reconhecido como bipe', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  verifica(codigoBipadoEmCampoDeValor('000001'), 'código do cadastro');
+  igual(codigoBipadoEmCampoDeValor('29.90'), null); igual(codigoBipadoEmCampoDeValor('150'), null);
+  igual(codigoBipadoEmCampoDeValor('999999'), null, 'número grande que não é código continua sendo valor');
+});
+
+caso('NFC-e: desconto rateado em centavos fecha sempre, e o pagamento bate com as peças', ()=>{
+  const nfce = requireNode(raizDoProjeto + '/api/nfce.js');
+  igual(nfce.ratearDesconto([10,10,10,10], 0.02).reduce((a,v)=>a + v, 0).toFixed(2), '0.02');
+  igual(nfce.ratearDesconto([29.9,29.9,29.9,0], 10), [3.33,3.33,3.34,0], 'brinde de R$ 0,00 não recebe desconto');
+  igual(nfce.ratearDesconto([10,5], -3), [0,0], 'desconto negativo não existe');
+  const db = { config:{ fiscal:{ cnpj:'12345678000199' } }, products:[] };
+  const venda = { id:'v1', date:'2026-09-28', discount:0.02, payment:'Crédito',
+    items:[1,2,3,4].map(n=>({ productId:'p'+n, name:'Peça '+n, size:'U', color:'X', qty:1, price:10 })) };
+  const { nota, total } = nfce.montarNfce(db, venda, {});
+  const liquido = nota.itens.reduce((a,i)=>a + i.valor_bruto - (i.valor_desconto||0), 0);
+  igual(Math.round(liquido * 100), Math.round(nota.formas_pagamento[0].valor_pagamento * 100));
+  igual(total, 39.98); igual(nota.formas_pagamento[0].tipo_integracao, '2');
+  igual(nfce.codigoDaForma('Crédito da loja'), '05'); igual(nfce.proximaRef('venda-v1'), 'venda-v1-r2'); igual(nfce.proximaRef('venda-v1-r2'), 'venda-v1-r3');
+  let erro = ''; try{ nfce.montarNfce(db, Object.assign({}, venda, { discount: 40 }), {}); }catch(e){ erro = e.message; }
+  verifica(/0,00/.test(erro), 'venda zerada não gera cupom');
+});
+
+caso('recibo: pedido sem tamanho/cor e nome de uma palavra só gigante não vazam', async ()=>{
+  const pdf = criarPdfRecibo({ id:'v1', date: todayISO(), total: 10, payment:'PIX', seller:'Loja virtual', discount:0,
+    items:[{ name:'Cinto', qty:1, price:10 }, { name:'Supercalifragilisticoexpialidocesupercalifragilistico', size:'', color:'', qty:1, price:0 }] }, 'Estilo Fashion', money, dateBR);
+  const texto = requireNode('buffer').Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+  verifica(!/undefined/.test(texto), 'sem "undefined" no recibo');
+  verifica(/Cinto/.test(texto));
+});
+
 /* ============ roda tudo ============ */
 (async ()=>{
   for(const c of filaDeCasos){

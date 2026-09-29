@@ -45,21 +45,33 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
   pagamento e por vendedor(a).
 - **Configurações**: nome da loja, estoque mínimo, usuários (admin/vendedor), backup em JSON (exportar/importar),
   e dados da loja virtual (WhatsApp, chave PIX, endereço, frase do topo). Vendedor(a) só vê Painel, PDV,
-  Produtos, Estoque, Vendas, Caixa, Etiquetas e Clientes. Senhas são guardadas como SHA-256.
+  Produtos, Estoque, Vendas, Perdas, Caixa, Etiquetas e Clientes, e não exclui venda, peça nem usuário. Senhas ficam em texto
+  (compatibilidade entre aparelhos); hashes `sha256:` de versões antigas ainda entram.
 
 ## Loja virtual
 
 Catálogo por categoria (produto aparece se `showInStore !== false` e houver estoque), página do produto com
 seleção de tamanho/cor, sacola (`localStorage` `estiloCiaCart`), checkout que revalida estoque direto no
-Supabase, dá baixa no estoque, cria cliente + venda (`origem: 'loja'`, `status: 'pendente'`), mostra a chave PIX
-e abre o WhatsApp da loja com o resumo do pedido. Pagamento é manual via PIX (sem gateway integrado, por ora).
+Supabase (preço e nome vêm do banco, não da sacola), cria cliente + venda (`origin: 'loja'`, `status: 'pendente'`,
+`entrega: {nome, telefone, endereco}`), mostra a chave PIX e abre o WhatsApp da loja com o resumo do pedido.
+O número do pedido nasce uma vez por sacola (`estiloCiaPedidoEmCurso`), então repetir a confirmação não duplica.
+Sem PIX nem WhatsApp configurados a vitrine é só catálogo. Pagamento é manual via PIX (sem gateway).
 
 ## Sincronização (Supabase)
 
 Tabela `loja_roupas_db`: `id = 'main'`, `data` (jsonb = estado inteiro do sistema), `updated_at`.
 O app faz `cloudPull()` ao abrir, a cada minuto e quando volta para a frente; e `cloudPush()` (debounce de
 400ms) a cada alteração salva localmente. A gravação é condicional ao `updated_at` lido por último: se outro
-aparelho (ou a loja virtual) gravou no meio, o app junta o que chegou e tenta de novo.
+aparelho (ou a loja virtual) gravou no meio, o app junta o que chegou e tenta de novo. Sem conseguir ler, não grava.
+
+Recados que o aparelho guarda no `localStorage` (v62): `estiloCiaDB_pendente` (há trabalho que a nuvem não
+confirmou), `estiloCiaDB_carimboNuvem` (o `updated_at` da versão da nuvem que já está neste aparelho — a decisão
+de importar compara carimbos, não relógios), `estiloCiaDB_semNuvem` (banco nasceu vazio aqui: a nuvem é a base
+da junção) e `estiloCiaDB_substituir` (backup restaurado: o próximo envio troca a nuvem em vez de juntar).
+Na junção (`juntarBancos`): listas por id com o mais recente (`atualizadoEm`) vencendo, lápides em `apagados`,
+estoque refeito pelo efeito das vendas/perdas (`juntarProdutos`), caixa por sessão (`juntarCaixa`), configurações
+pelo lado mais novo. Vendas e perdas não carimbam a peça. `manterReferencias` preserva a identidade dos
+registros para formulários abertos.
 
 Tabela `loja_roupas_historico`: um gatilho `before update` em `loja_roupas_db` guarda a versão anterior da linha
 (no máximo uma a cada 10 minutos, sempre que produtos/vendas diminuem; ficam as 300 últimas). A chave publicável

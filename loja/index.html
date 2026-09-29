@@ -218,7 +218,12 @@ async function fetchDB(){
    refaz o pedido em cima do novo e tenta de novo. */
 async function pushDB(){
   const corpo = JSON.stringify({ id:'main', data: DB, updated_at: new Date().toISOString() });
-  if(carimboDaNuvem){
+  /* A vitrine NUNCA cria nem regrava a linha da loja sem condição: ela só
+     acrescenta um pedido à versão que acabou de ler. Sem carimbo não há
+     versão lida, e gravar assim apagaria as vendas do balcão. */
+  const falhou = status => new Error('Não foi possível registrar seu pedido agora (' + status + '). Nada foi cobrado — tente de novo em instantes ou chame a loja no WhatsApp.');
+  if(!carimboDaNuvem) throw falhou('sem leitura');
+  {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&updated_at=eq.${encodeURIComponent(carimboDaNuvem)}&select=updated_at`, {
       method:'PATCH',
       headers: cabecalhos({ 'Content-Type':'application/json', 'Prefer':'return=representation' }),
@@ -229,18 +234,11 @@ async function pushDB(){
       if(Array.isArray(linhas) && linhas.length) return true;   // gravou
       return false;                                              // a linha mudou por baixo
     }
-    if(res.status !== 404 && res.status !== 400) throw new Error('Não foi possível registrar seu pedido agora (' + res.status + '). Nada foi cobrado — tente de novo em instantes ou chame a loja no WhatsApp.');
+    /* Dizer "Pedido recebido!" sem o pedido ter sido gravado é a pior
+       coisa que esta tela pode fazer: a cliente paga e a loja nunca fica
+       sabendo. Se a gravação falhou, o erro sobe e ela vê a verdade. */
+    throw falhou(res.status);
   }
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
-    method:'POST',
-    headers: cabecalhos({ 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' }),
-    body: corpo
-  });
-  /* Dizer "Pedido recebido!" sem o pedido ter sido gravado é a pior coisa
-     que esta tela pode fazer: a cliente paga e a loja nunca fica sabendo.
-     Se a gravação falhou, o erro sobe e ela vê a verdade. */
-  if(!res.ok) throw new Error('Não foi possível registrar seu pedido agora (' + res.status + '). Nada foi cobrado — tente de novo em instantes ou chame a loja no WhatsApp.');
-  return true;
 }
 
 /* ESTOQUE DISPONÍVEL = o que a peça tem − o que já foi pedido pelo site e
@@ -268,7 +266,11 @@ function categories(){
 
 function router(){
   const hash = location.hash.replace('#','') || '/';
-  if(hash.startsWith('/produto/')) renderProductPage(hash.split('/produto/')[1]);
+  if(hash.startsWith('/produto/')){
+    let id = hash.split('/produto/')[1];
+    try{ id = decodeURIComponent(id); }catch(e){}
+    renderProductPage(id);
+  }
   else renderCatalog();
 }
 
@@ -282,7 +284,7 @@ function renderCatalog(){
     </div>
     ${list.length ? `<div class="grid">
       ${list.map(p=>`
-        <a href="#/produto/${p.id}" class="pcard">
+        <a href="#/produto/${encodeURIComponent(p.id)}" class="pcard">
           <div class="imgwrap">
             ${p.isNew?'<span class="badge-new">NOVO</span>':''}
             ${p.photo ? `<img src="${escapeHtml(p.photo)}" alt="${escapeHtml(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.removeAttribute('src');this.style.visibility='hidden'">` : ''}
@@ -340,7 +342,10 @@ function renderProductPage(id){
     const stockMsg = document.getElementById('stockMsg');
     const addBtn = document.getElementById('addToCartBtn');
     const livre = variation ? disponivel(p, variation) : 0;
-    if(variation && livre>0){
+    if(!lojaRecebePedidos()){
+      stockMsg.textContent = (variation && livre>0) ? 'Disponível na loja. Pedidos pelo site em breve.' : 'Sem estoque para esta combinação';
+      addBtn.disabled = true; addBtn.textContent = 'Disponível na loja';
+    } else if(variation && livre>0){
       stockMsg.textContent = livre === 1 ? 'Última peça!' : `${livre} em estoque`;
       addBtn.disabled = false;
     } else {
@@ -421,8 +426,17 @@ function openCartDrawer(){
 }
 
 /* ---------- Checkout ---------- */
+/* A loja só recebe pedido pelo site se a cliente tiver como pagar ou como
+   falar com a loja. Sem chave PIX e sem WhatsApp cadastrados, o pedido
+   ficava registrado, reservava a peça e ninguém conseguia concluir —
+   a cliente via "(chave PIX não configurada)" e a peça sumia da vitrine. */
+function lojaRecebePedidos(){
+  const c = (DB && DB.config) || {};
+  return !!(String(c.pixKey||'').trim() || String(c.whatsapp||'').replace(/\D/g,''));
+}
 function openCheckoutModal(){
   if(!cart.length) return;
+  if(!lojaRecebePedidos()){ alert('A loja ainda não está recebendo pedidos pelo site. Venha nos visitar ou fale com a gente!'); return; }
   const subtotal = cart.reduce((a,i)=>a+i.price*i.qty,0);
   const overlay = document.createElement('div');
   overlay.className='cart-drawer-overlay';
@@ -455,8 +469,26 @@ function openCheckoutModal(){
   });
 }
 
+/* O número do pedido nasce UMA vez por compra. Se a gravação chegou na
+   loja mas a resposta se perdeu no caminho (rede de celular), a cliente
+   toca em "Confirmar" de novo — e sem isto o mesmo pedido era gravado
+   duas vezes, reservando a peça em dobro. */
+const PEDIDO_KEY = 'estiloCiaPedidoEmCurso';
+function numeroDoPedidoEmCurso(){
+  /* O número vale para ESTA sacola. Mudou uma peça, é outro pedido. */
+  const sacola = JSON.stringify(cart.map(i=>[String(i.productId), i.size, i.color, Number(i.qty)]));
+  let guardado = null;
+  try{ guardado = JSON.parse(localStorage.getItem(PEDIDO_KEY) || 'null'); }catch(e){}
+  if(guardado && guardado.id && guardado.sacola === sacola) return guardado.id;
+  const id = uid();
+  try{ localStorage.setItem(PEDIDO_KEY, JSON.stringify({ id, sacola })); }catch(e){}
+  return id;
+}
+function encerrarPedidoEmCurso(){ try{ localStorage.removeItem(PEDIDO_KEY); }catch(e){} }
+
 async function submitOrder(customer){
   let sale = null, custRecord = null;
+  const numero = numeroDoPedidoEmCurso();
   /* Até três tentativas: se o balcão gravou entre a leitura e o envio, a
      gravação condicional recusa, e o pedido é refeito em cima do que há. */
   for(let tentativa = 0; tentativa < 3; tentativa++){
@@ -468,30 +500,56 @@ async function submitOrder(customer){
     if(!fresh) throw new Error('Não consegui confirmar o estoque agora. Tente de novo em instantes ou chame a loja no WhatsApp.');
     DB = fresh;
 
+    /* O pedido já está lá: a gravação anterior tinha dado certo e só a
+       resposta não chegou. */
+    const jaGravado = DB.sales.find(s=>s && s.id === numero);
+    if(jaGravado){
+      sale = jaGravado;
+      custRecord = DB.customers.find(c=>c.id === jaGravado.customerId) || { name:customer.name, phone:customer.phone, address:customer.address };
+      break;
+    }
+
+    /* PREÇO, NOME E QUANTIDADE VÊM DA LOJA, não da sacola guardada no
+       aparelho: a sacola pode ter dias, e o preço pode ter mudado. */
+    const itens = [];
     for(const item of cart){
+      const qty = Math.floor(Number(item.qty));
       const p = DB.products.find(x=>String(x.id)===String(item.productId));
       const v = p && p.variations.find(v=>v.size===item.size && v.color===item.color);
-      if(!v || disponivel(p, v) < item.qty) throw new Error(`Estoque insuficiente para "${item.name}". Atualize a página e tente novamente.`);
+      if(!p || !v || p.showInStore === false) throw new Error(`"${item.name}" não está mais disponível na loja. Tire a peça da sacola e tente de novo.`);
+      if(!(qty >= 1)) throw new Error(`A quantidade de "${item.name}" não é válida. Tire a peça da sacola e coloque de novo.`);
+      if(disponivel(p, v) < qty) throw new Error(`Estoque insuficiente para "${item.name}". Atualize a página e tente novamente.`);
+      itens.push({ productId:String(p.id), name:p.name, size:v.size||'', color:v.color||'', price:Number(p.price)||0, qty, cost:Number(p.cost)||0 });
     }
-    const total = cart.reduce((a,i)=>a+i.price*i.qty,0);
+    const total = Math.round(itens.reduce((a,i)=>a+i.price*i.qty,0) * 100) / 100;
+    const totalDaSacola = Math.round(cart.reduce((a,i)=>a+(Number(i.price)||0)*(Number(i.qty)||0),0) * 100) / 100;
+    if(Math.abs(total - totalDaSacola) > 0.004){
+      cart.forEach(c=>{ const i = itens.find(x=>x.productId===String(c.productId) && x.size===c.size && x.color===c.color); if(i){ c.price = i.price; c.name = i.name; c.qty = i.qty; } });
+      saveCart();
+      if(!confirm('O preço de uma peça da sua sacola mudou.\n\nO total do pedido agora é ' + money(total) + ' (antes aparecia ' + money(totalDaSacola) + ').\n\nConfirmar o pedido com o novo valor?')){
+        throw new Error('Pedido não enviado. A sacola foi atualizada com os preços de agora.');
+      }
+    }
     /* A mesma cliente, pelo telefone, é a mesma cliente: antes cada pedido
        criava um cadastro novo, e a lista de clientes virava uma repetição. */
     const fone = String(customer.phone||'').replace(/\D/g,'');
     custRecord = fone ? DB.customers.find(c=>String(c.phone||'').replace(/\D/g,'') === fone) : null;
     if(custRecord){
-      custRecord.name = customer.name || custRecord.name;
-      custRecord.address = customer.address || custRecord.address;
-      custRecord.atualizadoEm = new Date().toISOString();
+      /* O cadastro que a loja já tem não é reescrito por quem digita um
+         telefone na vitrine: só se completa o que estava em branco. O
+         nome e o endereço DESTE pedido ficam guardados no próprio pedido. */
+      let completou = false;
+      if(!custRecord.name && customer.name){ custRecord.name = customer.name; completou = true; }
+      if(!custRecord.address && customer.address){ custRecord.address = customer.address; completou = true; }
+      if(completou) custRecord.atualizadoEm = new Date().toISOString();
     } else {
       custRecord = { id:uid(), name:customer.name, phone:customer.phone, address:customer.address, email:'', createdAt:new Date().toISOString(), atualizadoEm:new Date().toISOString() };
       DB.customers.push(custRecord);
     }
     sale = {
-      id: sale ? sale.id : uid(), date: new Date().toISOString(),
-      items: cart.map(i=>{
-        const p = DB.products.find(x=>String(x.id)===String(i.productId));
-        return { productId:String(i.productId), name:i.name, size:i.size, color:i.color, price:i.price, qty:i.qty, cost: p ? Number(p.cost)||0 : 0 };
-      }),
+      id: numero, date: new Date().toISOString(),
+      items: itens,
+      entrega: { nome:customer.name, telefone:customer.phone, endereco:customer.address },
       discount:0, payment:'PIX', customerId: custRecord.id, seller:'Loja virtual',
       total, status:'pendente', origin:'loja', canceled:false,
       /* A baixa no estoque é do sistema da loja, quando ele vir o pedido. */
@@ -500,17 +558,21 @@ async function submitOrder(customer){
     DB.sales.push(sale);
     const gravou = await pushDB();   // se falhar, lança e a cliente NÃO vê "pedido recebido"
     if(gravou) break;
-    sale = { id: sale.id };          // a linha mudou por baixo: refaz com o mesmo número de pedido
+    sale = null;                     // a linha mudou por baixo: refaz com o mesmo número de pedido
     if(tentativa === 2) throw new Error('A loja está registrando vendas neste instante. Tente de novo em alguns segundos.');
   }
 
-  showOrderConfirmation(sale, custRecord);
+  encerrarPedidoEmCurso();
+  showOrderConfirmation(sale, { name:customer.name, phone:customer.phone, address:customer.address });
   cart = []; saveCart();
 }
 
 function showOrderConfirmation(sale, customer){
   const pixKey = DB.config?.pixKey || '(chave PIX não configurada)';
-  const whats = (DB.config?.whatsapp || '').replace(/\D/g,'');
+  /* Número cadastrado só com DDD ("11 99999-9999") abria conversa com um
+     telefone dos Estados Unidos: sem o 55 o WhatsApp lê o 1 como país. */
+  let whats = (DB.config?.whatsapp || '').replace(/\D/g,'').replace(/^0+/, '');
+  if(whats.length === 10 || whats.length === 11) whats = '55' + whats;
   const nomeLoja = DB.storeName || 'Estilo Fashion';
   const itemsText = sale.items.map(i=>`- ${i.name} (${i.size||''}${i.color?'/'+i.color:''}) x${i.qty}`).join('\n');
   /* O texto inteiro vai codificado: um "&" ou "#" no nome da peça cortava a
@@ -544,6 +606,7 @@ window.addEventListener('hashchange', router);
   }catch(e){ DB = null; }
   if(!DB){ document.getElementById('content').innerHTML = `<div class="empty">Não foi possível carregar a loja no momento. Tente novamente em instantes.</div>`; return; }
   document.getElementById('heroPhrase').textContent = DB.config?.heroPhrase || 'Moda que realça quem você é ✨';
+  if(!lojaRecebePedidos()) document.getElementById('cartBtn').hidden = true;
   const nomeLoja = DB.storeName || 'Estilo Fashion';
   document.querySelectorAll('.brand span, .hero h1').forEach(el=>{ el.textContent = nomeLoja; });
   document.title = nomeLoja;

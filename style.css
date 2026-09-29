@@ -278,6 +278,29 @@ table tr:last-child td{border-bottom:none}
 table tbody tr:hover td{background:var(--surface-2)}
 .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
 table td .btn{margin:1px 0}
+table td input[type=number], table td input[type=text]{
+  padding:7px 9px;border:1px solid var(--border-2);border-radius:8px;background:var(--surface);
+  transition:border-color .15s, box-shadow .15s
+}
+table td input[type=number]:focus, table td input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+table td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+/* a coluna dos botões não quebra: botão empilhado deixava a linha enorme */
+table td:last-child:has(> .btn){white-space:nowrap}
+
+/* ===== Menu "Mais" ===== */
+.menu-flutuante{
+  position:fixed;z-index:200;min-width:210px;padding:6px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);
+  display:grid;gap:2px;animation:subir .14s ease-out
+}
+.menu-flutuante button{
+  text-align:left;padding:10px 12px;border:none;border-radius:8px;background:none;
+  font-size:13.5px;font-weight:500;color:var(--text)
+}
+.menu-flutuante button:hover,.menu-flutuante button:focus-visible{background:var(--surface-3);outline:none}
+.menu-flutuante button.perigo{color:var(--danger)}
+.menu-flutuante button.perigo:hover{background:var(--danger-bg)}
+.btn.menu-aberto{border-color:var(--accent);background:var(--accent-soft)}
 .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
 .badge-success{background:var(--success-bg);color:var(--success)}
 .badge-warning{background:var(--warning-bg);color:var(--warning)}
@@ -521,3 +544,47 @@ canvas{max-width:100%}
 .etq-previas > div{max-width:100%;min-width:0}
 .etq-folha{max-width:100%}
 .etq-folha svg{max-width:100%;height:auto}
+
+/* ===== Tabelas viram cartões no celular =====
+   Só as que têm cabeçalho e quatro colunas ou mais (classe posta pelo
+   sistema). As de duas colunas, como as do Balanço, cabem como estão. */
+@media (max-width:760px){
+  .table-wrap:has(> table.cartoes){overflow:visible;border:none;background:none;border-radius:0}
+  table.cartoes{background:none}
+  table.cartoes thead{display:none}
+  table.cartoes, table.cartoes tbody{display:block}
+  table.cartoes tbody tr{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;
+    padding:14px;margin-bottom:10px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-xs)
+  }
+  table.cartoes tbody tr:hover td{background:none}
+  table.cartoes td{
+    display:block;padding:0;border:none;font-size:13.5px;min-width:0;overflow-wrap:anywhere;text-align:left !important
+  }
+  table.cartoes td::before{
+    content:attr(data-rotulo);display:block;margin-bottom:2px;
+    font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)
+  }
+  table.cartoes td[data-rotulo=""]::before{display:none}
+  table.cartoes td.celula-titulo{grid-column:1 / -1;font-weight:600;font-size:14.5px}
+  table.cartoes td.celula-titulo::before{display:none}
+  table.cartoes td.celula-foto{grid-column:1 / -1}
+  table.cartoes td.celula-foto::before{display:none}
+  table.cartoes td.celula-inteira{grid-column:1 / -1}
+  table.cartoes td.celula-acoes{
+    grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;white-space:normal;
+    padding-top:10px;border-top:1px solid var(--border)
+  }
+  table.cartoes td.celula-acoes .btn{flex:1 1 auto;margin:0;padding:9px 12px;font-size:13px}
+  table.cartoes td:empty{display:none}
+  table.cartoes td img{width:48px !important;height:48px !important}
+  /* Etiquetas: a caixa de marcar fica ao lado do nome */
+  #etiquetasTableWrap table.cartoes tbody tr{grid-template-columns:30px 1fr 96px;align-items:center}
+  #etiquetasTableWrap table.cartoes td:first-child{grid-column:1}
+  #etiquetasTableWrap table.cartoes td.celula-titulo{grid-column:2 / -1}
+  #etiquetasTableWrap table.cartoes td[data-rotulo="Tam/Cor"]{grid-column:1 / 3}
+  #etiquetasTableWrap table.cartoes td[data-rotulo="Etiquetas"]{grid-column:3}
+  #etiquetasTableWrap table.cartoes td input[type=number]{width:100% !important}
+  #etiquetasTableWrap table.cartoes td:first-child input{width:22px;height:22px}
+}

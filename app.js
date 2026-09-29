@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "61";
+const APP_VERSION = "62";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -89,6 +89,8 @@ function chaveDia(iso){
 function vendaValida(s){ return s && !s.canceled && s.status !== 'pendente'; }
 /* Carimbo de "mexido em". Quando dois aparelhos editam o mesmo registro,
    a junção fica com o mais recente em vez de sempre o local. */
+/* Dinheiro sempre em centavos inteiros: 3 × 33,33 não pode virar 99,99000000000001. */
+function centavos(v){ return Math.round((Number(v)||0) * 100) / 100; }
 function carimbar(obj){ if(obj && typeof obj === 'object') obj.atualizadoEm = todayISO(); return obj; }
 /* Data e hora locais no formato do campo datetime-local. O campo mostrava
    a hora em UTC (3 h à frente) e cada salvamento empurrava a venda 3 h. */
@@ -207,6 +209,24 @@ function normalizeDB(){
   const idTexto = v => (v === undefined || v === null || v === '') ? '' : String(v);
   const idMudou = (antes, depois) => { if(antes !== depois) reparou = true; return depois; };
 
+  /* Sobras do sistema antigo (outra estrutura, outro nome de loja). Nada
+     aqui é lido por este sistema, e tudo viajava para a nuvem a cada
+     gravação. O que tinha valor já foi trazido: `abertura` virou Abrir
+     Loja, `clients` virou Clientes. */
+  /* Backup do sistema antigo importado agora: clientes e custos de
+     abertura só existem no formato velho. Entram antes de a sobra sair. */
+  if(arr(DB.clients).length && !arr(DB.customers).length){
+    DB.customers = arr(DB.clients).filter(Boolean).map((c, i)=>({
+      id: 'cli' + idTexto(c.id || i + 1), name: c.name || c.nome || 'Cliente', phone: c.phone || c.tel || c.telefone || c.whatsapp || '',
+      email: c.email || '', address: c.address || c.endereco || '', notes: c.notes || c.obs || '' }));
+  }
+  if(arr(DB.abertura).length && !arr((DB.storeSetup||{}).items).length){
+    DB.storeSetup = { ...(DB.storeSetup||{}), items: arr(DB.abertura).filter(Boolean).map((a, i)=>({
+      id: 'ab' + idTexto(a.id || i + 1), name: a.desc || a.name || 'Item', category: a.cat || a.category || 'Outros',
+      planned: num(a.previsto), paid: a.pago === true ? num(a.previsto) : num(a.pago), note: a.obs || '' })) };
+  }
+  ['seq','cash','clients','abertura','settings'].forEach(k=>{ if(k in DB){ delete DB[k]; reparou = true; } });
+
   DB.products = arr(DB.products).filter(Boolean).map((p, i)=>({
     ...p,
     id: idMudou(p.id, idTexto(p.id) || idEstavel(p, i)),
@@ -248,7 +268,16 @@ function normalizeDB(){
       reparou = true;
       return [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
     })()
-  }));
+  })).map(p=>{
+    /* Os campos do sistema antigo saem depois de aproveitados. Ficando,
+       a peça vendida até zerar "ressuscitava" com o estoque antigo na
+       abertura seguinte, e o preço zerado de propósito voltava ao velho. */
+    ['variacoes','nome','codigo','categoria','marca','precoCusto','precoVenda','loja'].forEach(k=>{
+      if(k in p){ delete p[k]; reparou = true; }
+    });
+    p.variations.forEach(v=>{ ['tam','cor','qtd','bar'].forEach(k=>{ if(k in v){ delete v[k]; reparou = true; } }); });
+    return p;
+  });
 
   DB.customers = arr(DB.customers).filter(Boolean).map(c=>({
     ...c, id: idMudou(c.id, idTexto(c.id) || novoId()), name: c.name || 'Cliente'
@@ -257,7 +286,7 @@ function normalizeDB(){
   DB.sales = arr(DB.sales).filter(Boolean).map(s=>({
     ...s,
     id: idMudou(s.id, idTexto(s.id) || novoId()),
-    date: s.date || todayISO(),
+    date: s.date || idMudou('', todayISO()),
     items: arr(s.items).filter(Boolean).map(i=>({ ...i, productId: idTexto(i.productId), qty: num(i.qty), price: num(i.price) })),
     discount: num(s.discount),
     total: num(s.total),
@@ -301,10 +330,16 @@ function normalizeDB(){
      pela mesma regra em todo aparelho: fica o mexido por último; empatando,
      o de maior valor (o que a loja corrigiu à mão); empatando, o de id
      menor. Os outros ganham lápide, para não voltarem pela junção. */
+  /* Só vale para item SEM carimbo — as cópias da lista de fábrica, que é
+     de onde as repetições vieram. Dois "Manequim" lançados pela loja são
+     duas compras, e cada um carrega o carimbo de quando foi lançado. */
   const chaveCusto = i => String(i.name||'').trim().toLowerCase().replace(/\s+/g,' ') + '|' + String(i.category||'').trim().toLowerCase();
   const porCusto = new Map();
+  const comCarimbo = new Set(DB.storeSetup.items.filter(i=>i.atualizadoEm).map(chaveCusto));
   DB.storeSetup.items.forEach(i=>{
+    if(i.atualizadoEm){ porCusto.set('#' + i.id, i); return; }
     const k = chaveCusto(i);
+    if(comCarimbo.has(k)) return;        // a loja já corrigiu este item à mão: a cópia de fábrica sai
     const atual = porCusto.get(k);
     if(!atual){ porCusto.set(k, i); return; }
     const tA = Date.parse(atual.atualizadoEm||'') || 0, tI = Date.parse(i.atualizadoEm||'') || 0;
@@ -455,7 +490,7 @@ function aplicarPedidosDaLoja(){
     if(!s.canceled){
       (s.items||[]).forEach(i=>{
         const p = DB.products.find(x=>x.id===i.productId);
-        const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
+        const v = variacaoDoItem(i);
         if(v){ const tem = Math.max(0, Number(v.stock)||0); i.baixou = Math.min(Number(i.qty||0), tem); v.stock = tem - i.baixou; }
         /* Congela o custo da peça no pedido, como o PDV faz, para o lucro
            desta venda não mudar quando o custo da peça mudar. */
@@ -482,13 +517,58 @@ let nuvemVaziaConfirmada = false;
    respondeu (ou deixou de responder). */
 let nuvemJaRespondeu = false;
 
+/* TRÊS RECADOS QUE O APARELHO GUARDA PARA SI MESMO, e que antes viviam só
+   na memória — bastava fechar a página para o sistema esquecer:
+
+   · PENDENTE: há trabalho feito aqui que a nuvem ainda não confirmou. Sem
+     isto, a venda feita sem internet era trocada pelo que estava na nuvem
+     na próxima abertura, sem nunca ter subido.
+   · CARIMBO: qual versão da nuvem este aparelho já tem dentro dele. A
+     decisão de trazer ou não era feita comparando RELÓGIOS (o da nuvem
+     com o do aparelho); celular com a hora errada, ou venda feita depois
+     da última leitura, e o aparelho gravava por cima do trabalho dos
+     outros. Agora a pergunta é outra: "a nuvem mudou desde a versão que
+     eu tenho?".
+   · SEM NUVEM: este banco nasceu vazio neste aparelho e ainda não foi
+     juntado com a loja de verdade. Enquanto for assim, a nuvem é a base. */
+const CHAVE_PENDENTE = 'estiloCiaDB_pendente';
+const CHAVE_CARIMBO = 'estiloCiaDB_carimboNuvem';
+const CHAVE_SEM_NUVEM = 'estiloCiaDB_semNuvem';
+/* · SUBSTITUIR: o lojista restaurou um backup ou voltou a uma versão
+     antiga. Isso é TROCAR a loja, não juntar: juntando, o que ele quis
+     desfazer voltava pela nuvem no primeiro envio. */
+const CHAVE_SUBSTITUIR = 'estiloCiaDB_substituir';
+let substituirNaNuvem = false;
+function lembrarSubstituicao(sim){ substituirNaNuvem = !!sim; guardarRecado(CHAVE_SUBSTITUIR, sim ? '1' : ''); }
+/* Troca o banco inteiro por outro (backup, cópia, versão da nuvem). */
+function trocarBancoInteiro(banco){
+  DB = banco;
+  migrateDB();
+  restaurarEscolhaDaEtiqueta();
+  lembrarBancoVazio(false);
+  lembrarSubstituicao(true);
+}
+function lerRecado(chave){ try{ return localStorage.getItem(chave); }catch(e){ return null; } }
+function guardarRecado(chave, valor){
+  try{ if(valor) localStorage.setItem(chave, String(valor)); else localStorage.removeItem(chave); }catch(e){}
+}
+function lembrarPendencia(tem){ temPendencia = !!tem; guardarRecado(CHAVE_PENDENTE, tem ? '1' : ''); }
+function lembrarCarimbo(carimbo){ ultimoCarimboDaNuvem = carimbo || null; guardarRecado(CHAVE_CARIMBO, carimbo || ''); }
+function lembrarBancoVazio(vazio){ bancoVeioVazio = !!vazio; guardarRecado(CHAVE_SEM_NUVEM, vazio ? '1' : ''); }
+
 function loadDB(){
   let raw = null;
   try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){ raw = null; }
-  bancoVeioVazio = !raw;
   try{
     DB = raw ? JSON.parse(raw) : defaultDB();
-  }catch(e){ DB = defaultDB(); bancoVeioVazio = true; }
+  }catch(e){ DB = defaultDB(); raw = null; }
+  if(!raw){ lembrarBancoVazio(true); lembrarCarimbo(null); lembrarPendencia(false); lembrarSubstituicao(false); }
+  else {
+    substituirNaNuvem = lerRecado(CHAVE_SUBSTITUIR) === '1';
+    bancoVeioVazio = lerRecado(CHAVE_SEM_NUVEM) === '1';
+    ultimoCarimboDaNuvem = lerRecado(CHAVE_CARIMBO) || null;
+    temPendencia = lerRecado(CHAVE_PENDENTE) === '1';
+  }
   migrateDB();
 }
 
@@ -588,6 +668,10 @@ function gravarLocal(){
         Object.keys(localStorage).forEach(k=>{
           if(k === STORAGE_KEY || k === LOCAL_TS_KEY || k === SESSION_KEY) return;
           if(k === CHAVE_COPIAS || k === CHAVE_NUVEM) return;
+          /* A chave de emissão do cupom fiscal mora só neste aparelho, e
+             os recados da sincronização são o que impede este aparelho
+             de gravar por cima da loja. */
+          if(k === CHAVE_FISCAL || k === CHAVE_PENDENTE || k === CHAVE_CARIMBO || k === CHAVE_SEM_NUVEM || k === CHAVE_SUBSTITUIR) return;
           if(k.indexOf(PREFIXO_FOTO) === 0) return;
           localStorage.removeItem(k); mexeu = true;
         });
@@ -698,7 +782,9 @@ function guardarCopiaDeSeguranca(motivo, bancoTexto){
     if(!produtos && !vendas) return;      // nada que valha a pena guardar
     const copias = lerCopiasDeSeguranca();
     const anterior = copias[0];
-    if(anterior && anterior.produtos === produtos && anterior.vendas === vendas) return;
+    /* Mesma contagem não é mesmo conteúdo: um dia de ajustes de estoque
+       e de preço não muda o número de peças. Só se pula a cópia idêntica. */
+    if(anterior && anterior.dados === texto) return;
     copias.unshift({ quando: todayISO(), motivo, produtos, vendas, dados: texto });
     localStorage.setItem(CHAVE_COPIAS, JSON.stringify(copias.slice(0, MAX_COPIAS)));
   }catch(err){
@@ -732,6 +818,12 @@ function lerCopiasDeSeguranca(){
   catch(e){ return []; }
 }
 
+/* O banco que chegou pode não ter o usuário que está logado. */
+function entrarDepoisDeTrocarOBanco(){
+  validarSessao();
+  if(!SESSION){ showLogin(); toast('Esses dados não têm o seu usuário. Entre de novo.','warn'); return; }
+  renderShell(); navigate('painel');
+}
 function restaurarCopiaDeSeguranca(indice){
   const copia = lerCopiasDeSeguranca()[indice];
   if(!copia) return;
@@ -739,12 +831,10 @@ function restaurarCopiaDeSeguranca(indice){
               copia.produtos + ' produto(s) e ' + copia.vendas + ' venda(s).\n\n' +
               'O que está no sistema agora será guardado como cópia antes da troca.')) return;
   guardarCopiaDeSeguranca('antes de restaurar');
-  DB = JSON.parse(copia.dados);
-  migrateDB();
-  restaurarEscolhaDaEtiqueta();
+  trocarBancoInteiro(JSON.parse(copia.dados));
   if(exigirGravacao('a restauração')){
     toast('Cópia restaurada: ' + copia.produtos + ' produto(s).');
-    renderShell(); navigate('painel');
+    entrarDepoisDeTrocarOBanco();
   }
 }
 
@@ -891,7 +981,6 @@ async function cloudPull(){
     const rows = await res.json();
     nuvemLida = true;
     nuvemJaRespondeu = true;                       // conseguimos ler: já sabemos o que há lá
-    ultimoCarimboDaNuvem = rows && rows[0] ? rows[0].updated_at : null;
     /* O aviso é atualizado AQUI, e não só no fim. Havia um caminho — o mais
        comum de todos, o aparelho que reabre já com os dados em dia — que
        saía por um `return` no meio e deixava na tela o aviso de que a nuvem
@@ -900,18 +989,37 @@ async function cloudPull(){
        justamente quando ele for verdade. */
     atualizaAvisoDeNuvem();
     if(rows && rows[0] && rows[0].data){
-      const cloudTs = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
+      const carimbo = rows[0].updated_at || null;
+      /* Backup restaurado esperando para subir: o que vale é o que está
+         aqui, e a nuvem vai ser trocada por ele. */
+      if(substituirNaNuvem){ if(temPendencia) agendarEnvio(400); return; }
+      const cloudTs = carimbo ? new Date(carimbo).getTime() : 0;
       const localTs = Number(localStorage.getItem(LOCAL_TS_KEY)) || 0;
-      /* Se este aparelho abriu sem dados, o que está aqui não é a verdade
-         da loja — é um banco em branco. A nuvem vence, custe o que custar
-         ao carimbo de hora. */
-      if(cloudTs <= localTs && !bancoVeioVazio && !temPendencia) return;
+      const conhecido = ultimoCarimboDaNuvem;
+      /* Aparelho que ainda não guardava o carimbo (veio de uma versão
+         anterior): o relógio é a única pista. Se ele gravou DEPOIS da
+         última versão da nuvem, pode ter trabalho que nunca subiu — na
+         dúvida, junta. Juntar duas cópias iguais não muda nada. */
+      if(!conhecido && !bancoVeioVazio && localTs > cloudTs) lembrarPendencia(true);
+      const mudouLa = conhecido ? carimbo !== conhecido : (bancoVeioVazio || temPendencia || cloudTs !== localTs);
+      if(!mudouLa && !bancoVeioVazio){
+        /* A nuvem é a mesma versão que já está aqui dentro. */
+        lembrarCarimbo(carimbo);
+        if(temPendencia) agendarEnvio(400);
+        return;
+      }
       guardarCopiaDeSeguranca('antes de trazer da nuvem');
+      const antigo = DB;
       /* Se ainda há coisa daqui esperando para subir, o que vem da nuvem
          entra JUNTO, não por cima: senão o aparelho perderia a alteração
-         que ele mesmo acabou de fazer. */
-      DB = temPendencia ? juntarBancos(DB, rows[0].data) : rows[0].data;
-      bancoVeioVazio = false;
+         que ele mesmo acabou de fazer. E se este aparelho abriu sem dados,
+         o que está aqui não é a verdade da loja — é um banco em branco:
+         a nuvem é a base e só entra daqui o que ela não tem. */
+      if(!temPendencia) DB = rows[0].data;
+      else DB = bancoVeioVazio ? juntarBancos(rows[0].data, DB) : juntarBancos(DB, rows[0].data);
+      manterReferencias(antigo, DB);
+      lembrarBancoVazio(false);
+      lembrarCarimbo(carimbo);
       /* Linha antiga, das que ainda traziam a imagem dentro: a foto entra
          na fila para ir ao Storage e sai da linha no próximo envio. */
       migrarFotosAntigas();
@@ -925,10 +1033,12 @@ async function cloudPull(){
          apaga o que estava no campo. Nesse caso os dados já estão certos e
          a tela se acerta na próxima troca de tela. */
       const digitando = document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
-      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden') && !digitando){ renderShell(); navigate(currentRoute); }
+      if(document.getElementById('app') && !document.getElementById('app').classList.contains('hidden') && !digitando && !temFormularioAberto()){ renderShell(); navigate(currentRoute); }
+      if(temPendencia) agendarEnvio(400);
     } else {
       nuvemVaziaConfirmada = true;          // loja nova: não há o que preservar
-      bancoVeioVazio = false;
+      lembrarBancoVazio(false);
+      lembrarCarimbo(null);
     }
     atualizaAvisoDeNuvem();
   }catch(e){
@@ -980,7 +1090,7 @@ function agendarEnvio(atraso){
 let versaoLocal = 0;
 /* Chamado por saveDB: a alteração acabou de acontecer, vai agora. */
 function marcarParaEnviar(){
-  temPendencia = true;
+  lembrarPendencia(true);
   versaoLocal++;
   atualizaAvisoDeNuvem();
   agendarEnvio(400);           // junta as alterações de um mesmo clique
@@ -1079,6 +1189,91 @@ function juntarProdutos(daqui, deLa, vendasJuntas, apagados, movimentosJuntos){
     return mexeu ? { ...p, variations } : p;
   });
 }
+/* O CAIXA NA JUNÇÃO. Ele vinha sempre do aparelho que gravava: o celular
+   que fazia uma venda sem ter visto a abertura do caixa no computador
+   abria um caixa zerado por conta própria e apagava a abertura, o troco
+   e as sangrias do outro. Agora: sessão fechada em qualquer aparelho fica
+   fechada; duas sessões abertas viram a que foi aberta de propósito (ou a
+   mais antiga); sangrias e reforços dos dois lados ficam. */
+function chaveDoMovimento(m){
+  return m && (m.id || m.devolucaoId || [m.type, m.amount, m.date, m.note||''].join('|'));
+}
+function juntarMovimentos(a, b, perdasJuntas){
+  const vivas = new Set((perdasJuntas||[]).map(r=>String(r.id)));
+  const visto = new Map();
+  [ ...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : []) ].forEach(m=>{
+    if(!m) return;
+    /* A saída de gaveta de uma devolução excluída não volta. */
+    if(m.devolucaoId && !vivas.has(String(m.devolucaoId))) return;
+    const k = chaveDoMovimento(m);
+    if(!visto.has(k)) visto.set(k, m);
+  });
+  return [...visto.values()].sort((x, y)=>new Date(x.date) - new Date(y.date));
+}
+function juntarCaixa(daqui, deLa, perdasJuntas){
+  const vazio = { open:false, openedAt:null, openingAmount:0, movements:[], closedHistory:[] };
+  const a = (daqui && typeof daqui === 'object') ? daqui : vazio;
+  const b = (deLa && typeof deLa === 'object') ? deLa : vazio;
+  const fechadas = new Map();
+  [ ...(Array.isArray(a.closedHistory) ? a.closedHistory : []), ...(Array.isArray(b.closedHistory) ? b.closedHistory : []) ].forEach(h=>{
+    if(!h) return;
+    const k = String(h.openedAt) + '>' + (h.openedAt ? '' : String(h.closedAt));
+    const ja = fechadas.get(k);
+    fechadas.set(k, ja ? { ...ja, movements: juntarMovimentos(ja.movements, h.movements, null) } : h);
+  });
+  const jaFechou = c => c.openedAt && fechadas.has(String(c.openedAt) + '>');
+  const abertas = [a, b].filter(c=>c.open && c.openedAt && !jaFechou(c));
+  /* Sangria feita num aparelho depois de o outro ter fechado a sessão:
+     entra no histórico dela. */
+  [a, b].forEach(c=>{
+    if(!c.open || !jaFechou(c)) return;
+    const k = String(c.openedAt) + '>';
+    const h = fechadas.get(k);
+    fechadas.set(k, { ...h, movements: juntarMovimentos(h.movements, c.movements, null) });
+  });
+  const closedHistory = [...fechadas.values()].sort((x, y)=>new Date(x.closedAt) - new Date(y.closedAt));
+  if(!abertas.length) return { ...a, open:false, openedAt:null, openingAmount:0, movements:[], closedHistory };
+  let fica = abertas[0];
+  if(abertas.length > 1 && abertas[1].openedAt !== fica.openedAt){
+    const outra = abertas[1];
+    if(!!fica.automatica !== !!outra.automatica) fica = fica.automatica ? outra : fica;
+    else if(new Date(outra.openedAt) < new Date(fica.openedAt)) fica = outra;
+  }
+  const movements = juntarMovimentos(abertas[0].movements, abertas[1] ? abertas[1].movements : [], perdasJuntas);
+  const junto = { ...fica, open:true, movements, closedHistory };
+  if(!junto.automatica) delete junto.automatica;
+  return junto;
+}
+/* Configurações e nome da loja: vale o lado que foi mexido por último.
+   Sem carimbo dos dois lados, vale o daqui, como sempre valeu. */
+function ladoMaisNovo(a, b){
+  const ta = Date.parse((a && a.atualizadoEm) || '') || 0, tb = Date.parse((b && b.atualizadoEm) || '') || 0;
+  return tb > ta ? 'deLa' : 'daqui';
+}
+/* Os formulários abertos seguram o registro que estão editando. Quando o
+   banco era trocado por baixo (a nuvem trouxe novidade), o formulário
+   passava a gravar num registro que não estava mais no banco: aparecia
+   "salvo" e nada mudava. Depois de trocar o banco, o registro que já
+   existia continua sendo O MESMO objeto, só com o conteúdo novo. */
+function manterReferencias(antigo, novo){
+  if(!antigo || !novo || antigo === novo) return;
+  const listas = b => [ [b, 'products'], [b, 'customers'], [b, 'sales'], [b, 'users'],
+    [b.finance, 'entries'], [b.monthlyExpenses, 'records'], [b.monthlyExpenses, 'fixed'],
+    [b.storeSetup, 'items'], [b.perdas, 'records'] ];
+  const deAntes = listas(antigo), deAgora = listas(novo);
+  deAgora.forEach(([dono, chave], n)=>{
+    const donoAntigo = deAntes[n][0];
+    if(!dono || !donoAntigo || !Array.isArray(dono[chave]) || !Array.isArray(donoAntigo[chave])) return;
+    const porId = new Map();
+    donoAntigo[chave].forEach(x=>{ if(x && x.id !== undefined) porId.set(String(x.id), x); });
+    dono[chave] = dono[chave].map(x=>{
+      const velho = x && x.id !== undefined ? porId.get(String(x.id)) : null;
+      if(!velho || velho === x) return x;
+      Object.keys(velho).forEach(k=>{ delete velho[k]; });
+      return Object.assign(velho, x);
+    });
+  });
+}
 const COLECOES_COM_LAPIDE = ['products','customers','sales','users','fixed','finance','records','setup','perdas'];
 function juntarBancos(daqui, deLa){
   if(!deLa || typeof deLa !== 'object') return daqui;
@@ -1118,6 +1313,11 @@ function juntarBancos(daqui, deLa){
   /* O número do próximo código de barras nunca anda para trás: dois
      aparelhos gerando código não podem chegar ao mesmo número. */
   junto.barcodeSeq = Math.max(Number(daqui.barcodeSeq)||0, Number(deLa.barcodeSeq)||0);
+  junto.cashRegister = juntarCaixa(daqui.cashRegister, deLa.cashRegister, junto.perdas.records);
+  if(ladoMaisNovo(daqui.config, deLa.config) === 'deLa'){
+    junto.config = deLa.config;
+    if(deLa.storeName) junto.storeName = deLa.storeName;
+  }
   return junto;
 }
 
@@ -1163,18 +1363,42 @@ async function cloudPush(){
     const trazerDaNuvem = async ()=>{
       const olhada = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`,
                                  { headers: cabecalhosNuvem() });
-      if(!olhada.ok) return;
+      if(!olhada.ok){ const erro = new Error('leitura recusada'); erro.resposta = olhada; throw erro; }
       const linhas = await olhada.json();
       const carimbo = linhas && linhas[0] ? linhas[0].updated_at : null;
-      if(carimbo && carimbo !== ultimoCarimboDaNuvem && linhas[0].data){
-        DB = juntarBancos(DB, linhas[0].data);
+      if(carimbo && carimbo !== ultimoCarimboDaNuvem && linhas[0].data && !substituirNaNuvem){
+        const antigo = DB;
+        DB = bancoVeioVazio ? juntarBancos(linhas[0].data, DB) : juntarBancos(DB, linhas[0].data);
+        manterReferencias(antigo, DB);
         aplicarPedidosDaLoja();
         gravarLocal();
+        lembrarBancoVazio(false);
+        /* O usuário desta sessão pode ter sido apagado ou rebaixado no
+           outro aparelho: a junção acabou de trazer isso. */
+        if(SESSION){
+          const perfil = SESSION.role;
+          validarSessao();
+          if(!SESSION){ showLogin(); toast('Seu usuário foi removido. Entre de novo.','warn'); }
+          else if(SESSION.role !== perfil && !temFormularioAberto()){ renderShell(); navigate(currentRoute); }
+        }
       }
-      ultimoCarimboDaNuvem = carimbo;
+      lembrarCarimbo(carimbo);
     };
+    /* Sem conseguir LER não se grava. Antes o envio seguia mesmo assim, e
+       na terceira tentativa ia sem condição nenhuma: era o caminho por
+       onde um aparelho desatualizado gravava por cima da loja. Se a
+       leitura falhou, a gravação muito provavelmente falharia também — e
+       o trabalho continua guardado aqui, esperando. */
     try{ await trazerDaNuvem(); }
-    catch(e){ /* não deu para olhar: segue o envio, que é o que importa */ }
+    catch(e){
+      const r = e && e.resposta;
+      ultimoErroNuvem = { status: r ? r.status : 0, detalhe: r ? 'a nuvem não deixou ler antes de gravar' : String(e && e.message || e) };
+      falhouAoEnviar = true;
+      tentativasDeEnvio++;
+      agendarEnvio(esperaDoReenvio());
+      atualizaAvisoDeNuvem();
+      return;
+    }
 
     /* A gravação é CONDICIONAL: só entra se a linha ainda for a que lemos
        (mesmo updated_at). Se outro aparelho — ou a vitrine — gravou entre
@@ -1185,10 +1409,9 @@ async function cloudPush(){
     for(let tentativa = 0; tentativa < 3 && !gravado; tentativa++){
       carimboNovo = todayISO();
       const corpo = JSON.stringify({ id:'main', data: dadosParaNuvem(), updated_at: carimboNovo });
-      /* Na última tentativa vai sem condição: já trouxemos o que havia lá
-         duas vezes. Ficar preso numa comparação de carimbo que nunca casa
-         seria pior do que gravar por cima do que acabamos de juntar. */
-      if(ultimoCarimboDaNuvem && tentativa < 2){
+      /* Com linha na nuvem a gravação é sempre condicional. Só vai sem
+         condição quando não existe linha nenhuma lá (loja nova). */
+      if(ultimoCarimboDaNuvem){
         res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&updated_at=eq.${encodeURIComponent(ultimoCarimboDaNuvem)}&select=updated_at`, {
           method:'PATCH',
           headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }), 'Prefer':'return=representation' },
@@ -1203,11 +1426,14 @@ async function cloudPush(){
             break;
           }
           /* Ninguém casou com o carimbo: a linha mudou (ou sumiu). */
-          try{ await trazerDaNuvem(); }catch(e){}
+          res = null;
+          try{ await trazerDaNuvem(); }catch(e){ break; }
           continue;
         }
-        if(res.status !== 404 && res.status !== 400) break;   // erro de verdade: sai e avisa
-        /* 404/400 aqui: a tabela pode não ter a linha ainda. Cai no upsert. */
+        /* Havia linha lá (temos o carimbo dela) e a gravação foi recusada:
+           é erro de verdade. Cair no envio sem condição daqui apagaria o
+           que os outros aparelhos fizeram. */
+        break;
       }
       res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
         method:'POST',
@@ -1236,7 +1462,7 @@ async function cloudPush(){
 
     ultimoErroNuvem = null;
     falhouAoEnviar = false;
-    ultimoCarimboDaNuvem = carimboNovo;
+    lembrarCarimbo(carimboNovo);
     /* O carimbo local passa a valer o mesmo do que acabou de subir. Sem
        isto, o carimbo da nuvem ficava sempre alguns décimos à FRENTE do
        local (o envio acontece depois da gravação), e toda leitura seguinte
@@ -1247,8 +1473,9 @@ async function cloudPush(){
     try{ localStorage.setItem(LOCAL_TS_KEY, String(new Date(carimboNovo).getTime())); }catch(e){}
     horaDoUltimoEnvioOk = Date.now();
     tentativasDeEnvio = 0;
+    lembrarSubstituicao(false);
     if(versaoLocal === versaoEnviada){
-      temPendencia = false;
+      lembrarPendencia(false);
     } else {
       /* Mudou alguma coisa enquanto o envio viajava: continua pendente e
          vai de novo já. */
@@ -1471,12 +1698,19 @@ async function enviarFotosPendentes(){
   enviandoFotos = true;
   try{
     for(const [pid, dataUrl] of [...fotosPendentes]){
-      const prod = DB.products.find(x=>x.id===pid);
-      if(!prod){ esquecerFotoPendente(pid); continue; }
+      if(!DB.products.some(x=>x.id===pid)){
+        /* Peça que ainda está sendo cadastrada (formulário aberto): a foto
+           espera por ela em vez de ser jogada fora. */
+        if(!temFormularioAberto()) esquecerFotoPendente(pid);
+        continue;
+      }
       try{
-        prod.photo = await subirFoto(dataUrl, pid);
+        const endereco = await subirFoto(dataUrl, pid);
         ultimoErroFoto = null;
-        delete prod.photoPendente;
+        /* O envio leva segundos, e nesse tempo a nuvem pode ter trocado o
+           banco: a peça é procurada de novo, no banco de agora. */
+        const prod = DB.products.find(x=>x.id===pid);
+        if(prod){ prod.photo = endereco; delete prod.photoPendente; carimbar(prod); }
         esquecerFotoPendente(pid);
         saveDB();
         if(currentRoute==='produtos') renderProdutosTable();
@@ -1626,9 +1860,10 @@ function recuperarAcesso(){
     'Troque a senha depois em Configurações.'
   );
   if(!ok) return;
-  const admin = DB.users.find(u=>u.user==='admin');
-  if(admin){ admin.pass='1234'; admin.role='admin'; }
-  else DB.users.push({ id:uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' });
+  /* O login não olha maiúsculas: "Admin" e "admin" são o mesmo usuário. */
+  const admin = DB.users.find(u=>String(u.user||'').trim().toLowerCase()==='admin');
+  if(admin){ admin.pass='1234'; admin.role='admin'; carimbar(admin); }
+  else DB.users.push(carimbar({ id:uid(), user:'admin', pass:'1234', role:'admin', name:'Administrador' }));
   saveDB();
   document.getElementById('loginError').textContent = '';
   document.getElementById('loginUser').value = 'admin';
@@ -1640,6 +1875,12 @@ function recuperarAcesso(){
 function logout(){
   SESSION = null;
   localStorage.removeItem(SESSION_KEY);
+  /* Quem entra depois não herda o carrinho, o desconto nem o CPF de quem
+     saiu — a venda sairia no nome da pessoa errada. */
+  cart = []; pdvDiscount = 0; pdvCustomer = ''; pdvCpf = '';
+  estoqueMode = null;
+  currentRoute = 'painel';
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
   showLogin();
 }
 function restoreSession(){
@@ -1755,6 +1996,9 @@ function navigate(route){
   if(!SESSION) return;
   if(!podeAbrir(route)){ toast('Essa tela é só para o administrador','warn'); route = 'painel'; }
   if(!NAV.some(n=>n.id===route)) route = 'painel';
+  /* A entrada/saída por bipe pertence à tela de Estoque. Ligada fora dela,
+     um bipe solto em Relatórios mexia no estoque sem ninguém ver. */
+  if(route !== 'estoque') estoqueMode = null;
   currentRoute = route;
   if(location.hash !== '#' + route) location.hash = route;
   document.querySelectorAll('.nav-list a').forEach(a=>a.classList.toggle('active', a.dataset.route===route));
@@ -1820,7 +2064,7 @@ function renderPainel(el){
       <div class="card"><div class="label">Faturado hoje</div><div class="value">${money(totalToday)}</div></div>
       <div class="card"><div class="label">Estoque baixo</div><div class="value ${lowStock>0?'text-danger':''}">${lowStock}</div></div>
       <div class="card"><div class="label">Pedidos online pendentes</div><div class="value ${pendingOnline>0?'text-danger':''}">${pendingOnline}</div></div>
-      <div class="card"><div class="label">Saldo do mês</div><div class="value ${receitasMes-despesasMes>=0?'text-success':'text-danger'}">${money(receitasMes-despesasMes)}</div></div>
+      ${ehAdmin() ? `<div class="card"><div class="label">Saldo do mês</div><div class="value ${receitasMes-despesasMes>=0?'text-success':'text-danger'}">${money(receitasMes-despesasMes)}</div></div>` : ''}
       <div class="card" style="cursor:pointer" onclick="navigate('perdas')" title="Abrir Perdas e Devoluções"><div class="label">Perdas e devoluções no mês</div>
         <div class="value ${perdasMes.perdasPecas ? 'text-danger' : ''}">${perdasMes.perdasPecas} <span class="unidade">perda(s)</span> · ${perdasMes.devPecas} <span class="unidade">devol.</span></div></div>
     </div>
@@ -1890,7 +2134,7 @@ function renderProdutosTable(){
       const v0 = p.variations[0] || {};
       const grade = p.variations.length > 1;
       return `<tr>
-        <td><img src="${escapeHtml(fotoDaPeca(p))}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)"></td>
+        <td>${fotoDaPeca(p) ? `<img src="${escapeHtml(fotoDaPeca(p))}" alt="" loading="lazy" decoding="async" onerror="this.remove()" style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:var(--sand)">` : ''}</td>
         <td>${escapeHtml(p.name)} ${p.isNew?'<span class="tag-new">NOVO</span>':''}</td>
         <td>${grade ? `<span class="text-muted">${p.variations.length} combinações</span>` : mostra(v0.color)}</td>
         <td>${grade ? '' : mostra(v0.size)}</td>
@@ -1899,7 +2143,7 @@ function renderProdutosTable(){
         <td class="${total<=DB.config.minStock?'text-danger':''}">${total}</td>
         <td><button class="btn btn-sm" onclick="openProductModal('${p.id}')">Editar</button>
             <button class="btn btn-sm" title="Ir para Etiquetas" onclick="goToLabels('${p.id}')">🏷️</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Excluir</button></td>
+            ${ehAdmin() ? `<button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Excluir</button>` : ''}</td>
       </tr>`;
     }).join('')}
   </tbody></table></div>`;
@@ -1935,6 +2179,7 @@ function goToLabels(pid){
   navigate('etiquetas');
 }
 function deleteProduct(id){
+  if(!soAdministrador('excluir uma peça')) return;
   if(!confirm('Excluir este produto?')) return;
   const antes = DB.products.length;
   DB.products = DB.products.filter(p=>p.id!==id);
@@ -2107,12 +2352,18 @@ function openProductModal(id){
   mostrarLucro();
 
   let variations = p.variations.map(v=>({...v}));
+  /* Na peça simples a primeira combinação É a da tela principal (cor,
+     tamanho, quantidade). Ela aparecia de novo aqui embaixo, como linha
+     vazia: quem escrevia nela ("G / Preto / 3") perdia tudo ao salvar,
+     porque a tela principal gravava por cima. */
+  const pecaSimples = ()=>overlay.querySelector('#pecaSimples').style.display !== 'none';
   function renderVars(){
-    overlay.querySelector('#varRows').innerHTML = variations.map((v,i)=>`
+    const primeira = pecaSimples() ? 1 : 0;
+    overlay.querySelector('#varRows').innerHTML = variations.map((v,i)=> i < primeira ? '' : `
       <div class="variation-row">
         <input placeholder="Tamanho" value="${escapeHtml(v.size)}" data-i="${i}" data-k="size">
         <input placeholder="Cor" value="${escapeHtml(v.color)}" data-i="${i}" data-k="color">
-        <input placeholder="Estoque" type="number" value="${v.stock}" data-i="${i}" data-k="stock">
+        <input placeholder="Estoque" type="number" min="0" step="1" inputmode="numeric" value="${v.stock}" data-i="${i}" data-k="stock">
         <input placeholder="Cód. barras" value="${escapeHtml(v.barcode||'')}" data-i="${i}" data-k="barcode">
         <div style="display:flex;gap:4px">
           <button class="btn btn-icon btn-sm" type="button" data-scan="${i}" title="Ler código pela câmera">📷</button>
@@ -2123,7 +2374,7 @@ function openProductModal(id){
     overlay.querySelectorAll('#varRows input').forEach(inp=>{
       inp.addEventListener('input', e=>{
         const i=e.target.dataset.i, k=e.target.dataset.k;
-        variations[i][k] = k==='stock' ? Number(e.target.value) : e.target.value;
+        variations[i][k] = k==='stock' ? Math.max(0, Math.floor(Number(e.target.value)||0)) : e.target.value;
       });
     });
     overlay.querySelectorAll('[data-rm]').forEach(btn=>btn.addEventListener('click', e=>{
@@ -2135,7 +2386,10 @@ function openProductModal(id){
     }));
     overlay.querySelectorAll('[data-gen]').forEach(btn=>btn.addEventListener('click', e=>{
       const i = Number(e.target.dataset.gen);
-      variations[i].barcode = generateUniqueBarcode(); saveDB(); renderVars();
+      const emUso = new Set(variations.map(v=>String(v.barcode||'')));
+      let codigo = generateUniqueBarcode();
+      while(emUso.has(codigo)) codigo = generateUniqueBarcode();
+      variations[i].barcode = codigo; saveDB(); renderVars();
       toast('Código gerado: '+variations[i].barcode);
     }));
   }
@@ -2155,7 +2409,7 @@ function openProductModal(id){
         // Peça simples: cor, tamanho e quantidade vêm da tela principal.
         const cor = overlay.querySelector('#f_color').value.trim();
         const tam = overlay.querySelector('#f_size').value.trim();
-        const qtd = Number(overlay.querySelector('#f_qty').value) || 0;
+        const qtd = Math.max(0, Math.floor(Number(overlay.querySelector('#f_qty').value) || 0));
         const extras = variations.slice(1).filter(v=>v.size || v.color || v.stock || v.barcode);
         finalVariations = [{
           ...(variations[0] || {}),
@@ -2168,10 +2422,49 @@ function openProductModal(id){
       // Sem nenhuma variação a peça sumiria do Estoque, do PDV e das
       // Etiquetas, que são montados a partir delas.
       if(!finalVariations.length) finalVariations = [{ size:'Único', color:'Padrão', stock:0, barcode:'' }];
-      // Cada peça recebe seu próprio código de barras.
+      finalVariations.forEach(v=>{
+        v.stock = Math.max(0, Math.floor(Number(v.stock)||0));
+        v.barcode = String(v.barcode||'').trim();
+        if(!v.size) v.size = 'Único';
+        if(!v.color) v.color = 'Padrão';
+      });
+      /* A peça pode ter sido excluída em outro aparelho com este
+         formulário aberto. */
+      if(editing && !DB.products.includes(editing)){
+        toast('Esta peça foi excluída em outro aparelho enquanto você editava. Feche e cadastre de novo, se for o caso.','error'); return;
+      }
+      /* O MESMO CÓDIGO DE BARRAS EM DUAS PEÇAS faz o caixa vender a peça
+         errada: o bipe acha a primeira e baixa o estoque dela. Digitado
+         ou lido pela câmera, o código é conferido contra todo o cadastro
+         (sem olhar maiúsculas) antes de gravar. */
+      const normal = c => String(c||'').trim().toLowerCase();
+      const daPeca = new Set();
+      for(const v of finalVariations){
+        if(!v.barcode) continue;
+        const c = normal(v.barcode);
+        if(daPeca.has(c)){ toast('O código ' + v.barcode + ' está em duas linhas desta peça. Cada tamanho/cor precisa do seu.','error'); return; }
+        daPeca.add(c);
+        const dona = DB.products.find(o=>o.id !== p.id && o.variations.some(x=>normal(x.barcode) === c));
+        if(dona){ toast('O código ' + v.barcode + ' já é da peça "' + dona.name + '". Use outro, ou deixe em branco para o sistema gerar.','error'); return; }
+      }
+      const combosAntes = new Set();
+      for(const v of finalVariations){
+        const k = (v.size||'') + '|' + (v.color||'');
+        if(combosAntes.has(k)){ toast('A combinação ' + (v.size||'-') + '/' + (v.color||'-') + ' está repetida','error'); return; }
+        combosAntes.add(k);
+      }
+      const precoDigitado = Number((usandoGrade ? overlay.querySelector('#f_price_grade') : overlay.querySelector('#f_price')).value)||0;
+      const custoDigitado = Number((usandoGrade ? overlay.querySelector('#f_cost_grade') : overlay.querySelector('#f_cost')).value)||0;
+      if(precoDigitado < 0 || custoDigitado < 0){ toast('Preço e custo não podem ser negativos','error'); return; }
+      // Cada peça recebe seu próprio código de barras — só depois de tudo
+      // conferido, para a tentativa recusada não gastar números.
       const novosCodigos = [];
       finalVariations.forEach(v=>{
-        if(!v.barcode){ v.barcode = generateUniqueBarcode(); novosCodigos.push(v.barcode); }
+        if(!v.barcode){
+          let codigo = generateUniqueBarcode();
+          while(daPeca.has(normal(codigo))) codigo = generateUniqueBarcode();
+          v.barcode = codigo; daPeca.add(normal(codigo)); novosCodigos.push(codigo);
+        }
       });
       const precoInput = usandoGrade ? overlay.querySelector('#f_price_grade') : overlay.querySelector('#f_price');
       const cost = Number((usandoGrade ? overlay.querySelector('#f_cost_grade') : overlay.querySelector('#f_cost')).value)||0;
@@ -2438,6 +2731,7 @@ async function conectarNuvem(){
 
   salvarConfigNuvem({ url, key, tabela, bucket: configNuvem().bucket });
   nuvemLida = false; nuvemVaziaConfirmada = false; ultimoErroNuvem = null;
+  lembrarCarimbo(null);           // outro projeto: nada do que está lá foi visto por este aparelho
   box.innerHTML = `<div class="pdf-pronto"><strong>Ligado.</strong>
     O sistema já está falando com este projeto.</div>`;
   await cloudPull();
@@ -2454,7 +2748,7 @@ async function enviarTudoParaNuvem(){
               quantos + ' produto(s) e ' + (DB.sales||[]).length + ' venda(s).\n\n' +
               'O que já estiver na nuvem e não estiver aqui é preservado.')) return;
   nuvemVaziaConfirmada = true;      // decisão do lojista, tomada na tela
-  temPendencia = true;
+  lembrarPendencia(true);
   await cloudPush();
   /* Dizer "Enviado" sem a nuvem ter confirmado é a mentira que fez esta
      loja confiar num backup que não existia. */
@@ -2833,12 +3127,10 @@ function restaurarDaNuvem(indice){
               'Origem: ' + a.tabela + ' · ' + a.id + '\n\n' +
               'O que está no sistema agora será guardado como cópia antes da troca.')) return;
   guardarCopiaDeSeguranca('antes de trazer da nuvem (recuperação)');
-  DB = JSON.parse(JSON.stringify(a.banco));
-  migrateDB();
-  restaurarEscolhaDaEtiqueta();
+  trocarBancoInteiro(JSON.parse(JSON.stringify(a.banco)));
   if(exigirGravacao('os dados recuperados')){
     toast(a.produtos + ' produto(s) recuperados.');
-    renderShell(); navigate('painel');
+    entrarDepoisDeTrocarOBanco();
   }
 }
 
@@ -2901,12 +3193,10 @@ async function restaurarVersaoDaNuvem(i){
   }catch(e){}
   if(!banco){ toast('Não consegui ler essa versão da nuvem','error'); return; }
   guardarCopiaDeSeguranca('antes de voltar a uma versão da nuvem');
-  DB = banco;
-  migrateDB();
-  restaurarEscolhaDaEtiqueta();
+  trocarBancoInteiro(banco);
   if(exigirGravacao('a versão restaurada')){
     toast('Versão de ' + dateBR(v.gravado_em) + ' restaurada. Enviando para a nuvem…');
-    renderShell(); navigate('painel');
+    entrarDepoisDeTrocarOBanco();
   }
 }
 
@@ -3202,7 +3492,7 @@ function renderEstoque(el){
     </div>` : ''}
     <div id="stockTableWrap"></div>`;
   document.getElementById('minStockInput').addEventListener('change', e=>{
-    DB.config.minStock = Math.max(0, Number(e.target.value)||0); saveDB(); renderStockTable(); toast('Estoque mínimo atualizado');
+    DB.config.minStock = Math.max(0, Number(e.target.value)||0); carimbar(DB.config); saveDB(); renderStockTable(); toast('Estoque mínimo atualizado');
   });
   if(estoqueMode){
     const inp = document.getElementById('bipeInput');
@@ -3319,7 +3609,12 @@ function adjustStock(pid,size,color,val){
   const p = DB.products.find(x=>x.id===pid);
   const v = p && p.variations.find(x=>x.size===size && x.color===color);
   if(!v){ toast('Peça não encontrada. Atualize a tela.','error'); renderStockTable(); return; }
-  v.stock = Math.max(0, Number(val)||0);
+  /* Campo apagado sem querer não é "zerar o estoque". */
+  const texto = String(val == null ? '' : val).trim();
+  const novo = Math.floor(Number(texto.replace(',', '.')));
+  if(texto === '' || !(novo >= 0)){ toast('Digite a quantidade (0 ou mais). O estoque não foi alterado.','warn'); renderStockTable(); return; }
+  if(novo === (Number(v.stock)||0)){ renderStockTable(); return; }
+  v.stock = novo;
   carimbar(p);
   saveDB(); renderStockTable(); toast('Estoque ajustado');
 }
@@ -3369,9 +3664,13 @@ let etiquetaComprimento = 40;
    não se discute. */
 function midiaAtual(){
   const m = MIDIAS_QL800[etiquetaMidia] || MIDIAS_QL800.dk2210;
-  if(m.medido) return { ...m, w: Math.min(62, Number(etiquetaCustom.w)||29),
-                              h: Math.min(200, Number(etiquetaCustom.h)||40) };
-  if(m.continua) return { ...m, h: Math.min(200, Math.max(12, Number(etiquetaComprimento)||m.h)) };
+  /* Medida mínima garantida aqui, e não só no campo da tela: digitar "2"
+     a caminho de "29" já chegava como fita de 2 mm, e o desenho saía da
+     etiqueta. Abaixo de 20 mm de comprimento não cabe um código que o
+     leitor leia com folga. */
+  if(m.medido) return { ...m, w: Math.min(62, Math.max(12, Number(etiquetaCustom.w)||29)),
+                              h: Math.min(200, Math.max(20, Number(etiquetaCustom.h)||40)) };
+  if(m.continua) return { ...m, h: Math.min(200, Math.max(20, Number(etiquetaComprimento)||m.h)) };
   return m;
 }
 /* Nome antigo, mantido porque o resto do arquivo chama por ele. */
@@ -3393,6 +3692,7 @@ function opcoesDaEtiqueta(){
 function guardarEscolhaDaEtiqueta(){
   DB.config.etiqueta = { midia: etiquetaMidia, comp: etiquetaComprimento,
                          w: etiquetaCustom.w, h: etiquetaCustom.h, mostra: { ...etiquetaMostra }, posicao: etiquetaPosicao };
+  carimbar(DB.config);
   saveDB();
 }
 /* Chamada em TODO lugar onde o banco é trocado por inteiro — e não só ao
@@ -3617,28 +3917,36 @@ function renderEtiquetasTable(){
         data-size="${escapeHtml(v.size)}" data-color="${escapeHtml(v.color)}"
         data-nome="${escapeHtml(p.name)}" data-barcode="${escapeHtml(v.barcode||'')}"
         data-preco="${Number(p.price)||0}">
-        <td><input type="checkbox" data-check="${key}" ${checked?'checked':''}></td>
+        <td><input type="checkbox" data-check="${escapeHtml(key)}" ${checked?'checked':''}></td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(v.size)}/${escapeHtml(v.color)}</td>
         <td class="col-codigo">${escapeHtml(v.barcode||'(será gerado)')}</td>
         <td class="col-estoque">${v.stock}</td>
-        <td><input type="number" min="1" style="width:70px" data-qty="${key}" value="${etiquetaQty[key]||v.stock||1}"></td>
+        <td><input type="number" min="1" max="${MAX_ETIQUETAS_POR_PECA}" step="1" inputmode="numeric" style="width:70px" data-qty="${escapeHtml(key)}" value="${etiquetaQty[key]||v.stock||1}"></td>
       </tr>`;
     }).join('')}
   </tbody></table></div>`;
   wrap.querySelectorAll('[data-check]').forEach(chk=>chk.addEventListener('change', e=>{
     const key = e.target.dataset.check;
     if(e.target.checked){
-      const qtyInput = wrap.querySelector(`[data-qty="${key}"]`);
-      etiquetaQty[key] = Number(qtyInput.value)||1;
+      /* O campo é achado pela linha, não pelo texto da chave: uma cor com
+         aspas (Azul "bebê") quebrava a busca e a caixa não marcava. */
+      const qtyInput = e.target.closest('tr').querySelector('[data-qty]');
+      etiquetaQty[key] = quantasEtiquetas(qtyInput && qtyInput.value);
     } else delete etiquetaQty[key];
     renderPreviewEtiqueta();
   }));
   wrap.querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input', e=>{
     const key = e.target.dataset.qty;
-    if(etiquetaQty[key] !== undefined) etiquetaQty[key] = Number(e.target.value)||1;
+    if(etiquetaQty[key] !== undefined) etiquetaQty[key] = quantasEtiquetas(e.target.value);
+  }));
+  wrap.querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('change', e=>{
+    e.target.value = quantasEtiquetas(e.target.value);
   }));
 }
+/* 100000 digitado sem querer travava o navegador montando o PDF. */
+const MAX_ETIQUETAS_POR_PECA = 500;
+function quantasEtiquetas(v){ return Math.min(MAX_ETIQUETAS_POR_PECA, Math.max(1, Math.floor(Number(v)||1))); }
 /* Imprime UMA etiqueta, com a primeira peça que tiver código. Serve para
    conferir o tamanho sem gastar o rolo inteiro descobrindo que está errado. */
 function imprimirEtiquetaTeste(){
@@ -3943,10 +4251,14 @@ function renderClientes(el){
     </div>
     <div id="custTableWrap"></div>`;
   el.querySelector('#custSearch').addEventListener('input', e=>renderCustomerTable(e.target.value));
-  renderCustomerTable('');
+  renderCustomerTable();
 }
 function renderCustomerTable(filter){
   const wrap = document.getElementById('custTableWrap');
+  if(!wrap) return;
+  /* Sem filtro informado vale o que está escrito na busca: salvar ou
+     excluir uma cliente limpava a lista filtrada sem limpar o campo. */
+  if(filter === undefined) filter = (document.getElementById('custSearch') || {}).value;
   const f=(filter||'').toLowerCase();
   const list = DB.customers.filter(c=>!f || c.name.toLowerCase().includes(f) || (c.phone||'').includes(f));
   if(!list.length){ wrap.innerHTML=`<div class="empty-state">Nenhum cliente</div>`; return; }
@@ -3994,7 +4306,7 @@ function openCustomerModal(id){
     if(!name){ toast('Informe o nome','error'); return; }
     const data = carimbar({ ...c, name, phone:overlay.querySelector('#c_phone').value.trim(), email:overlay.querySelector('#c_email').value.trim(), address:overlay.querySelector('#c_address').value.trim() });
     if(editing) Object.assign(editing, data); else DB.customers.push(data);
-    saveDB(); overlay.remove(); renderCustomerTable('');
+    saveDB(); overlay.remove(); renderCustomerTable();
     toast('Cliente salvo');
   });
 }
@@ -4125,7 +4437,19 @@ function renderPDV(el){
   }));
   el.querySelector('#pdvCustomerSel').addEventListener('change', e=>pdvCustomer=e.target.value);
   el.querySelector('#pdvCpf')?.addEventListener('input', e=>{ pdvCpf = e.target.value; });
-  el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Number(e.target.value)||0; renderCartItems(); });
+  let descontoAntesDoFoco = pdvDiscount;
+  el.querySelector('#pdvDiscount').addEventListener('focus', ()=>{ descontoAntesDoFoco = pdvDiscount; });
+  el.querySelector('#pdvDiscount').addEventListener('input', e=>{ pdvDiscount=Math.max(0, centavos(e.target.value)); renderCartItems(); });
+  el.querySelector('#pdvDiscount').addEventListener('keydown', e=>{
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    const bipada = codigoBipadoEmCampoDeValor(e.target.value);
+    if(!bipada) return;
+    pdvDiscount = descontoAntesDoFoco;
+    e.target.value = pdvDiscount;
+    addToCart(bipada.product, bipada.variation);
+    document.getElementById('pdvSearchInput')?.focus();
+  });
 
   renderPDVResults();
   renderCartItems();
@@ -4211,8 +4535,7 @@ function escolherVariacao(p, variacoes, aoEscolher){
    peça entra no carrinho, o sistema AVISA que o estoque dele não bate, e
    a venda segue. O estoque nunca fica negativo. */
 function estoqueNoSistema(item){
-  const p = DB.products.find(x=>x.id===item.productId);
-  const v = p && p.variations.find(v=>v.size===item.size && v.color===item.color);
+  const v = variacaoDoItem(item);
   return v ? Math.max(0, Number(v.stock)||0) : 0;
 }
 function addToCart(product, variation){
@@ -4258,6 +4581,13 @@ function renderCartItems(){
    conta: no dia 17/09 a mesma venda foi refeita a R$ 20, R$ 120 e R$ 100.
    Aqui o preço da peça muda SÓ NESTA VENDA. O cadastro fica como está, e a
    venda guarda os dois valores. */
+/* Um valor em dinheiro que é, letra por letra, um código de barras do
+   cadastro (6 dígitos ou mais, sem vírgula) foi bipado, não digitado. */
+function codigoBipadoEmCampoDeValor(texto){
+  const t = String(texto == null ? '' : texto).trim();
+  if(!/^\d{6,}$/.test(t)) return null;
+  return findVariationByBarcode(t);
+}
 function precoMudou(i){ return i.precoCadastro !== undefined && Math.abs(Number(i.price) - Number(i.precoCadastro)) > 0.004; }
 function editarPrecoNoCarrinho(idx){
   const i = cart[idx];
@@ -4280,6 +4610,11 @@ function editarPrecoNoCarrinho(idx){
   const campo = overlay.querySelector('#pc_valor');
   const fechar = ()=>{ overlay.remove(); document.getElementById('pdvSearchInput')?.focus(); };
   const aplicar = ()=>{
+    /* O leitor digita no campo que estiver com o foco. Um código bipado
+       aqui viraria o preço da peça: entra no carrinho, que é o que a
+       pessoa queria, e o preço fica como estava. */
+    const bipada = codigoBipadoEmCampoDeValor(campo.value);
+    if(bipada){ fechar(); addToCart(bipada.product, bipada.variation); return; }
     const v = Number(String(campo.value).replace(',', '.'));
     if(!(v >= 0) || campo.value === ''){ toast('Digite um preço válido','error'); return; }
     if(i.precoCadastro === undefined) i.precoCadastro = cadastro;
@@ -4331,7 +4666,7 @@ function finalizeSale(){
   // com valor inicial zero em vez de bloquear a venda — quem controla o
   // caixa continua podendo abrir com troco pela tela de Caixa.
   if(!DB.cashRegister.open){
-    DB.cashRegister = { open:true, openedAt: todayISO(), openingAmount:0, movements:[], closedHistory: DB.cashRegister.closedHistory || [] };
+    DB.cashRegister = { open:true, automatica:true, openedAt: todayISO(), openingAmount:0, movements:[], closedHistory: DB.cashRegister.closedHistory || [] };
   }
   /* em centavos exatos: 30 + 29,99 dava 59,989999999999995 no banco */
   const total = Math.round(Math.max(0, cartSubtotal()-pdvDiscount) * 100) / 100;
@@ -4353,8 +4688,12 @@ function finalizeSale(){
   /* Baixa o estoque, e cada item guarda quanto baixou DE VERDADE. Se o
      sistema marcava 0 e a peça foi vendida, baixou 0 — e é isso que volta
      se a venda for cancelada, para o cancelamento não inventar estoque. */
+  /* A peça NÃO é carimbada como "mexida" pela venda. O carimbo decide
+     qual cadastro vale quando dois aparelhos se juntam, e a venda feita
+     num celular desatualizado vencia a entrada de mercadoria e a troca de
+     preço feitas no computador. A baixa não se perde: a junção refaz a
+     conta do estoque pelas vendas dos dois lados. */
   mexerNoEstoqueDaVenda(sale.items, -1);
-  sale.items.forEach(i=>{ const p = DB.products.find(x=>x.id===i.productId); if(p) carimbar(p); });
   DB.sales.push(sale);
   /* A venda guarda o número do lançamento financeiro dela. Sem isso, mexer
      na venda depois deixava o Financeiro com o valor antigo, e os dois
@@ -4596,7 +4935,7 @@ function renderVendasTable(){
   </tr></thead><tbody>
     ${list.map(s=>`<tr style="${s.canceled?'opacity:.5':''}">
       <td>${dateBR(s.date)}</td>
-      <td>${escapeHtml(customerName(s.customerId))}</td>
+      <td>${escapeHtml(s.entrega && s.entrega.nome ? s.entrega.nome : customerName(s.customerId))}${s.entrega && s.entrega.endereco ? `<div class="text-muted" style="font-size:11.5px;white-space:normal">Entregar em: ${escapeHtml(s.entrega.endereco)}${s.entrega.telefone ? ' · ' + escapeHtml(s.entrega.telefone) : ''}</div>` : ''}</td>
       <td>${s.items.reduce((a,i)=>a+i.qty,0)}</td>
       <td>${money(s.total)}</td>
       <td>${escapeHtml(s.payment)}</td>
@@ -4624,7 +4963,7 @@ function badgeDevolucao(s){
 function saleActions(s){
   /* Venda cancelada continuava sem botão nenhum — nem para apagar. Quem
      registrou errado ficava com a linha errada na tela para sempre. */
-  if(s.canceled) return `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
+  if(s.canceled) return ehAdmin() ? `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>` : '';
   let btns='';
   if(s.origin==='loja' && s.status==='pendente') btns += `<button class="btn btn-sm btn-accent" onclick="markSalePaid('${s.id}')">Marcar Pago</button> `;
   if(s.origin==='loja' && s.status==='pago') btns += `<button class="btn btn-sm btn-gold" onclick="markSaleDelivered('${s.id}')">Marcar Entregue</button> `;
@@ -4634,20 +4973,134 @@ function saleActions(s){
     else if(s.status !== 'pendente') btns += `<button class="btn btn-sm btn-gold" onclick="emitirCupomFiscal('${s.id}')">🧾 Emitir NFC-e</button> `;
   }
   btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">📄 Recibo</button> `;
-  if(s.status !== 'pendente') btns += `<button class="btn btn-sm" onclick="openPerdaModal('devolucao',{saleId:'${s.id}'})">↩ Devolução</button> `;
-  btns += `<button class="btn btn-sm" onclick="openSaleModal('${s.id}')">✏️ Editar</button> `;
-  btns += `<button class="btn btn-sm" onclick="cancelSale('${s.id}')">Cancelar</button> `;
-  btns += `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
+  /* O que se usa pouco (e o que é perigoso) fica atrás do "Mais": cinco
+     botões por linha empilhavam, a linha ficava com um palmo de altura e
+     o Excluir ficava colado no Recibo, pedindo para ser tocado sem querer. */
+  btns += `<button class="btn btn-sm" data-menu="venda" data-id="${s.id}">⋯ Mais</button>`;
   return btns;
+}
+
+/* =========================================================
+   MENU "MAIS"
+   Um botão com data-menu abre uma listinha de ações ao lado dele. A
+   lista é montada na hora, a partir do registro — assim ela nunca
+   mostra uma ação que não vale para aquela linha.
+   ========================================================= */
+const MENUS = {
+  venda(id){
+    const s = DB.sales.find(x=>x.id === id);
+    if(!s) return [];
+    const itens = [];
+    if(s.status !== 'pendente') itens.push({ rotulo:'↩ Registrar devolução', fazer:()=>openPerdaModal('devolucao', { saleId:id }) });
+    itens.push({ rotulo:'✏️ Editar venda', fazer:()=>openSaleModal(id) });
+    itens.push({ rotulo:'Cancelar venda', fazer:()=>cancelSale(id) });
+    if(ehAdmin()) itens.push({ rotulo:'🗑️ Excluir venda', perigo:true, fazer:()=>excluirVenda(id) });
+    return itens;
+  }
+};
+function fecharMenuDeAcoes(){
+  document.querySelectorAll('.menu-flutuante').forEach(m=>m.remove());
+}
+function abrirMenuDeAcoes(botao){
+  const jaAberto = botao.classList.contains('menu-aberto');
+  fecharMenuDeAcoes();
+  document.querySelectorAll('.menu-aberto').forEach(b=>b.classList.remove('menu-aberto'));
+  if(jaAberto) return;
+  const montar = MENUS[botao.dataset.menu];
+  const itens = montar ? montar(botao.dataset.id) : [];
+  if(!itens.length) return;
+  const menu = document.createElement('div');
+  menu.className = 'menu-flutuante';
+  menu.setAttribute('role', 'menu');
+  itens.forEach(i=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'menuitem');
+    b.className = i.perigo ? 'perigo' : '';
+    b.textContent = i.rotulo;
+    b.addEventListener('click', ()=>{ fecharMenuDeAcoes(); botao.classList.remove('menu-aberto'); i.fazer(); });
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  botao.classList.add('menu-aberto');
+  /* Posição: embaixo do botão, alinhado pela direita; se não couber
+     embaixo, abre para cima. Sempre dentro da tela. */
+  const r = botao.getBoundingClientRect(), m = menu.getBoundingClientRect();
+  let topo = r.bottom + 6;
+  if(topo + m.height > window.innerHeight - 8) topo = Math.max(8, r.top - m.height - 6);
+  const esquerda = Math.min(Math.max(8, r.right - m.width), window.innerWidth - m.width - 8);
+  menu.style.top = topo + 'px';
+  menu.style.left = esquerda + 'px';
+}
+document.addEventListener('click', e=>{
+  const botao = e.target.closest && e.target.closest('[data-menu]');
+  if(botao){ e.preventDefault(); abrirMenuDeAcoes(botao); return; }
+  if(!(e.target.closest && e.target.closest('.menu-flutuante'))){
+    fecharMenuDeAcoes();
+    document.querySelectorAll('.menu-aberto').forEach(b=>b.classList.remove('menu-aberto'));
+  }
+});
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') fecharMenuDeAcoes(); });
+window.addEventListener('scroll', fecharMenuDeAcoes, true);
+window.addEventListener('resize', fecharMenuDeAcoes);
+
+/* =========================================================
+   TABELAS NO CELULAR
+   Tabela larga em tela estreita obriga a rolar para o lado, e os botões
+   (que ficam na última coluna) somem da vista. No celular cada linha
+   vira um cartão: o nome de cada coluna aparece em cima do valor. Para
+   isso cada célula precisa saber o nome da sua coluna — é o que esta
+   função anota, em toda tabela que entrar na tela.
+   ========================================================= */
+function rotularTabelas(raiz){
+  (raiz || document).querySelectorAll('table').forEach(t=>{
+    const ths = t.tHead ? [...t.tHead.querySelectorAll('th')] : [];
+    if(ths.length < 4){ t.classList.remove('cartoes'); return; }
+    const nomes = ths.map(th=>th.textContent.trim());
+    /* O título do cartão é a primeira coluna com nome que não seja a foto. */
+    const titulo = nomes.findIndex(n=>n && !/^foto$/i.test(n));
+    t.classList.add('cartoes');
+    [...t.tBodies].forEach(tb=>[...tb.rows].forEach(tr=>{
+      [...tr.cells].forEach((td, i)=>{
+        if(td.colSpan > 1){ td.dataset.rotulo = ''; td.classList.add('celula-inteira'); return; }
+        const nome = nomes[i] || '';
+        if(td.dataset.rotulo !== nome) td.dataset.rotulo = nome;
+        td.classList.toggle('celula-acoes', !nome && i === tr.cells.length - 1);
+        td.classList.toggle('celula-titulo', i === titulo);
+        td.classList.toggle('celula-foto', /^foto$/i.test(nome));
+      });
+    }));
+  });
+}
+if(typeof MutationObserver !== 'undefined'){
+  let rotuloPendente = null;
+  const observador = new MutationObserver(()=>{
+    /* junta as mudanças de um mesmo desenho numa passada só */
+    if(rotuloPendente) return;
+    rotuloPendente = setTimeout(()=>{ rotuloPendente = null; rotularTabelas(document); }, 0);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>observador.observe(document.body, { childList:true, subtree:true }));
 }
 
 /* Mexer no estoque de uma venda: soma (devolvendo) ou subtrai (vendendo).
    Um lugar só, para a devolução e a retirada nunca discordarem. */
+/* A variação (tamanho/cor) a que um item de venda ou de perda se refere.
+   Quem cadastrou a peça sem cor e depois escreveu "Preto" mudou o nome da
+   variação, e as vendas antigas deixavam de achá-la: cancelar dizia
+   "estoque devolvido" e não devolvia nada. Peça de uma variação só não
+   deixa dúvida sobre qual é. */
+function variacaoDoItem(i){
+  const p = i && DB.products.find(x=>x.id===i.productId);
+  if(!p || !Array.isArray(p.variations)) return null;
+  return p.variations.find(v=>v.size===i.size && v.color===i.color)
+      || (i.barcode ? p.variations.find(v=>v.barcode && v.barcode===i.barcode) : null)
+      || (p.variations.length === 1 ? p.variations[0] : null);
+}
+/* Devolve a lista das peças que NÃO foram achadas no cadastro. */
 function mexerNoEstoqueDaVenda(itens, sinal){
+  const semCadastro = [];
   (itens||[]).forEach(i=>{
-    const p = DB.products.find(x=>x.id===i.productId);
-    const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-    if(!v) return;
+    const v = variacaoDoItem(i);
+    if(!v){ semCadastro.push(i.name + ' ' + (i.size||'') + '/' + (i.color||'')); return; }
     const qtd = Number(i.qty||0);
     const tem = Math.max(0, Number(v.stock)||0);
     if(sinal > 0){
@@ -4658,6 +5111,10 @@ function mexerNoEstoqueDaVenda(itens, sinal){
       v.stock = tem - i.baixou;
     }
   });
+  return semCadastro;
+}
+function avisoDeEstoqueQueNaoVoltou(semCadastro){
+  return semCadastro.length ? ' Atenção: ' + semCadastro.join(', ') + ' não está mais no cadastro com esse tamanho/cor — o estoque dessa peça NÃO voltou; acerte em Estoque.' : '';
 }
 
 /* O lançamento no Financeiro que pertence a esta venda. As vendas novas
@@ -4677,15 +5134,27 @@ function lancamentoDaVenda(s){
    a venda no histórico como cancelada; excluir apaga a linha, como se
    nunca tivesse acontecido. Serve para o registro feito por engano — a
    venda de R$ 0,00 que ninguém fez. */
+/* Apagar some com o registro: é coisa de quem responde pela loja. A
+   vendedora cancela (o registro fica); quem exclui é o administrador. */
+function soAdministrador(oQue){
+  if(SESSION && SESSION.role === 'admin') return true;
+  toast('Só o administrador pode ' + oQue + '.','warn');
+  return false;
+}
+function ehAdmin(){ return !!(SESSION && SESSION.role === 'admin'); }
 function excluirVenda(id){
+  if(!soAdministrador('excluir uma venda. Para anular, use Cancelar')) return;
   const s = DB.sales.find(x=>x.id===id);
   if(!s) return;
+  /* A nota autorizada continua valendo na SEFAZ: apagar a venda daqui
+     deixaria um cupom fiscal sem venda nenhuma por trás. */
+  if(temCupom(s)){ toast('Esta venda tem cupom fiscal autorizado. Cancele a NFC-e primeiro (botão "Cancelar NFC-e").','warn'); return; }
   if(!s.canceled && devolucoesDaVenda(s.id).length){ toast('Esta venda tem devolução registrada. Exclua a devolução em Perdas e Devoluções antes de excluir a venda.','warn'); return; }
   if(!confirm('EXCLUIR esta venda de ' + money(s.total) + ', de ' + dateBR(s.date) + '?\n\n' +
               'A linha some do histórico e o lançamento no Financeiro sai junto.\n' +
               (s.canceled ? 'O estoque já tinha voltado no cancelamento.\n' : 'O estoque das peças volta.\n') +
               '\nIsto não tem como desfazer. Para apenas anular guardando o registro, use Cancelar.')) return;
-  if(!s.canceled) mexerNoEstoqueDaVenda(s.items, +1);
+  const naoVoltou = s.canceled ? [] : mexerNoEstoqueDaVenda(s.items, +1);
   const lanc = lancamentoDaVenda(s);
   if(lanc){
     DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
@@ -4695,7 +5164,7 @@ function excluirVenda(id){
   registrarApagado('sales', id);
   if(exigirGravacao('a exclusão da venda')){
     renderVendasTable();
-    toast('Venda excluída');
+    toast('Venda excluída.' + avisoDeEstoqueQueNaoVoltou(naoVoltou), naoVoltou.length ? 'warn' : 'ok');
   }
 }
 
@@ -4710,7 +5179,11 @@ function openSaleModal(id){
   if(s.canceled){ toast('Venda cancelada não pode ser editada. Exclua ou registre outra.','warn'); return; }
   if(temCupom(s)){ toast('Esta venda tem cupom fiscal autorizado. Cancele a NFC-e antes de editar.','warn'); return; }
 
-  const itens = s.items.map(i=>({ ...i }));
+  /* Cada linha lembra de qual peça da venda ela veio e quanto dela a
+     cliente já devolveu: a peça devolvida não pode sair da venda nem ficar
+     com quantidade menor que a devolvida, senão o estoque volta duas vezes. */
+  const itens = s.items.map(i=>({ ...i, _origem:i, _devolvido:devolvidoDaVenda(s.id, i) }));
+  const dataOriginal = paraDatetimeLocal(s.date);
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   const opcoesCliente = ['<option value="">Consumidor final</option>']
@@ -4758,19 +5231,24 @@ function openSaleModal(id){
     </tr></thead><tbody>
       ${itens.map((i,idx)=>`<tr>
         <td>${escapeHtml(i.name)} <span class="text-muted">${escapeHtml(i.size)}/${escapeHtml(i.color)}</span></td>
-        <td><input type="number" min="1" step="1" value="${i.qty}" data-qtd="${idx}" style="width:70px"></td>
-        <td><input type="number" min="0" step="0.01" value="${i.price}" data-preco="${idx}" style="width:95px"></td>
-        <td>${money(i.qty * i.price)}</td>
-        <td><button class="btn btn-sm btn-danger" data-tirar="${idx}">Tirar</button></td>
+        <td><input type="number" min="${Math.max(1, i._devolvido)}" step="1" inputmode="numeric" value="${i.qty}" data-qtd="${idx}" style="width:70px">
+          ${i._devolvido ? `<div class="text-muted" style="font-size:11.5px">${i._devolvido} já devolvida${i._devolvido > 1 ? 's' : ''}</div>` : ''}</td>
+        <td><input type="number" min="0" step="0.01" inputmode="decimal" value="${i.price}" data-preco="${idx}" style="width:95px"></td>
+        <td data-subtotal="${idx}">${money(i.qty * i.price)}</td>
+        <td>${i._devolvido ? '' : `<button class="btn btn-sm btn-danger" data-tirar="${idx}">Tirar</button>`}</td>
       </tr>`).join('')}
     </tbody></table></div>`;
     caixaItens.querySelectorAll('[data-qtd]').forEach(inp=>inp.addEventListener('input', e=>{
-      itens[Number(e.target.dataset.qtd)].qty = Math.max(1, Number(e.target.value)||1);
-      atualizarTotal();
+      const i = itens[Number(e.target.dataset.qtd)];
+      i.qty = Math.max(1, i._devolvido, Math.floor(Number(e.target.value)||1));
+      atualizarSubtotal(Number(e.target.dataset.qtd));
+    }));
+    caixaItens.querySelectorAll('[data-qtd]').forEach(inp=>inp.addEventListener('change', e=>{
+      e.target.value = itens[Number(e.target.dataset.qtd)].qty;
     }));
     caixaItens.querySelectorAll('[data-preco]').forEach(inp=>inp.addEventListener('input', e=>{
-      itens[Number(e.target.dataset.preco)].price = Math.max(0, Number(e.target.value)||0);
-      atualizarTotal();
+      itens[Number(e.target.dataset.preco)].price = centavos(Math.max(0, Number(e.target.value)||0));
+      atualizarSubtotal(Number(e.target.dataset.preco));
     }));
     caixaItens.querySelectorAll('[data-tirar]').forEach(b=>b.addEventListener('click', e=>{
       itens.splice(Number(e.target.dataset.tirar), 1);
@@ -4778,10 +5256,17 @@ function openSaleModal(id){
     }));
     atualizarTotal();
   }
-  function somaDosItens(){ return itens.reduce((soma,i)=>soma + Number(i.qty)*Number(i.price), 0); }
-  function totalNovo(){
-    return Math.max(0, somaDosItens() - (Number(overlay.querySelector('#v_desc').value)||0));
+  function atualizarSubtotal(idx){
+    const celula = caixaItens.querySelector(`[data-subtotal="${idx}"]`);
+    if(celula) celula.textContent = money(itens[idx].qty * itens[idx].price);
+    atualizarTotal();
   }
+  function somaDosItens(){ return itens.reduce((soma,i)=>soma + Number(i.qty)*Number(i.price), 0); }
+  /* Desconto negativo viraria acréscimo escondido; maior que a venda, troco. */
+  function descontoNovo(){
+    return centavos(Math.min(somaDosItens(), Math.max(0, Number(overlay.querySelector('#v_desc').value)||0)));
+  }
+  function totalNovo(){ return centavos(Math.max(0, somaDosItens() - descontoNovo())); }
   function atualizarTotal(){
     const t = totalNovo();
     overlay.querySelector('#v_total').innerHTML =
@@ -4793,28 +5278,65 @@ function openSaleModal(id){
 
   overlay.querySelector('#v_cancelar').addEventListener('click', ()=>overlay.remove());
   overlay.querySelector('#v_salvar').addEventListener('click', ()=>{
-    /* O estoque só fecha se a conta for feita nos dois sentidos: devolve o
-       que a venda antiga tinha tirado e tira o que a venda nova leva. */
+    /* A devolução pode ter sido registrada em outro aparelho com este
+       formulário aberto: confere de novo na hora de gravar. */
+    const comDevolucao = s.items.filter(o=>{
+      const ja = devolvidoDaVenda(s.id, o);
+      if(!ja) return false;
+      const linha = itens.find(i=>i._origem === o);
+      return !linha || linha.qty < ja;
+    });
+    if(comDevolucao.length){
+      toast('Esta venda tem devolução de ' + comDevolucao.map(o=>o.name).join(', ') + '. A peça devolvida não pode sair da venda nem ficar com quantidade menor que a devolvida.','warn');
+      return;
+    }
+    /* O estoque só muda onde a quantidade mudou. Devolver tudo e tirar de
+       novo parecia a mesma conta, mas não era: a venda feita com o sistema
+       marcando zero (que não baixou nada) passava a baixar na primeira
+       edição, mesmo que só a forma de pagamento tivesse sido trocada. */
     const faltou = [];
-    mexerNoEstoqueDaVenda(s.items, +1);
-    itens.forEach(i=>{
-      const p = DB.products.find(x=>x.id===i.productId);
-      const v = p && p.variations.find(v=>v.size===i.size && v.color===i.color);
-      if(v && v.stock < i.qty) faltou.push(`${i.name} ${i.size}/${i.color} (sistema marca ${v.stock})`);
+    const variacaoDe = variacaoDoItem;
+    const baixadoDe = o => o.baixou === undefined ? Number(o.qty)||0 : Math.max(0, Number(o.baixou)||0);
+    s.items.forEach(o=>{
+      if(itens.some(i=>i._origem === o)) return;
+      const v = variacaoDe(o);
+      if(v) v.stock = Math.max(0, Number(v.stock)||0) + baixadoDe(o);
+    });
+    const novos = itens.map(i=>{
+      const o = i._origem, antes = Number(o.qty)||0, agora = Number(i.qty)||0;
+      const limpo = { ...i };
+      delete limpo._origem; delete limpo._devolvido;
+      if(agora === antes) return limpo;
+      const v = variacaoDe(i);
+      let baixou = baixadoDe(o);
+      if(v){
+        const tem = Math.max(0, Number(v.stock)||0);
+        if(agora > antes){
+          const sai = Math.min(agora - antes, tem);
+          if(sai < agora - antes) faltou.push(`${i.name} ${i.size}/${i.color} (sistema marca ${tem})`);
+          v.stock = tem - sai; baixou += sai;
+        } else {
+          const volta = Math.min(antes - agora, baixou);
+          v.stock = tem + volta; baixou -= volta;
+        }
+      }
+      limpo.baixou = baixou;
+      return limpo;
     });
     /* Não bloqueia: a venda já aconteceu no balcão. Só avisa. */
-    mexerNoEstoqueDaVenda(itens, -1);
     if(faltou.length) toast('Estoque do sistema não cobre: ' + faltou.join('; ') + '. A venda foi salva; confira em Estoque.','warn');
 
     const data = overlay.querySelector('#v_data').value;
-    s.items = itens;
-    s.discount = Number(overlay.querySelector('#v_desc').value)||0;
+    s.items = novos;
+    s.discount = descontoNovo();
     s.payment = overlay.querySelector('#v_pagto').value;
     s.customerId = overlay.querySelector('#v_cliente').value || null;
     s.total = totalNovo();
     /* O campo datetime-local vem sem fuso: new Date() lê como hora local,
-       que é o que a pessoa digitou. */
-    if(data && !isNaN(new Date(data))) s.date = new Date(data).toISOString();
+       que é o que a pessoa digitou. Só troca a data se ela foi mexida: o
+       campo guarda até o minuto, e regravar sempre jogava a venda para o
+       começo do minuto — antes da abertura do caixa, às vezes. */
+    if(data && data !== dataOriginal && !isNaN(new Date(data))) s.date = new Date(data).toISOString();
     s.editadoEm = todayISO();
     carimbar(s);
 
@@ -4857,7 +5379,7 @@ function cancelSale(id){
      devolveria a mesma peça duas vezes. */
   if(devolucoesDaVenda(s.id).length){ toast('Esta venda tem devolução registrada. Exclua a devolução em Perdas e Devoluções antes de cancelar.','warn'); return; }
   if(!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
-  mexerNoEstoqueDaVenda(s.items, +1);
+  const naoVoltou = mexerNoEstoqueDaVenda(s.items, +1);
   s.canceled = true;
   carimbar(s);
   /* A receita da venda cancelada continuava no Financeiro, e o "Saldo do
@@ -4867,7 +5389,9 @@ function cancelSale(id){
     DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
     registrarApagado('finance', lanc.id);
   }
-  saveDB(); renderVendasTable(); toast('Venda cancelada — estoque devolvido');
+  saveDB(); renderVendasTable();
+  if(naoVoltou.length) toast('Venda cancelada.' + avisoDeEstoqueQueNaoVoltou(naoVoltou), 'warn');
+  else toast('Venda cancelada — estoque devolvido');
 }
 
 /* =========================================================
@@ -4908,8 +5432,7 @@ function devolucoesDaVenda(saleId){
    quanto mexeu DE VERDADE, para o desfazer ser exato e para a junção
    entre aparelhos não contar duas vezes. */
 function aplicarMovimentoNoEstoque(r, sinal){
-  const p = DB.products.find(x=>x.id===r.productId);
-  const v = p && p.variations.find(v=>v.size===r.size && v.color===r.color);
+  const v = variacaoDoItem(r);
   if(!v) return;
   const tem = Math.max(0, Number(v.stock)||0);
   if(sinal > 0){
@@ -4919,7 +5442,6 @@ function aplicarMovimentoNoEstoque(r, sinal){
     if(r.tipo === 'perda') v.stock = tem + (Number(r.baixou)||0);
     else if(r.voltou) v.stock = Math.max(0, tem - (Number(r.voltou)||0));
   }
-  carimbar(p);
 }
 
 /* O dinheiro da devolução. Devolveu dinheiro: vira despesa no Financeiro
@@ -5089,11 +5611,17 @@ function excluirPerda(id){
 
 /* Planilha: abre no Excel e no Google Planilhas. Ponto e vírgula e
    vírgula decimal, que é como o Excel em português espera. */
+/* O Excel executa como fórmula a célula que começa com = + - ou @. Uma
+   observação "=1+1" (ou coisa pior) não pode rodar na planilha da loja. */
+function textoSeguroNaPlanilha(v){
+  const t = String(v == null ? '' : v);
+  return /^[=+\-@\t\r]/.test(t) && !/^-?\d+([.,]\d+)?$/.test(t) ? "'" + t : t;
+}
 function exportarPerdas(){
   const lista = perdasFiltradas();
   if(!lista.length){ toast('Não há registros neste filtro','warn'); return; }
   const n = v => (Number(v)||0).toFixed(2).replace('.', ',');
-  const c = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const c = v => '"' + textoSeguroNaPlanilha(v).replace(/"/g, '""') + '"';
   const linhas = [['Dia','Horário','Tipo','Peça','Tamanho','Cor','Código','Quantidade','Motivo','Observação','Valor (R$)',
                    'Custo unitário (R$)','Preço unitário (R$)','Estoque','Forma da devolução','Venda de origem','Cliente','Registrado por'].map(c).join(';')];
   lista.forEach(r=>linhas.push([
@@ -5125,6 +5653,13 @@ function openPerdaModal(tipo, pre){
       barcode:editando.barcode, custoUnit:editando.custoUnit, precoUnit:editando.precoUnit, saleId:editando.saleId, customerId:editando.customerId } : null;
   const vendasRecentes = ehDev && !editando
     ? [...DB.sales].filter(s=>!s.canceled && s.status !== 'pendente').sort((a,b)=>new Date(b.date) - new Date(a.date)).slice(0, 80) : [];
+  /* A devolução aberta pelo botão de uma venda antiga (fora das 80 mais
+     recentes) abria sem a venda, e o vínculo se perdia sem aviso. */
+  if(ehDev && !editando && pre.saleId && !vendasRecentes.some(s=>s.id === pre.saleId)){
+    const origem = DB.sales.find(s=>s.id === pre.saleId && !s.canceled);
+    if(origem) vendasRecentes.push(origem);
+  }
+  const dataOriginal = paraDatetimeLocal(editando ? editando.date : null);
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -5193,7 +5728,8 @@ function openPerdaModal(tipo, pre){
     if(ehDev){
       const troca = q('#pd_reembolso').value === REEMBOLSO_TROCA;
       q('#pd_valorRotulo').textContent = troca ? 'Crédito para a outra peça (R$)' : 'Valor devolvido (R$)';
-      if(!valorMexidoNaMao) q('#pd_valor').value = (Math.round((Number(escolhida.precoUnit)||0) * qtd * 100) / 100) || '';
+      const pagoPorPeca = escolhida.pagoUnit !== undefined ? Number(escolhida.pagoUnit)||0 : Number(escolhida.precoUnit)||0;
+      if(!valorMexidoNaMao) q('#pd_valor').value = centavos(pagoPorPeca * qtd) || '';
       const valor = Number(q('#pd_valor').value)||0;
       const volta = q('#pd_volta').checked;
       resumo.className = 'lucro-box ' + (volta ? 'bom' : 'aviso');
@@ -5234,8 +5770,35 @@ function openPerdaModal(tipo, pre){
         <strong>${escapeHtml(a.p.name)}</strong> <span class="text-muted">${escapeHtml(a.v.size)}/${escapeHtml(a.v.color)} · ${escapeHtml(a.v.barcode||'sem código')} · ${a.v.stock} em estoque</span>
       </button>`).join('') : '<div class="text-muted" style="font-size:12.5px;padding:6px 2px">Nenhuma peça com esse nome ou código.</div>';
     res.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click', e=>{
-      const a = achados[Number(e.currentTarget.dataset.i)]; if(a) escolher(a.p, a.v);
+      const a = achados[Number(e.currentTarget.dataset.i)]; if(a) escolherPelaBusca(a.p, a.v);
     }));
+  }
+  /* O que a devolução herda da venda: o preço e o custo DAQUELA venda, a
+     cliente, o limite (não se devolve mais do que foi vendido) e quanto a
+     cliente pagou de verdade por peça — a venda com desconto não devolve
+     o preço cheio. */
+  function vinculoComAVenda(s, i, p){
+    const soma = s.items.reduce((a,x)=>a + (Number(x.qty)||0) * (Number(x.price)||0), 0);
+    const fator = soma > 0 ? Math.min(1, (Number(s.total)||0) / soma) : 1;
+    return { name:i.name, custoUnit: i.cost !== undefined ? Number(i.cost)||0 : Number((p||{}).cost)||0, precoUnit:Number(i.price)||0,
+             pagoUnit: (Number(i.price)||0) * fator,
+             saleId:s.id, customerId:s.customerId || null, maximo: Math.max(0, Number(i.qty) - devolvidoDaVenda(s.id, i)) };
+  }
+  /* 6 — Bipar (ou procurar) a peça com uma venda escolhida: se a peça é
+     dessa venda, continua ligada a ela; se não é, a venda sai do campo
+     para a tela não mostrar um vínculo que o registro não vai ter. */
+  function escolherPelaBusca(p, v){
+    const campoVenda = q('#pd_venda');
+    const s = campoVenda && campoVenda.value ? DB.sales.find(x=>x.id === campoVenda.value) : null;
+    if(s){
+      const i = s.items.find(i=>i.productId === p.id && i.size === v.size && i.color === v.color
+                                && Number(i.qty) - devolvidoDaVenda(s.id, i) > 0);
+      if(i){ escolher(p, v, vinculoComAVenda(s, i, p)); q('#pd_qtd').value = 1; atualizar(); return; }
+      campoVenda.value = '';
+      mostrarItensDaVenda();
+      toast('Esta peça não está na venda escolhida (ou já foi toda devolvida). A devolução fica sem venda de origem.','warn');
+    }
+    escolher(p, v);
   }
   function mostrarItensDaVenda(){
     const caixa = q('#pd_itensDaVenda');
@@ -5251,8 +5814,7 @@ function openPerdaModal(tipo, pre){
       const i = s.items[Number(e.currentTarget.dataset.item)];
       const p = DB.products.find(x=>x.id === i.productId) || { id:i.productId, name:i.name, cost:i.cost, price:i.price };
       const v = (p.variations||[]).find(v=>v.size === i.size && v.color === i.color) || { size:i.size, color:i.color, barcode:'' };
-      escolher(p, v, { name:i.name, custoUnit: i.cost !== undefined ? Number(i.cost)||0 : Number(p.cost)||0, precoUnit:Number(i.price)||0,
-                       saleId:s.id, customerId:s.customerId || null, maximo: Math.max(0, Number(i.qty) - devolvidoDaVenda(s.id, i)) });
+      escolher(p, v, vinculoComAVenda(s, i, p));
       q('#pd_qtd').value = 1;
       atualizar();
     }));
@@ -5266,7 +5828,7 @@ function openPerdaModal(tipo, pre){
     e.preventDefault();
     const texto = q('#pd_busca').value.trim();
     const achado = findVariationByBarcode(texto) || acharCodigoNoFim(texto);
-    if(achado) escolher(achado.product, achado.variation);
+    if(achado) escolherPelaBusca(achado.product, achado.variation);
     else { const unica = q('#pd_resultados').querySelectorAll('[data-i]'); if(unica.length === 1) unica[0].click(); else somDoBipe(false); }
   });
   q('#pd_venda')?.addEventListener('change', ()=>{ escolhida = null; mostrarItensDaVenda(); atualizar(); });
@@ -5287,7 +5849,8 @@ function openPerdaModal(tipo, pre){
     if(ehDev && valor < 0){ toast('O valor não pode ser negativo','error'); return; }
 
     if(editando){
-      Object.assign(editando, { date:data, motivo:q('#pd_motivo').value, obs:q('#pd_obs').value.trim() });
+      Object.assign(editando, { motivo:q('#pd_motivo').value, obs:q('#pd_obs').value.trim() });
+      if(dataDigitada !== dataOriginal) editando.date = data;
       if(ehDev) Object.assign(editando, { valor, reembolso:q('#pd_reembolso').value });
       carimbar(editando);
       sincronizarDevolucaoNoFinanceiro(editando);
@@ -5382,19 +5945,35 @@ function renderCaixa(el){
       <div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Valor</th><th>Obs</th><th>Data</th></tr></thead><tbody>
         ${cr.movements.length ? cr.movements.map(m=>`<tr><td>${m.type==='sangria'?'➖ Sangria':'➕ Reforço'}</td><td>${money(m.amount)}</td><td>${escapeHtml(m.note||'-')}</td><td>${dateBR(m.date)}</td></tr>`).join('') : '<tr><td colspan="4">Nenhuma movimentação</td></tr>'}
       </tbody></table></div>
+    </div>` : ''}
+    ${cr.closedHistory.length ? `<div class="panel">
+      <h3>Últimos fechamentos</h3>
+      <div class="table-wrap"><table><thead><tr><th>Aberto em</th><th>Fechado em</th><th>Valor inicial</th><th>Total vendido</th><th>Dinheiro na gaveta</th><th>Fechado por</th></tr></thead><tbody>
+        ${[...cr.closedHistory].sort((a,b)=>new Date(b.closedAt) - new Date(a.closedAt)).slice(0, 15).map(h=>`<tr>
+          <td>${dateBR(h.openedAt)}</td><td>${dateBR(h.closedAt)}</td><td>${money(h.openingAmount)}</td><td>${money(h.totalSales)}</td>
+          <td>${h.naGaveta === undefined ? '-' : money(h.naGaveta)}</td><td>${escapeHtml(h.fechadoPor||'-')}</td></tr>`).join('')}
+      </tbody></table></div>
     </div>` : ''}`;
 }
 function openCashRegister(){
   const amount = Number(document.getElementById('openAmount').value)||0;
-  DB.cashRegister = { open:true, openedAt: todayISO(), openingAmount: amount, movements:[], closedHistory: DB.cashRegister.closedHistory };
+  DB.cashRegister = { open:true, openedAt: todayISO(), openingAmount: Math.max(0, centavos(amount)), movements:[], closedHistory: DB.cashRegister.closedHistory };
   saveDB(); renderCaixa(document.getElementById('view')); toast('Caixa aberto');
 }
 function closeCashRegister(){
   if(!confirm('Fechar o caixa?')) return;
   const cr = DB.cashRegister;
   const salesInSession = vendasDoCaixa(cr);
-  const total = salesInSession.reduce((a,s)=>a+s.total,0);
-  cr.closedHistory.push({ openedAt:cr.openedAt, closedAt: todayISO(), openingAmount:cr.openingAmount, totalSales: total, movements: cr.movements });
+  const total = centavos(salesInSession.reduce((a,s)=>a+s.total,0));
+  const dinheiro = salesInSession.filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
+  const reforcos = cr.movements.filter(m=>m.type==='reforco').reduce((a,m)=>a+Number(m.amount||0),0);
+  const sangrias = cr.movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+Number(m.amount||0),0);
+  const porForma = {};
+  salesInSession.forEach(s=>{ porForma[s.payment] = centavos((porForma[s.payment]||0) + s.total); });
+  cr.closedHistory.push({ openedAt:cr.openedAt, closedAt: todayISO(), openingAmount:cr.openingAmount, totalSales: total,
+    vendas: salesInSession.length, porForma, dinheiro: centavos(dinheiro), reforcos: centavos(reforcos), sangrias: centavos(sangrias),
+    naGaveta: centavos(Number(cr.openingAmount||0) + dinheiro + reforcos - sangrias),
+    fechadoPor: SESSION ? SESSION.name : '-', movements: cr.movements });
   DB.cashRegister = { open:false, openedAt:null, openingAmount:0, movements:[], closedHistory: cr.closedHistory };
   saveDB(); renderCaixa(document.getElementById('view')); toast('Caixa fechado');
 }
@@ -5412,7 +5991,14 @@ function openMovementModal(type){
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
     const amount = Number(overlay.querySelector('#m_amount').value)||0;
     if(amount<=0){ toast('Informe um valor','error'); return; }
-    DB.cashRegister.movements.push({ type, amount, note: overlay.querySelector('#m_note').value.trim(), date: todayISO() });
+    if(type === 'sangria'){
+      const cr = DB.cashRegister;
+      const dinheiro = vendasDoCaixa(cr).filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
+      const naGaveta = Number(cr.openingAmount||0) + dinheiro
+        + cr.movements.reduce((a,m)=>a + (m.type==='reforco' ? 1 : -1) * Number(m.amount||0), 0);
+      if(amount > naGaveta + 0.004 && !confirm('A sangria (' + money(amount) + ') é maior que o dinheiro que o sistema espera na gaveta (' + money(naGaveta) + ').\n\nRegistrar mesmo assim?')) return;
+    }
+    DB.cashRegister.movements.push({ id:uid(), type, amount: centavos(amount), note: overlay.querySelector('#m_note').value.trim(), date: todayISO() });
     saveDB(); overlay.remove(); renderCaixa(document.getElementById('view'));
     toast('Movimentação registrada');
   });
@@ -5534,7 +6120,17 @@ function renderGastos(el){
     <div id="fixasWrap"></div>
     <h3 style="margin:22px 0 10px;font-size:15px">Gastos de ${monthLabel(gastosMonth)}</h3>
     <div id="gastosTableWrap"></div>`;
-  el.querySelector('#gastosMonthInput').addEventListener('change', e=>{ gastosMonth=e.target.value; renderGastos(el); });
+  el.querySelector('#gastosMonthInput').addEventListener('change', e=>{
+    /* Campo de mês apagado, ou digitado à mão onde o navegador não tem o
+       seletor (10/2026): lançar gasto assim criava registro num mês que
+       não existe, e ele sumia de todas as telas. */
+    let mes = String(e.target.value||'').trim();
+    const br = mes.match(/^(\d{1,2})[\/\-](\d{4})$/);
+    if(br) mes = br[2] + '-' + br[1].padStart(2,'0');
+    if(/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) gastosMonth = mes;
+    else toast('Mês inválido. Escolha o mês no campo (ex.: 2026-10).','warn');
+    renderGastos(el);
+  });
   renderFixas();
   renderGastosTable();
 }
@@ -5670,7 +6266,7 @@ function renderGastosTable(){
   const wrap = document.getElementById('gastosTableWrap');
   if(!wrap) return;
   const records = DB.monthlyExpenses.records.filter(r=>r.month===gastosMonth);
-  if(!records.length){ wrap.innerHTML = `<div class="empty-state">Nenhum gasto lançado em ${monthLabel(gastosMonth)}. Categorias sugeridas: ${DB.monthlyExpenses.categories.join(', ')}.</div>`; return; }
+  if(!records.length){ wrap.innerHTML = `<div class="empty-state">Nenhum gasto lançado em ${monthLabel(gastosMonth)}. Categorias sugeridas: ${escapeHtml(DB.monthlyExpenses.categories.join(', '))}.</div>`; return; }
   wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>
     ${records.map(r=>`<tr>
       <td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.note||'-')}</td><td>${money(r.amount)}</td>
@@ -5850,10 +6446,29 @@ function openSetupModal(id){
       paid: Number(overlay.querySelector('#s_paid').value)||0,
     };
     if(data.planned < 0 || data.paid < 0){ toast('Valores não podem ser negativos','error'); return; }
-    if(editing){ Object.assign(editing, data); carimbar(editing); }
+    if(editing){ Object.assign(editing, data); carimbar(editing); acertarAberturaNoFinanceiro(editing); }
     else DB.storeSetup.items.push(carimbar({ id:i.id, ...data }));
     saveDB(); overlay.remove(); renderAbrirLoja(document.getElementById('view'));
     toast('Custo salvo');
+  });
+}
+/* As despesas que o "Marcar pago" lançou no Financeiro para este item não
+   podem somar mais do que o item diz ter pago. Voltar o "pago" para zero
+   e marcar pago de novo lançava a mesma despesa duas vezes. */
+function lancamentosDaAbertura(id){
+  return DB.finance.entries.filter(e=>e.origem === 'abertura' && e.setupId === id);
+}
+function acertarAberturaNoFinanceiro(item){
+  let sobra = lancamentosDaAbertura(item.id).reduce((a,e)=>a + (Number(e.amount)||0), 0) - (Number(item.paid)||0);
+  if(sobra <= 0.004) return;
+  lancamentosDaAbertura(item.id).sort((a,b)=>new Date(b.date) - new Date(a.date)).forEach(e=>{
+    if(sobra <= 0.004) return;
+    const valor = Number(e.amount)||0;
+    if(valor <= sobra + 0.004){
+      DB.finance.entries = DB.finance.entries.filter(x=>x.id !== e.id);
+      registrarApagado('finance', e.id);
+      sobra -= valor;
+    } else { e.amount = centavos(valor - sobra); carimbar(e); sobra = 0; }
   });
 }
 function markSetupPaid(id){
@@ -5870,6 +6485,11 @@ function markSetupPaid(id){
 }
 function deleteSetup(id){
   if(!confirm('Excluir este item?')) return;
+  /* A despesa que o item lançou no Financeiro sai junto. */
+  lancamentosDaAbertura(id).forEach(e=>{
+    DB.finance.entries = DB.finance.entries.filter(x=>x.id !== e.id);
+    registrarApagado('finance', e.id);
+  });
   DB.storeSetup.items = DB.storeSetup.items.filter(i=>i.id!==id);
   registrarApagado('setup', id);
   saveDB(); redesenhar(renderAbrirLoja);
@@ -5939,8 +6559,14 @@ function drawBarChart(canvasId, data){
   const ctx = canvas.getContext('2d');
   /* Desenha em alta resolução: no celular o gráfico saía borrado. */
   const escala = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth || 600, h = 180;
+  /* A largura é a da caixa onde o gráfico mora. Medir o próprio canvas
+     devolvia os 300 px de fábrica: gráfico espremido no computador e
+     esticado no celular. */
+  const caixa = canvas.parentElement;
+  const folga = caixa ? (parseFloat(getComputedStyle(caixa).paddingLeft)||0) + (parseFloat(getComputedStyle(caixa).paddingRight)||0) : 0;
+  const w = Math.max(240, Math.floor(((caixa && caixa.clientWidth) || canvas.clientWidth || 600) - folga)), h = 180;
   canvas.width = w * escala; canvas.height = h * escala;
+  canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
   ctx.scale(escala, escala);
   ctx.clearRect(0,0,w,h);
@@ -5989,6 +6615,9 @@ function renderConfig(el){
         <div class="field" style="margin-top:10px"><label>Endereço</label><input id="cfg_address" value="${escapeHtml(DB.config.address)}"></div>
         <div class="field" style="margin-top:10px"><label>Frase do topo</label><input id="cfg_phrase" value="${escapeHtml(DB.config.heroPhrase)}"></div>
         <button class="btn btn-accent" style="margin-top:14px" id="saveOnlineBtn">Salvar</button>
+        <p class="text-muted" style="font-size:12px;margin-top:10px">${(String(DB.config.pixKey||'').trim() || String(DB.config.whatsapp||'').replace(/\D/g,''))
+          ? 'A loja virtual está recebendo pedidos.'
+          : 'Sem chave PIX e sem WhatsApp, a loja virtual funciona só como <strong>vitrine</strong>: mostra as peças, mas não aceita pedido. Preencha um dos dois para vender pelo site.'}</p>
       </div>
     </div>
     <div class="panel">
@@ -6132,6 +6761,7 @@ function renderConfig(el){
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
     DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
+    carimbar(DB.config);
     saveDB(); renderShell(); toast('Configurações salvas');
   });
   el.querySelector('#saveOnlineBtn').addEventListener('click', ()=>{
@@ -6139,7 +6769,9 @@ function renderConfig(el){
     DB.config.pixKey = el.querySelector('#cfg_pix').value.trim();
     DB.config.address = el.querySelector('#cfg_address').value.trim();
     DB.config.heroPhrase = el.querySelector('#cfg_phrase').value.trim();
+    carimbar(DB.config);
     saveDB(); toast('Configurações da loja virtual salvas');
+    redesenhar(renderConfig);
   });
   el.querySelector('#saveFiscalBtn').addEventListener('click', ()=>{
     const cnpj = el.querySelector('#fx_cnpj').value.replace(/\D/g,'');
@@ -6156,6 +6788,7 @@ function renderConfig(el){
     });
     delete DB.config.fiscal.chave;           // a chave não vai para a nuvem
     guardarChaveFiscal(el.querySelector('#fx_chave').value);
+    carimbar(DB.config);
     saveDB(); toast('Cupom fiscal: configurações salvas');
     testarCupomFiscal();
   });
@@ -6163,6 +6796,10 @@ function renderConfig(el){
   carregarHistoricoDaNuvem();
   el.querySelector('#importFile').addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
+    /* Limpa o campo já: escolher o MESMO arquivo de novo (depois de um
+       erro, por exemplo) precisa funcionar. */
+    const campoDoArquivo = e.target;
+    setTimeout(()=>{ campoDoArquivo.value = ''; }, 0);
     const reader = new FileReader();
     reader.onload = ev=>{
       try{
@@ -6180,14 +6817,12 @@ function renderConfig(el){
         if(!confirm('Importar este backup?\n\n' + (pacote.products||[]).length + ' produto(s) e ' + (pacote.sales||[]).length + ' venda(s).\n\n' +
                     'O que está no sistema agora será guardado como cópia de segurança antes da troca.')) { e.target.value=''; return; }
         guardarCopiaDeSeguranca('antes de importar backup');
-        DB = pacote; migrateDB(); restaurarEscolhaDaEtiqueta();
+        trocarBancoInteiro(pacote);
         Object.entries(fotos).forEach(([pid, dataUrl])=>guardarFotoPendente(pid, dataUrl));
         if(fotosPendentes.size) enviarFotosPendentes();
         if(!exigirGravacao('o backup importado')) return;
         toast((DB.products||[]).length + ' produto(s) e ' + Object.keys(fotos).length + ' foto(s) importados.');
-        validarSessao();
-        if(!SESSION){ showLogin(); toast('O backup não tem o seu usuário. Entre de novo.','warn'); return; }
-        renderShell(); navigate('painel');
+        entrarDepoisDeTrocarOBanco();
       }
       catch(err){ console.error(err); toast('Arquivo inválido','error'); }
     };
@@ -6208,6 +6843,7 @@ function renderUsersTable(){
 /* Não existia como apagar um usuário: a vendedora que saiu continuava
    entrando. O último administrador não sai, senão ninguém mais entra. */
 function deleteUser(id){
+  if(!soAdministrador('excluir usuários')) return;
   const u = DB.users.find(x=>x.id===id);
   if(!u) return;
   if(SESSION && SESSION.id === id){ toast('Você não pode excluir o próprio usuário','error'); return; }
@@ -6286,7 +6922,7 @@ document.addEventListener('keydown', e=>{
   const active = document.activeElement;
   const inField = active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
   if(inField){ scanBuffer=''; return; }
-  if(!SESSION || (currentRoute!=='pdv' && !estoqueMode)) return;
+  if(!SESSION || (currentRoute!=='pdv' && !(currentRoute==='estoque' && estoqueMode))) return;
   const now = Date.now();
   /* Leitor Bluetooth no celular é mais lento que o USB: até ~120 ms entre
      as teclas. Com 80 ms o código chegava picado e nunca era reconhecido. */
@@ -6302,7 +6938,7 @@ document.addEventListener('keydown', e=>{
         const found = findVariationByBarcode(scanBuffer) || acharCodigoNoFim(scanBuffer);
         if(found) addToCart(found.product, found.variation);
         else { somDoBipe(false); toast('Código ' + scanBuffer.slice(-12) + ' não encontrado','error'); }
-      } else if(estoqueMode){
+      } else if(currentRoute==='estoque' && estoqueMode){
         handleBipe(scanBuffer);
       }
     }
@@ -6380,6 +7016,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ligarGatilhosDeEnvio();
   document.getElementById('seloNuvem')?.addEventListener('click', ()=>{
     if(!SESSION) return;
+    /* Configurações é tela do administrador: para a vendedora o selo
+       responde ali mesmo, sem tirá-la do balcão. */
+    if(!podeAbrir('config')){
+      const est = estadoDaNuvem();
+      toast(est.tudoSalvo ? 'Tudo o que foi feito aqui já está salvo na nuvem.'
+          : est.ok ? 'Salvando na nuvem…'
+          : 'Sem ligação com a nuvem agora. O trabalho fica guardado neste aparelho e sobe sozinho quando a ligação voltar.', est.ok ? 'ok' : 'warn');
+      sincronizarAgora();
+      return;
+    }
     navigate('config');
     setTimeout(()=>{ atualizaAvisoDeNuvem(); testarNuvem(); }, 300);
   });
