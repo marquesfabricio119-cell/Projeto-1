@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "60";
+const APP_VERSION = "61";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -144,6 +144,8 @@ function defaultDB(){
     cashRegister: { open:false, openedAt:null, openingAmount:0, movements:[], closedHistory:[] },
     finance: { entries:[] },
     storeSetup: { items:[] },
+    /* Perdas e devoluções: cada peça que saiu sem ser vendida, ou voltou. */
+    perdas: { records:[] },
     monthlyExpenses: {
       categories: ["Aluguel","Água","Luz","Internet","Telefone","Manutenção","Salários e encargos","Contador","Segurança/Alarme","Embalagens","Marketing","IPTU","Taxas de maquininha","Limpeza","Outros"],
       records: [],
@@ -289,6 +291,12 @@ function normalizeDB(){
   DB.sales = tirar(DB.sales, 'sales');
   DB.finance.entries = tirar(DB.finance.entries, 'finance');
   DB.storeSetup.items = tirar(DB.storeSetup.items, 'setup');
+  if(!DB.perdas || typeof DB.perdas !== 'object') DB.perdas = { records: [] };
+  DB.perdas.records = tirar(arr(DB.perdas.records).filter(Boolean).map(r=>({
+    ...r, id: idTexto(r.id) || novoId(), tipo: r.tipo === 'devolucao' ? 'devolucao' : 'perda',
+    productId: idTexto(r.productId), qty: num(r.qty), date: r.date || todayISO(),
+    custoUnit: num(r.custoUnit), precoUnit: num(r.precoUnit), valor: num(r.valor)
+  })), 'perdas');
   /* Custos de abertura repetidos (mesmo nome e categoria) viram um só —
      pela mesma regra em todo aparelho: fica o mexido por último; empatando,
      o de maior valor (o que a loja corrigiu à mão); empatando, o de id
@@ -1025,8 +1033,18 @@ function juntarPorId(daqui, deLa, apagados){
    acertado pela diferença entre as vendas que ele conhecia e as vendas
    da lista juntada. Um ajuste manual de estoque continua valendo pelo
    carimbo de hora, como antes. */
-function efeitoDasVendas(vendas){
+function efeitoDasVendas(vendas, movimentos){
   const m = new Map();
+  /* Perdas tiram do estoque e devoluções devolvem: entram na mesma conta
+     das vendas, senão a perda registrada num aparelho sumia quando o
+     outro vendia a mesma peça. */
+  (movimentos||[]).forEach(r=>{
+    if(!r) return;
+    const d = (Number(r.baixou)||0) - (Number(r.voltou)||0);
+    if(!d) return;
+    const k = String(r.productId) + '|' + (r.size||'') + '|' + (r.color||'');
+    m.set(k, (m.get(k)||0) + d);
+  });
   (vendas||[]).forEach(s=>{
     if(!s || s.canceled) return;
     if(s.origin === 'loja' && !s.estoqueBaixado) return;   // o pedido do site só baixa quando o sistema o aplica
@@ -1037,13 +1055,14 @@ function efeitoDasVendas(vendas){
   });
   return m;
 }
-function juntarProdutos(daqui, deLa, vendasJuntas, apagados){
+function juntarProdutos(daqui, deLa, vendasJuntas, apagados, movimentosJuntos){
   const lista = juntarPorId(daqui.products, deLa.products, apagados);
   const meus = new Set(Array.isArray(daqui.products) ? daqui.products : []);
   const deles = new Set(Array.isArray(deLa.products) ? deLa.products : []);
-  const vistoDaqui = efeitoDasVendas(daqui.sales);
-  const vistoDeLa  = efeitoDasVendas(deLa.sales);
-  const juntado    = efeitoDasVendas(vendasJuntas);
+  const movs = b => (b && b.perdas && b.perdas.records) || [];
+  const vistoDaqui = efeitoDasVendas(daqui.sales, movs(daqui));
+  const vistoDeLa  = efeitoDasVendas(deLa.sales, movs(deLa));
+  const juntado    = efeitoDasVendas(vendasJuntas, movimentosJuntos);
   return lista.map(p=>{
     if(!p || !Array.isArray(p.variations)) return p;
     /* Peça que só um lado conhece já reflete as vendas desse lado. */
@@ -1060,7 +1079,7 @@ function juntarProdutos(daqui, deLa, vendasJuntas, apagados){
     return mexeu ? { ...p, variations } : p;
   });
 }
-const COLECOES_COM_LAPIDE = ['products','customers','sales','users','fixed','finance','records','setup'];
+const COLECOES_COM_LAPIDE = ['products','customers','sales','users','fixed','finance','records','setup','perdas'];
 function juntarBancos(daqui, deLa){
   if(!deLa || typeof deLa !== 'object') return daqui;
   const junto = { ...daqui };
@@ -1079,7 +1098,9 @@ function juntarBancos(daqui, deLa){
   junto.apagados = lapides;
   junto.customers = juntarPorId(daqui.customers, deLa.customers, lapides.customers);
   junto.sales     = juntarPorId(daqui.sales,     deLa.sales,     lapides.sales);
-  junto.products  = juntarProdutos(daqui, deLa, junto.sales, lapides.products);
+  junto.perdas    = { ...(daqui.perdas||{}),
+                      records: juntarPorId((daqui.perdas||{}).records, (deLa.perdas||{}).records, lapides.perdas) };
+  junto.products  = juntarProdutos(daqui, deLa, junto.sales, lapides.products, junto.perdas.records);
   junto.users     = juntarPorId(daqui.users,     deLa.users,     lapides.users);
   /* Lançamento, gasto e custo de abertura também ganharam lápide: o
      lançamento excluído num aparelho voltava assim que o outro gravava. */
@@ -1656,6 +1677,7 @@ const ICONES = {
   produtos: '<path d="M20.4 6.3L16 4l-1.5 2h-5L8 4 3.6 6.3 2 10l3 1.5V20h14v-8.5L22 10z"/>',
   estoque: '<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="M3.3 7l8.7 5 8.7-5M12 22V12"/>',
   vendas: '<path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  perdas: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/><path d="M12 8v5M12 16.5v.01"/>',
   balanco: '<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
   caixa: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
   etiquetas: '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.2"/>',
@@ -1677,6 +1699,7 @@ const NAV = [
   { id:'produtos', label:'Produtos', icon:'👗', group:'dia' },
   { id:'estoque', label:'Estoque', icon:'📦', group:'dia' },
   { id:'vendas', label:'Vendas', icon:'🧾', group:'dia' },
+  { id:'perdas', label:'Perdas e Devoluções', icon:'↩', group:'dia' },
 
   { id:'balanco', label:'Balanço', icon:'💵', group:'gestao' },
   { id:'caixa', label:'Caixa', icon:'💰', group:'gestao' },
@@ -1742,7 +1765,7 @@ function navigate(route){
     painel: renderPainel, pdv: renderPDV, produtos: renderProdutos, estoque: renderEstoque,
     etiquetas: renderEtiquetas, clientes: renderClientes, vendas: renderVendas, caixa: renderCaixa,
     financeiro: renderFinanceiro, gastos: renderGastos, abrirloja: renderAbrirLoja,
-    relatorios: renderRelatorios, config: renderConfig, balanco: renderBalanco
+    relatorios: renderRelatorios, config: renderConfig, balanco: renderBalanco, perdas: renderPerdas
   };
   view.innerHTML = '';
   try{
@@ -1789,6 +1812,7 @@ function renderPainel(el){
   const financeMonth = DB.finance.entries.filter(e=>chaveMes(e.date) === mk);
   const receitasMes = financeMonth.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
   const despesasMes = financeMonth.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
+  const perdasMes = resumoPerdas(d => chaveMes(d) === mk);
 
   el.innerHTML = `
     <div class="cards-row">
@@ -1797,6 +1821,8 @@ function renderPainel(el){
       <div class="card"><div class="label">Estoque baixo</div><div class="value ${lowStock>0?'text-danger':''}">${lowStock}</div></div>
       <div class="card"><div class="label">Pedidos online pendentes</div><div class="value ${pendingOnline>0?'text-danger':''}">${pendingOnline}</div></div>
       <div class="card"><div class="label">Saldo do mês</div><div class="value ${receitasMes-despesasMes>=0?'text-success':'text-danger'}">${money(receitasMes-despesasMes)}</div></div>
+      <div class="card" style="cursor:pointer" onclick="navigate('perdas')" title="Abrir Perdas e Devoluções"><div class="label">Perdas e devoluções no mês</div>
+        <div class="value ${perdasMes.perdasPecas ? 'text-danger' : ''}">${perdasMes.perdasPecas} <span class="unidade">perda(s)</span> · ${perdasMes.devPecas} <span class="unidade">devol.</span></div></div>
     </div>
     <div class="grid-2">
       <div class="panel">
@@ -2950,7 +2976,7 @@ function periodoBalanco(){
    na tela de origem; somar o espelho de novo dobrava o aluguel na conta. */
 function lancamentoEspelhado(e){
   if(!e) return false;
-  if(e.origem === 'gasto' || e.origem === 'abertura') return true;
+  if(e.origem === 'gasto' || e.origem === 'abertura' || e.origem === 'devolucao') return true;
   const c = String(e.category||'');
   return c.indexOf('Gasto mensal — ') === 0 || c.indexOf('Abertura — ') === 0;
 }
@@ -3030,7 +3056,12 @@ function renderBalanco(el){
   const est = valorDoEstoque();
   const ven = resumoVendas(per);
   const gas = resumoGastos(per);
-  const resultado = ven.total - ven.custoVendido - gas.total;
+  /* Perda é dinheiro que saiu sem passar pelo caixa: o que a loja pagou
+     pela peça. Devolução desfaz a venda: o dinheiro volta para a cliente
+     e, se a peça voltou boa, o custo dela volta para o estoque. */
+  const pd = resumoPerdas(per.casa);
+  const custoDasPerdas = pd.perdasCusto;
+  const resultado = ven.total - pd.devValor - (ven.custoVendido - pd.devCustoVoltou) - gas.total - custoDasPerdas;
 
   const avisos = [];
   if(est.semCusto) avisos.push(`${est.semCusto} peça(s) em estoque estão sem o custo preenchido. Enquanto isso, o lucro aparece maior do que é — preencha o campo <strong>Custo</strong> em Produtos.`);
@@ -3066,8 +3097,10 @@ function renderBalanco(el){
           <tr><td>Peças vendidas</td><td style="text-align:right">${ven.pecas}</td></tr>
           <tr><td>Ticket médio</td><td style="text-align:right">${money(ven.ticket)}</td></tr>
           <tr><td><strong>Total vendido</strong></td><td style="text-align:right"><strong>${money(ven.total)}</strong></td></tr>
+          ${pd.devolucoes ? `<tr><td>Devolvido às clientes (${pd.devPecas} peça${pd.devPecas===1?'':'s'})</td><td style="text-align:right">− ${money(pd.devValor)}</td></tr>` : ''}
           <tr><td>Custo das peças vendidas</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
-          <tr><td><strong>Lucro nas peças</strong></td><td style="text-align:right"><strong class="text-success">${money(ven.lucroBruto)}</strong></td></tr>
+          ${pd.devCustoVoltou ? `<tr><td>Custo das peças que voltaram ao estoque</td><td style="text-align:right">+ ${money(pd.devCustoVoltou)}</td></tr>` : ''}
+          <tr><td><strong>Lucro nas peças</strong></td><td style="text-align:right"><strong class="${ven.lucroBruto - pd.devValor + pd.devCustoVoltou >= 0 ? 'text-success' : 'text-danger'}">${money(ven.lucroBruto - pd.devValor + pd.devCustoVoltou)}</strong></td></tr>
         </tbody></table>
       </div>
 
@@ -3077,7 +3110,8 @@ function renderBalanco(el){
           <tr><td>Gastos mensais (aluguel, luz, água…)</td><td style="text-align:right">${money(gas.mensais)}</td></tr>
           <tr><td>Outras despesas (Financeiro)</td><td style="text-align:right">${money(gas.despesas)}</td></tr>
           ${gas.abertura ? `<tr><td>Custos para abrir a loja</td><td style="text-align:right">${money(gas.abertura)}</td></tr>` : ''}
-          <tr><td><strong>Total gasto</strong></td><td style="text-align:right"><strong>${money(gas.total)}</strong></td></tr>
+          <tr><td>Perdas de peças (${pd.perdasPecas}, a custo)</td><td style="text-align:right">${money(custoDasPerdas)}</td></tr>
+          <tr><td><strong>Total gasto</strong></td><td style="text-align:right"><strong>${money(gas.total + custoDasPerdas)}</strong></td></tr>
         </tbody></table>
         ${balancoPeriodo !== 'tudo' ? `<p class="text-muted" style="font-size:12px;margin-top:10px">Os custos de abertura da loja só entram na conta em "Desde o começo" — foram um gasto único.</p>` : ''}
       </div>
@@ -3086,9 +3120,10 @@ function renderBalanco(el){
     <div class="panel" style="border-left:4px solid ${resultado>=0?'var(--success,#4C8B5C)':'var(--danger,#B33A3A)'}">
       <h3>${resultado>=0?'✅':'⚠️'} Resultado de ${escapeHtml(per.rotulo)}</h3>
       <table><tbody>
-        <tr><td>Vendi</td><td style="text-align:right">${money(ven.total)}</td></tr>
-        <tr><td>Paguei pelas peças que vendi</td><td style="text-align:right">− ${money(ven.custoVendido)}</td></tr>
+        <tr><td>Vendi${pd.devValor ? ' (já tirando o que devolvi)' : ''}</td><td style="text-align:right">${money(ven.total - pd.devValor)}</td></tr>
+        <tr><td>Paguei pelas peças que vendi</td><td style="text-align:right">− ${money(ven.custoVendido - pd.devCustoVoltou)}</td></tr>
         <tr><td>Gastei com a loja</td><td style="text-align:right">− ${money(gas.total)}</td></tr>
+        ${custoDasPerdas ? `<tr><td>Perdi em peças</td><td style="text-align:right">− ${money(custoDasPerdas)}</td></tr>` : ''}
         <tr><td style="font-size:16px"><strong>${resultado>=0?'Sobrou' : 'Faltou'}</strong></td>
             <td style="text-align:right;font-size:16px"><strong class="${resultado>=0?'text-success':'text-danger'}">${money(Math.abs(resultado))}</strong></td></tr>
       </tbody></table>
@@ -3349,9 +3384,15 @@ function varKey(pid,size,color){ return `${pid}|${size}|${color}`; }
 /* A escolha do rolo ficava só na memória: bastava recarregar a página para
    voltar ao padrão, e o lojista reimprimia errado sem entender. Agora fica
    guardada junto com o resto dos dados da loja. */
+/* O que aparece na etiqueta além do código de barras. */
+let etiquetaMostra = { loja:true, variante:true, preco:true };
+let etiquetaPosicao = 'auto';     // 'auto' | 'pe' | 'deitada'
+function opcoesDaEtiqueta(){
+  return { semLoja: !etiquetaMostra.loja, semVariante: !etiquetaMostra.variante, semPreco: !etiquetaMostra.preco, posicao: etiquetaPosicao };
+}
 function guardarEscolhaDaEtiqueta(){
   DB.config.etiqueta = { midia: etiquetaMidia, comp: etiquetaComprimento,
-                         w: etiquetaCustom.w, h: etiquetaCustom.h };
+                         w: etiquetaCustom.w, h: etiquetaCustom.h, mostra: { ...etiquetaMostra }, posicao: etiquetaPosicao };
   saveDB();
 }
 /* Chamada em TODO lugar onde o banco é trocado por inteiro — e não só ao
@@ -3366,6 +3407,10 @@ function restaurarEscolhaDaEtiqueta(){
   if(Number(e.comp) > 0) etiquetaComprimento = Number(e.comp);
   if(Number(e.w) > 0) etiquetaCustom.w = Number(e.w);
   if(Number(e.h) > 0) etiquetaCustom.h = Number(e.h);
+  if(e.mostra && typeof e.mostra === 'object'){
+    etiquetaMostra = { loja: e.mostra.loja !== false, variante: e.mostra.variante !== false, preco: e.mostra.preco !== false };
+  }
+  if(['auto','pe','deitada'].includes(e.posicao)) etiquetaPosicao = e.posicao;
 }
 
 /* Barra fina demais o leitor não enxerga. O limite prático dos leitores de
@@ -3383,10 +3428,10 @@ function atualizaAvisoDoCodigo(){
   let pior = '000001', piorMM = Infinity;
   DB.products.forEach(p=>p.variations.forEach(v=>{
     if(!v.barcode) return;
-    const mm = espessuraDaBarraMM(midia.w, v.barcode);
+    const mm = barraDaEtiquetaMM(midia, v.barcode, opcoesDaEtiqueta());
     if(mm < piorMM){ piorMM = mm; pior = v.barcode; }
   }));
-  const mm = piorMM === Infinity ? espessuraDaBarraMM(midia.w, '000001') : piorMM;
+  const mm = piorMM === Infinity ? barraDaEtiquetaMM(midia, '000001', opcoesDaEtiqueta()) : piorMM;
   if(mm >= BARRA_MINIMA_MM){ box.innerHTML = ''; box.className = ''; return; }
   box.className = 'aviso-codigo';
   const soNumeros = /^[0-9]+$/.test(pior);
@@ -3429,6 +3474,18 @@ function renderEtiquetas(el){
         <button class="btn" id="testLabelBtn" title="Gera uma etiqueta só, para conferir antes de gastar o rolo">🧪 Testar 1 etiqueta</button>
         <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o arquivo já no tamanho do rolo da QL-800">🏷️ Gerar etiquetas para a QL-800</button>
       </div>
+      <div class="etq-opcoes">
+        <span>Mostrar na etiqueta:</span>
+        <label><input type="checkbox" data-mostra="loja" ${etiquetaMostra.loja?'checked':''}> Nome da loja</label>
+        <label><input type="checkbox" data-mostra="variante" ${etiquetaMostra.variante?'checked':''}> Tamanho e cor</label>
+        <label><input type="checkbox" data-mostra="preco" ${etiquetaMostra.preco?'checked':''}> Preço</label>
+        <label>Posição:
+          <select id="etqPosicao">
+            <option value="auto" ${etiquetaPosicao==='auto'?'selected':''}>Automática</option>
+            <option value="pe" ${etiquetaPosicao==='pe'?'selected':''}>Em pé</option>
+            <option value="deitada" ${etiquetaPosicao==='deitada'?'selected':''}>Deitada</option>
+          </select></label>
+      </div>
       <div id="linkDoPdf"></div>
       <div id="previewEtiqueta" class="preview-box"></div>
       <div id="avisoCodigo"></div>
@@ -3466,6 +3523,15 @@ function renderEtiquetas(el){
       </div>
       </div>
     </div>`;
+  el.querySelectorAll('[data-mostra]').forEach(c=>c.addEventListener('change', e=>{
+    etiquetaMostra[e.target.dataset.mostra] = e.target.checked;
+    guardarEscolhaDaEtiqueta();
+    renderPreviewEtiqueta();
+  }));
+  el.querySelector('#etqPosicao').addEventListener('change', e=>{
+    etiquetaPosicao = e.target.value;
+    guardarEscolhaDaEtiqueta(); atualizaAvisoDoCodigo(); renderPreviewEtiqueta();
+  });
   el.querySelector('#toggleAjuda').addEventListener('click', e=>{
     const box = el.querySelector('#ajudaImpressao');
     const aberto = box.style.display !== 'none';
@@ -3566,6 +3632,7 @@ function renderEtiquetasTable(){
       const qtyInput = wrap.querySelector(`[data-qty="${key}"]`);
       etiquetaQty[key] = Number(qtyInput.value)||1;
     } else delete etiquetaQty[key];
+    renderPreviewEtiqueta();
   }));
   wrap.querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input', e=>{
     const key = e.target.dataset.qty;
@@ -3756,30 +3823,44 @@ function desenhoSvgDoCodigo(codigo, larguraMM, alturaMM){
 function renderPreviewEtiqueta(){
   const box = document.getElementById('previewEtiqueta');
   if(!box) return;
-  /* A prévia procura uma peça COM nome e preço. Mostrar "Produto sem nome
-     · R$ 0,00" fazia parecer que a etiqueta estava quebrada, quando o que
-     faltava era o cadastro da peça. */
+  /* A prévia mostra a primeira peça MARCADA na lista; sem nenhuma marcada,
+     procura uma com nome e preço. Mostrar "Produto sem nome · R$ 0,00"
+     fazia parecer que a etiqueta estava quebrada, quando o que faltava era
+     o cadastro da peça. */
   let alvo = null;
+  const marcada = Object.keys(etiquetaQty).find(k=>etiquetaQty[k] > 0);
+  if(marcada){
+    const [pid, size, color] = marcada.split('|');
+    const p = DB.products.find(x=>x.id === pid);
+    const v = p && p.variations.find(x=>x.size === size && x.color === color);
+    if(p && v && v.barcode) alvo = { p, v };
+  }
   const serve = (p,v) => v.barcode && p.name && !/sem nome/i.test(p.name) && Number(p.price) > 0;
-  DB.products.some(p=>p.variations.some(v=>{ if(serve(p,v)){ alvo={p,v}; return true; } }));
+  if(!alvo) DB.products.some(p=>p.variations.some(v=>{ if(serve(p,v)){ alvo={p,v}; return true; } }));
   if(!alvo) DB.products.some(p=>p.variations.some(v=>{ if(v.barcode){ alvo={p,v}; return true; } }));
   if(!alvo){
     box.innerHTML = '<p class="text-muted" style="font-size:12.5px">Cadastre uma peça para ver a prévia da etiqueta.</p>';
     return;
   }
   const midia = midiaAtual();
-  const baixa = midia.h <= 20;
-  const utilMM = Math.max(6, midia.w - 3);            // as bordas que a QL-800 não imprime
-  const alturaBarrasMM = Math.max(4, midia.h * (baixa ? 0.34 : 0.40));
+  /* A prévia é o MESMO desenho que vai para o PDF, convertido para a
+     tela: se aparece certo aqui, é exatamente isso que sai na fita. */
+  const desenho = desenharEtiqueta(alvo, midia, DB.storeName, money, opcoesDaEtiqueta());
+  const amplia = Math.max(1.6, Math.min(3, 110 / Math.max(midia.w, midia.h)));
   box.innerHTML = `
-    <div class="preview-titulo">Como vai sair — ${midia.w} × ${midia.h} mm, tamanho real</div>
-    <div class="label preview-label${baixa?' label-compacta':''}" style="width:${midia.w}mm;height:${midia.h}mm">
-      ${baixa ? '' : `<div class="label-store">${escapeHtml(DB.storeName)}</div>`}
-      <div class="label-name">${escapeHtml(alvo.p.name)} ${escapeHtml(alvo.v.size)}/${escapeHtml(alvo.v.color)}</div>
-      ${desenhoSvgDoCodigo(alvo.v.barcode, utilMM, alturaBarrasMM)}
-      <div class="label-code">${escapeHtml(alvo.v.barcode)}</div>
-      <div class="label-price">${money(alvo.p.price)}</div>
-    </div>`;
+    <div class="etq-previas">
+      <div>
+        <div class="preview-titulo">Tamanho real — ${midia.w} × ${midia.h} mm</div>
+        <div class="etq-folha">${desenhoParaSvg(desenho, midia.w, midia.h, 1)}</div>
+      </div>
+      <div>
+        <div class="preview-titulo">Ampliada${desenho.girar ? ' e virada para ler' : ''}</div>
+        <div class="etq-folha">${desenho.girar
+          ? desenhoParaSvg({ ...desenho, girar:false, L: desenho.largura, A: desenho.altura }, midia.h, midia.w, amplia)
+          : desenhoParaSvg(desenho, midia.w, midia.h, amplia)}</div>
+      </div>
+    </div>
+    ${desenho.girar ? '<p class="text-muted" style="font-size:12px;margin-top:8px">Nesta etiqueta comprida o desenho sai deitado: texto de um lado, código de barras do outro. Para mudar, use "Posição".</p>' : ''}`;
 }
 
 function gerarPdfEtiquetas(itensForcados){
@@ -3791,7 +3872,7 @@ function gerarPdfEtiquetas(itensForcados){
   const layout = layoutAtual();
   let blob;
   try{
-    blob = criarPdfEtiquetas(items, layout, DB.storeName, money);
+    blob = criarPdfEtiquetas(items, layout, DB.storeName, money, opcoesDaEtiqueta());
   }catch(err){
     console.error('Erro ao montar o PDF:', err);
     toast('Não foi possível montar o PDF: ' + err.message, 'error');
@@ -4520,7 +4601,7 @@ function renderVendasTable(){
       <td>${money(s.total)}</td>
       <td>${escapeHtml(s.payment)}</td>
       <td>${s.origin==='loja'?'<span class="badge badge-gold">Loja virtual</span>':'PDV'}</td>
-      <td>${saleStatusBadge(s)} ${badgeCupom(s)}</td>
+      <td>${saleStatusBadge(s)} ${badgeCupom(s)} ${badgeDevolucao(s)}</td>
       <td>${saleActions(s)}</td>
     </tr>`).join('')}
   </tbody></table></div>
@@ -4536,6 +4617,10 @@ function saleStatusBadge(s){
   if(s.status==='entregue') return '<span class="badge badge-gold">Entregue</span>';
   return '<span class="badge badge-success">Concluída</span>';
 }
+function badgeDevolucao(s){
+  const n = devolucoesDaVenda(s.id).reduce((a,r)=>a + (Number(r.qty)||0), 0);
+  return n ? `<span class="badge badge-warning" title="Veja em Perdas e Devoluções">↩ ${n} devolvida(s)</span>` : '';
+}
 function saleActions(s){
   /* Venda cancelada continuava sem botão nenhum — nem para apagar. Quem
      registrou errado ficava com a linha errada na tela para sempre. */
@@ -4549,6 +4634,7 @@ function saleActions(s){
     else if(s.status !== 'pendente') btns += `<button class="btn btn-sm btn-gold" onclick="emitirCupomFiscal('${s.id}')">🧾 Emitir NFC-e</button> `;
   }
   btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">📄 Recibo</button> `;
+  if(s.status !== 'pendente') btns += `<button class="btn btn-sm" onclick="openPerdaModal('devolucao',{saleId:'${s.id}'})">↩ Devolução</button> `;
   btns += `<button class="btn btn-sm" onclick="openSaleModal('${s.id}')">✏️ Editar</button> `;
   btns += `<button class="btn btn-sm" onclick="cancelSale('${s.id}')">Cancelar</button> `;
   btns += `<button class="btn btn-sm btn-danger" onclick="excluirVenda('${s.id}')">🗑️ Excluir</button>`;
@@ -4594,6 +4680,7 @@ function lancamentoDaVenda(s){
 function excluirVenda(id){
   const s = DB.sales.find(x=>x.id===id);
   if(!s) return;
+  if(!s.canceled && devolucoesDaVenda(s.id).length){ toast('Esta venda tem devolução registrada. Exclua a devolução em Perdas e Devoluções antes de excluir a venda.','warn'); return; }
   if(!confirm('EXCLUIR esta venda de ' + money(s.total) + ', de ' + dateBR(s.date) + '?\n\n' +
               'A linha some do histórico e o lançamento no Financeiro sai junto.\n' +
               (s.canceled ? 'O estoque já tinha voltado no cancelamento.\n' : 'O estoque das peças volta.\n') +
@@ -4766,6 +4853,9 @@ function cancelSale(id){
   const s = DB.sales.find(x=>x.id===id);
   if(!s || s.canceled) return;
   if(temCupom(s)){ toast('Esta venda tem cupom fiscal autorizado. Cancele a NFC-e primeiro (botão "Cancelar NFC-e").','warn'); return; }
+  /* A peça devolvida já voltou para o estoque: cancelar a venda por cima
+     devolveria a mesma peça duas vezes. */
+  if(devolucoesDaVenda(s.id).length){ toast('Esta venda tem devolução registrada. Exclua a devolução em Perdas e Devoluções antes de cancelar.','warn'); return; }
   if(!confirm('Cancelar esta venda? O estoque será devolvido.')) return;
   mexerNoEstoqueDaVenda(s.items, +1);
   s.canceled = true;
@@ -4778,6 +4868,465 @@ function cancelSale(id){
     registrarApagado('finance', lanc.id);
   }
   saveDB(); renderVendasTable(); toast('Venda cancelada — estoque devolvido');
+}
+
+/* =========================================================
+   PERDAS E DEVOLUÇÕES
+   Toda peça que sai da loja sem ser vendida (defeito, furto, extravio,
+   brinde) e toda peça que volta (a cliente devolveu, trocou) fica
+   registrada aqui: dia, horário, peça, quantidade, motivo, valor e quem
+   registrou. Cada registro acerta o estoque, o Financeiro e o Caixa na
+   mesma hora — e desfaz tudo se for excluído.
+   ========================================================= */
+const MOTIVOS_PERDA = ['Defeito de fábrica','Peça danificada na loja','Manchada ou suja','Furto','Extravio (não foi encontrada)','Uso interno ou brinde','Outro'];
+const MOTIVOS_DEVOLUCAO = ['Não serviu (tamanho)','Defeito na peça','Cliente desistiu','Cor ou modelo diferente','Troca de presente','Outro'];
+const REEMBOLSO_TROCA = 'Troca por outra peça (sem devolver dinheiro)';
+const FORMAS_DE_REEMBOLSO = ['Dinheiro','PIX','Estorno no cartão', REEMBOLSO_TROCA];
+let perdasFiltro = { periodo:'mes', tipo:'todos', busca:'' };
+
+function registrosDePerdas(){
+  if(!DB.perdas || typeof DB.perdas !== 'object') DB.perdas = { records: [] };
+  if(!Array.isArray(DB.perdas.records)) DB.perdas.records = [];
+  return DB.perdas.records;
+}
+const DIAS_DA_SEMANA = ['dom','seg','ter','qua','qui','sex','sáb'];
+function diaBR(iso){ const d = new Date(iso); return isNaN(d) ? '-' : DIAS_DA_SEMANA[d.getDay()] + ', ' + d.toLocaleDateString('pt-BR'); }
+function horaBR(iso){ const d = new Date(iso); return isNaN(d) ? '-' : d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
+
+/* Quanto de cada peça de uma venda já foi devolvido. */
+function devolvidoDaVenda(saleId, item){
+  return registrosDePerdas().filter(r=>r.tipo==='devolucao' && r.saleId===saleId
+      && r.productId===item.productId && r.size===item.size && r.color===item.color)
+    .reduce((a,r)=>a + (Number(r.qty)||0), 0);
+}
+function devolucoesDaVenda(saleId){
+  return registrosDePerdas().filter(r=>r.tipo==='devolucao' && r.saleId===saleId);
+}
+
+/* Aplica (ou desfaz) o registro no estoque. A perda tira; a devolução,
+   quando a peça volta em condição de venda, devolve. O registro guarda
+   quanto mexeu DE VERDADE, para o desfazer ser exato e para a junção
+   entre aparelhos não contar duas vezes. */
+function aplicarMovimentoNoEstoque(r, sinal){
+  const p = DB.products.find(x=>x.id===r.productId);
+  const v = p && p.variations.find(v=>v.size===r.size && v.color===r.color);
+  if(!v) return;
+  const tem = Math.max(0, Number(v.stock)||0);
+  if(sinal > 0){
+    if(r.tipo === 'perda'){ r.baixou = Math.min(Number(r.qty)||0, tem); v.stock = tem - r.baixou; }
+    else if(r.voltaAoEstoque){ r.voltou = Number(r.qty)||0; v.stock = tem + r.voltou; }
+  } else {
+    if(r.tipo === 'perda') v.stock = tem + (Number(r.baixou)||0);
+    else if(r.voltou) v.stock = Math.max(0, tem - (Number(r.voltou)||0));
+  }
+  carimbar(p);
+}
+
+/* O dinheiro da devolução. Devolveu dinheiro: vira despesa no Financeiro
+   e, se foi em dinheiro com o caixa aberto, sai da gaveta. Troca por
+   outra peça não devolve dinheiro: o crédito entra como desconto na venda
+   da peça nova. */
+function devolveDinheiro(r){
+  return r.tipo === 'devolucao' && (Number(r.valor)||0) > 0 && r.reembolso !== REEMBOLSO_TROCA;
+}
+function sincronizarDevolucaoNoFinanceiro(r, removendo){
+  const vale = !removendo && devolveDinheiro(r);
+  let lanc = r.financeId ? DB.finance.entries.find(e=>e.id === r.financeId) : DB.finance.entries.find(e=>e.perdaId === r.id);
+  if(vale){
+    if(!lanc){ lanc = { id:uid(), type:'despesa', origem:'devolucao', perdaId:r.id }; DB.finance.entries.push(lanc); }
+    Object.assign(lanc, { type:'despesa', origem:'devolucao', perdaId:r.id, category:'Devolução', amount:Number(r.valor)||0,
+      date:r.date, status:'pago', description:`Devolução — ${r.name} ${r.size}/${r.color} (${r.reembolso})` });
+    carimbar(lanc);
+    r.financeId = lanc.id;
+  } else if(lanc){
+    DB.finance.entries = DB.finance.entries.filter(e=>e.id !== lanc.id);
+    registrarApagado('finance', lanc.id);
+    delete r.financeId;
+  }
+  const cr = DB.cashRegister;
+  const naGaveta = vale && r.reembolso === 'Dinheiro' && cr.open && new Date(r.date) >= new Date(cr.openedAt);
+  const mov = cr.movements.find(m=>m.devolucaoId === r.id);
+  if(naGaveta){
+    if(mov){ mov.amount = Number(r.valor)||0; mov.date = r.date; }
+    else cr.movements.push({ type:'sangria', amount:Number(r.valor)||0, note:'Devolução — ' + r.name, date:r.date, devolucaoId:r.id });
+  } else if(mov){
+    cr.movements = cr.movements.filter(m=>m !== mov);
+  }
+}
+
+/* Os números do período, para a tela, o Painel e o Balanço. */
+function resumoPerdas(casa){
+  const r = { perdas:0, perdasPecas:0, perdasCusto:0, devolucoes:0, devPecas:0, devValor:0, devVoltaram:0, devCustoVoltou:0, devCustoPerdido:0 };
+  registrosDePerdas().forEach(x=>{
+    if(!casa(x.date)) return;
+    const q = Number(x.qty)||0, custo = (Number(x.custoUnit)||0) * q;
+    if(x.tipo === 'perda'){ r.perdas++; r.perdasPecas += q; r.perdasCusto += custo; }
+    else {
+      r.devolucoes++; r.devPecas += q; r.devValor += devolveDinheiro(x) ? (Number(x.valor)||0) : 0;
+      if(x.voltaAoEstoque){ r.devVoltaram += q; r.devCustoVoltou += custo; } else r.devCustoPerdido += custo;
+    }
+  });
+  return r;
+}
+function periodoDePerdas(){
+  const inicioDeHoje = new Date(); inicioDeHoje.setHours(0,0,0,0);
+  const mk = monthKey();
+  switch(perdasFiltro.periodo){
+    case 'hoje':  return { rotulo:'hoje', casa: d => new Date(d) >= inicioDeHoje };
+    case '7dias': { const a = new Date(inicioDeHoje); a.setDate(a.getDate() - 6); return { rotulo:'últimos 7 dias', casa: d => new Date(d) >= a }; }
+    case 'mes':   return { rotulo: monthLabel(mk), casa: d => chaveMes(d) === mk };
+    case 'mesPassado': { const h = new Date(); const m = monthKey(new Date(h.getFullYear(), h.getMonth() - 1, 1));
+                         return { rotulo: monthLabel(m), casa: d => chaveMes(d) === m }; }
+    default: return { rotulo:'desde o começo', casa: () => true };
+  }
+}
+function perdasFiltradas(){
+  const per = periodoDePerdas();
+  const f = perdasFiltro.busca.trim().toLowerCase();
+  return registrosDePerdas()
+    .filter(r=>per.casa(r.date))
+    .filter(r=>perdasFiltro.tipo === 'todos' || r.tipo === perdasFiltro.tipo)
+    .filter(r=>!f || [r.name, r.size, r.color, r.barcode, r.motivo, r.obs, r.usuario].some(t=>String(t||'').toLowerCase().includes(f)))
+    .sort((a,b)=>new Date(b.date) - new Date(a.date));
+}
+
+function renderPerdas(el){
+  const per = periodoDePerdas();
+  const r = resumoPerdas(per.casa);
+  el.innerHTML = `
+    <div class="toolbar">
+      <button class="btn btn-accent" onclick="openPerdaModal('perda')">+ Registrar perda</button>
+      <button class="btn btn-gold" onclick="openPerdaModal('devolucao')">↩ Registrar devolução</button>
+      <div class="spacer"></div>
+      <select id="pdPeriodo">
+        ${[['hoje','Hoje'],['7dias','Últimos 7 dias'],['mes','Este mês'],['mesPassado','Mês passado'],['tudo','Desde o começo']]
+          .map(([v,t])=>`<option value="${v}" ${perdasFiltro.periodo===v?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <select id="pdTipo">
+        ${[['todos','Perdas e devoluções'],['perda','Só perdas'],['devolucao','Só devoluções']]
+          .map(([v,t])=>`<option value="${v}" ${perdasFiltro.tipo===v?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <input id="pdBusca" placeholder="Buscar peça, motivo, quem registrou..." value="${escapeHtml(perdasFiltro.busca)}">
+    </div>
+    <div class="cards-row">
+      <div class="card"><div class="label">Perdas — ${escapeHtml(per.rotulo)}</div><div class="value ${r.perdasPecas?'text-danger':''}">${r.perdasPecas} <span class="unidade">peça(s)</span></div></div>
+      <div class="card"><div class="label">Valor perdido (a custo)</div><div class="value ${r.perdasCusto + r.devCustoPerdido > 0 ? 'text-danger':''}">${money(r.perdasCusto + r.devCustoPerdido)}</div></div>
+      <div class="card"><div class="label">Devoluções — ${escapeHtml(per.rotulo)}</div><div class="value">${r.devPecas} <span class="unidade">peça(s)</span></div></div>
+      <div class="card"><div class="label">Dinheiro devolvido</div><div class="value">${money(r.devValor)}</div></div>
+      <div class="card"><div class="label">Voltaram ao estoque</div><div class="value text-success">${r.devVoltaram} <span class="unidade">peça(s)</span></div></div>
+    </div>
+    <div id="perdasWrap"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn btn-sm" onclick="exportarPerdas()">⬇️ Baixar planilha (CSV)</button>
+    </div>`;
+  el.querySelector('#pdPeriodo').addEventListener('change', e=>{ perdasFiltro.periodo = e.target.value; renderPerdas(el); });
+  el.querySelector('#pdTipo').addEventListener('change', e=>{ perdasFiltro.tipo = e.target.value; renderPerdas(el); });
+  el.querySelector('#pdBusca').addEventListener('input', e=>{ perdasFiltro.busca = e.target.value; renderPerdasTable(); });
+  renderPerdasTable();
+}
+function valorDoRegistro(r){
+  return r.tipo === 'perda' ? (Number(r.custoUnit)||0) * (Number(r.qty)||0) : (Number(r.valor)||0);
+}
+function efeitoNoEstoqueTexto(r){
+  if(r.tipo === 'perda'){
+    return Number(r.baixou) === Number(r.qty) ? `<span class="badge badge-danger">saiu ${r.baixou}</span>`
+         : `<span class="badge badge-warning" title="O sistema marcava menos peças do que a perda registrada">saiu ${Number(r.baixou)||0} de ${r.qty}</span>`;
+  }
+  return r.voltaAoEstoque ? `<span class="badge badge-success">voltou ${Number(r.voltou)||0}</span>`
+                          : `<span class="badge badge-muted">não voltou</span>`;
+}
+function renderPerdasTable(){
+  const wrap = document.getElementById('perdasWrap');
+  if(!wrap) return;
+  const lista = perdasFiltradas();
+  if(!lista.length){
+    wrap.innerHTML = `<div class="empty-state">${registrosDePerdas().length
+      ? 'Nenhum registro neste filtro.'
+      : 'Nenhuma perda ou devolução registrada ainda.<br>Use os botões acima: o estoque e o Financeiro são acertados na hora.'}</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Dia</th><th>Horário</th><th>Tipo</th><th>Peça</th><th style="text-align:right">Qtd</th><th>Motivo</th>
+      <th style="text-align:right">Valor</th><th>Estoque</th><th>Quem registrou</th><th></th>
+    </tr></thead><tbody>
+    ${lista.map(r=>`<tr>
+      <td style="white-space:nowrap">${diaBR(r.date)}</td>
+      <td>${horaBR(r.date)}</td>
+      <td>${r.tipo==='perda' ? '<span class="badge badge-danger">Perda</span>' : '<span class="badge badge-gold">Devolução</span>'}</td>
+      <td><strong>${escapeHtml(r.name)}</strong>
+          <div class="text-muted" style="font-size:11.5px">${escapeHtml(r.size)}/${escapeHtml(r.color)}${r.barcode ? ' · ' + escapeHtml(r.barcode) : ''}</div></td>
+      <td style="text-align:right">${r.qty}</td>
+      <td>${escapeHtml(r.motivo||'-')}${r.obs ? `<div class="text-muted" style="font-size:11.5px">${escapeHtml(r.obs)}</div>` : ''}
+          ${r.tipo==='devolucao' ? `<div class="text-muted" style="font-size:11.5px">${escapeHtml(r.reembolso||'')}${r.saleId ? ' · venda de ' + escapeHtml(dataDaVenda(r.saleId)) : ''}</div>` : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${money(valorDoRegistro(r))}
+          <div class="text-muted" style="font-size:11px">${r.tipo==='perda' ? 'a custo' : (devolveDinheiro(r) ? 'devolvido' : 'crédito')}</div></td>
+      <td>${efeitoNoEstoqueTexto(r)}</td>
+      <td>${escapeHtml(r.usuario||'-')}</td>
+      <td style="white-space:nowrap"><button class="btn btn-sm" onclick="openPerdaModal('${r.tipo}',{id:'${r.id}'})">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="excluirPerda('${r.id}')">Excluir</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+function dataDaVenda(saleId){
+  const s = DB.sales.find(x=>x.id === saleId);
+  return s ? dateBR(s.date) : 'venda apagada';
+}
+
+function excluirPerda(id){
+  const r = registrosDePerdas().find(x=>x.id === id);
+  if(!r) return;
+  const oQue = r.tipo === 'perda' ? 'esta perda' : 'esta devolução';
+  if(!confirm('Excluir ' + oQue + ' de ' + r.qty + ' × ' + r.name + '?\n\n' +
+      (r.tipo === 'perda' ? (Number(r.baixou) ? 'As ' + r.baixou + ' peça(s) voltam para o estoque.' : 'O estoque não muda.')
+                          : (r.voltou ? 'As ' + r.voltou + ' peça(s) saem do estoque de novo.' : 'O estoque não muda.')) +
+      (devolveDinheiro(r) ? '\nA despesa de ' + money(r.valor) + ' sai do Financeiro.' : ''))) return;
+  aplicarMovimentoNoEstoque(r, -1);
+  sincronizarDevolucaoNoFinanceiro(r, true);
+  DB.perdas.records = registrosDePerdas().filter(x=>x.id !== id);
+  registrarApagado('perdas', id);
+  if(exigirGravacao('a exclusão')){ toast('Registro excluído'); redesenhar(currentRoute === 'perdas' ? renderPerdas : null); renderVendasTable(); }
+}
+
+/* Planilha: abre no Excel e no Google Planilhas. Ponto e vírgula e
+   vírgula decimal, que é como o Excel em português espera. */
+function exportarPerdas(){
+  const lista = perdasFiltradas();
+  if(!lista.length){ toast('Não há registros neste filtro','warn'); return; }
+  const n = v => (Number(v)||0).toFixed(2).replace('.', ',');
+  const c = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const linhas = [['Dia','Horário','Tipo','Peça','Tamanho','Cor','Código','Quantidade','Motivo','Observação','Valor (R$)',
+                   'Custo unitário (R$)','Preço unitário (R$)','Estoque','Forma da devolução','Venda de origem','Cliente','Registrado por'].map(c).join(';')];
+  lista.forEach(r=>linhas.push([
+    new Date(r.date).toLocaleDateString('pt-BR'), horaBR(r.date), r.tipo === 'perda' ? 'Perda' : 'Devolução',
+    r.name, r.size, r.color, r.barcode, r.qty, r.motivo, r.obs, n(valorDoRegistro(r)), n(r.custoUnit), n(r.precoUnit),
+    r.tipo === 'perda' ? 'saiu ' + (Number(r.baixou)||0) : (r.voltaAoEstoque ? 'voltou ' + (Number(r.voltou)||0) : 'não voltou'),
+    r.tipo === 'devolucao' ? r.reembolso : '', r.saleId ? dataDaVenda(r.saleId) : '',
+    r.customerId ? customerName(r.customerId) : '', r.usuario
+  ].map(c).join(';')));
+  const blob = new Blob(['﻿' + linhas.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `perdas-e-devolucoes-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); }, 4000);
+  toast(lista.length + ' registro(s) na planilha');
+}
+
+function openPerdaModal(tipo, pre){
+  pre = pre || {};
+  const editando = pre.id ? registrosDePerdas().find(r=>r.id === pre.id) : null;
+  if(pre.id && !editando){ toast('Registro não encontrado','error'); return; }
+  if(editando) tipo = editando.tipo;
+  const ehDev = tipo === 'devolucao';
+  const motivos = ehDev ? MOTIVOS_DEVOLUCAO : MOTIVOS_PERDA;
+  /* A peça escolhida. Na edição ela é a do registro e não muda: trocar a
+     peça de um registro é excluir e registrar de novo. */
+  let escolhida = editando ? { productId:editando.productId, name:editando.name, size:editando.size, color:editando.color,
+      barcode:editando.barcode, custoUnit:editando.custoUnit, precoUnit:editando.precoUnit, saleId:editando.saleId, customerId:editando.customerId } : null;
+  const vendasRecentes = ehDev && !editando
+    ? [...DB.sales].filter(s=>!s.canceled && s.status !== 'pendente').sort((a,b)=>new Date(b.date) - new Date(a.date)).slice(0, 80) : [];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:620px">
+    <h2>${editando ? 'Editar' : 'Registrar'} ${ehDev ? 'devolução' : 'perda'}</h2>
+    ${editando ? '' : `
+      ${ehDev ? `<div class="field"><label>Venda de origem (se souber)</label>
+        <select id="pd_venda"><option value="">Não sei / sem venda</option>
+          ${vendasRecentes.map(s=>`<option value="${escapeHtml(s.id)}" ${pre.saleId===s.id?'selected':''}>${dateBR(s.date)} — ${money(s.total)} — ${escapeHtml(s.items.map(i=>i.name).join(', ').slice(0, 60))}</option>`).join('')}
+        </select></div>
+        <div id="pd_itensDaVenda"></div>` : ''}
+      <div class="field" style="margin-top:10px"><label>Peça — bipe o código ou digite o nome</label>
+        <input id="pd_busca" placeholder="Ex.: 000057 ou conjunto canelado" autocomplete="off"></div>
+      <div id="pd_resultados" class="pd-resultados"></div>`}
+    <div id="pd_escolhida"></div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="field"><label>Quantidade</label>
+        <input type="number" id="pd_qtd" min="1" step="1" inputmode="numeric" value="${editando ? editando.qty : 1}" ${editando ? 'disabled' : ''}></div>
+      <div class="field"><label>Data e horário</label>
+        <input type="datetime-local" id="pd_data" value="${paraDatetimeLocal(editando ? editando.date : todayISO())}"></div>
+      <div class="field"><label>Motivo</label>
+        <select id="pd_motivo">${motivos.map(m=>`<option ${editando && editando.motivo===m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
+          ${editando && editando.motivo && !motivos.includes(editando.motivo) ? `<option selected>${escapeHtml(editando.motivo)}</option>` : ''}</select></div>
+      ${ehDev ? `
+      <div class="field"><label>Como a loja devolve</label>
+        <select id="pd_reembolso">${FORMAS_DE_REEMBOLSO.map(f=>`<option ${editando && editando.reembolso===f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select></div>
+      <div class="field"><label id="pd_valorRotulo">Valor devolvido (R$)</label>
+        <input type="number" id="pd_valor" min="0" step="0.01" inputmode="decimal" value="${editando ? (Number(editando.valor)||0) : ''}" placeholder="0,00"></div>
+      <div class="field"><label><input type="checkbox" id="pd_volta" ${!editando || editando.voltaAoEstoque ? 'checked' : ''} ${editando ? 'disabled' : ''}> A peça volta para o estoque</label></div>` : ''}
+      <div class="field full"><label>Observação (opcional)</label>
+        <textarea id="pd_obs" rows="2" placeholder="${ehDev ? 'Ex.: cliente trouxe com a etiqueta' : 'Ex.: rasgou no provador'}">${escapeHtml(editando ? editando.obs||'' : '')}</textarea></div>
+    </div>
+    <div class="lucro-box" id="pd_resumo"></div>
+    <div class="modal-actions">
+      <button class="btn" id="pd_cancelar">Cancelar</button>
+      <button class="btn btn-accent" id="pd_salvar">${editando ? 'Salvar' : 'Registrar'}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const q = s => overlay.querySelector(s);
+  const fechar = ()=>overlay.remove();
+  let valorMexidoNaMao = !!editando;
+
+  function estoqueDaEscolhida(){
+    if(!escolhida) return null;
+    const p = DB.products.find(x=>x.id === escolhida.productId);
+    const v = p && p.variations.find(v=>v.size === escolhida.size && v.color === escolhida.color);
+    return v ? Math.max(0, Number(v.stock)||0) : null;
+  }
+  function atualizar(){
+    const caixa = q('#pd_escolhida'), resumo = q('#pd_resumo');
+    if(!escolhida){
+      caixa.innerHTML = '';
+      resumo.className = 'lucro-box'; resumo.innerHTML = '';
+      return;
+    }
+    const tem = estoqueDaEscolhida();
+    caixa.innerHTML = `<div class="pd-escolhida">
+      <div><strong>${escapeHtml(escolhida.name)}</strong>
+        <div class="text-muted" style="font-size:12px">${escapeHtml(escolhida.size)}/${escapeHtml(escolhida.color)}${escolhida.barcode ? ' · código ' + escapeHtml(escolhida.barcode) : ''}
+        · ${tem === null ? 'não está mais no cadastro' : tem + ' no estoque'} · preço ${money(escolhida.precoUnit)} · custo ${money(escolhida.custoUnit)}</div></div>
+      ${editando ? '' : '<button class="btn btn-sm" id="pd_trocar" type="button">Trocar</button>'}
+    </div>`;
+    q('#pd_trocar')?.addEventListener('click', ()=>{ escolhida = null; atualizar(); q('#pd_busca')?.focus(); });
+    const qtd = Math.max(1, Number(q('#pd_qtd').value)||1);
+    if(ehDev){
+      const troca = q('#pd_reembolso').value === REEMBOLSO_TROCA;
+      q('#pd_valorRotulo').textContent = troca ? 'Crédito para a outra peça (R$)' : 'Valor devolvido (R$)';
+      if(!valorMexidoNaMao) q('#pd_valor').value = (Math.round((Number(escolhida.precoUnit)||0) * qtd * 100) / 100) || '';
+      const valor = Number(q('#pd_valor').value)||0;
+      const volta = q('#pd_volta').checked;
+      resumo.className = 'lucro-box ' + (volta ? 'bom' : 'aviso');
+      resumo.innerHTML = `<strong>${troca ? 'Crédito de ' + money(valor) + ' para outra peça' : 'Devolve ' + money(valor) + ' em ' + escapeHtml(q('#pd_reembolso').value)}</strong>
+        <span>${volta ? (tem === null ? 'A peça não está mais no cadastro: o estoque não muda.' : 'A peça volta para o estoque: de ' + tem + ' para ' + (editando ? tem : tem + qtd) + '.')
+                      : 'A peça não volta para o estoque: conta como perda de ' + money((Number(escolhida.custoUnit)||0) * qtd) + ' (custo).'}
+        ${troca ? ' Nenhum dinheiro sai do caixa.' : ' Entra como despesa no Financeiro' + (q('#pd_reembolso').value === 'Dinheiro' && DB.cashRegister.open ? ' e sai da gaveta do caixa.' : '.')}</span>`;
+    } else {
+      const sai = tem === null ? 0 : Math.min(qtd, tem);
+      resumo.className = 'lucro-box ruim';
+      resumo.innerHTML = `<strong>Perda de ${money((Number(escolhida.custoUnit)||0) * qtd)} (a preço de custo)</strong>
+        <span>${tem === null ? 'A peça não está mais no cadastro: o estoque não muda.'
+               : editando ? 'O estoque já foi acertado quando a perda foi registrada.'
+               : 'Estoque no sistema: de ' + tem + ' para ' + (tem - sai) + '.' + (sai < qtd ? ' O sistema marcava menos peças do que a perda.' : '')}
+        ${Number(escolhida.custoUnit) ? '' : ' Esta peça está sem custo cadastrado, por isso o valor aparece zerado.'}</span>`;
+    }
+  }
+  function escolher(p, v, extra){
+    escolhida = Object.assign({ productId:p.id, name:p.name, size:v.size, color:v.color, barcode:v.barcode||'',
+      custoUnit:Number(p.cost)||0, precoUnit:Number(p.price)||0, saleId:null, customerId:null }, extra || {});
+    valorMexidoNaMao = false;
+    const busca = q('#pd_busca'); if(busca){ busca.value = ''; }
+    const res = q('#pd_resultados'); if(res) res.innerHTML = '';
+    somDoBipe(true);
+    atualizar();
+  }
+  function procurar(){
+    const texto = q('#pd_busca').value.trim().toLowerCase();
+    const res = q('#pd_resultados');
+    if(!texto){ res.innerHTML = ''; return; }
+    const achados = [];
+    DB.products.forEach(p=>p.variations.forEach(v=>{
+      if(achados.length >= 8) return;
+      if(p.name.toLowerCase().includes(texto) || String(v.barcode||'').toLowerCase().includes(texto)
+         || (v.color||'').toLowerCase().includes(texto) || (p.sku||'').toLowerCase().includes(texto)) achados.push({ p, v });
+    }));
+    res.innerHTML = achados.length ? achados.map((a,i)=>`<button type="button" class="pd-opcao" data-i="${i}">
+        <strong>${escapeHtml(a.p.name)}</strong> <span class="text-muted">${escapeHtml(a.v.size)}/${escapeHtml(a.v.color)} · ${escapeHtml(a.v.barcode||'sem código')} · ${a.v.stock} em estoque</span>
+      </button>`).join('') : '<div class="text-muted" style="font-size:12.5px;padding:6px 2px">Nenhuma peça com esse nome ou código.</div>';
+    res.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click', e=>{
+      const a = achados[Number(e.currentTarget.dataset.i)]; if(a) escolher(a.p, a.v);
+    }));
+  }
+  function mostrarItensDaVenda(){
+    const caixa = q('#pd_itensDaVenda');
+    if(!caixa) return;
+    const s = DB.sales.find(x=>x.id === q('#pd_venda').value);
+    if(!s){ caixa.innerHTML = ''; return; }
+    caixa.innerHTML = `<div class="pd-resultados" style="margin-top:8px">${s.items.map((i,idx)=>{
+      const ja = devolvidoDaVenda(s.id, i), resta = Math.max(0, Number(i.qty) - ja);
+      return `<button type="button" class="pd-opcao" data-item="${idx}" ${resta ? '' : 'disabled'}>
+        <strong>${escapeHtml(i.name)}</strong> <span class="text-muted">${escapeHtml(i.size)}/${escapeHtml(i.color)} · ${i.qty} × ${money(i.price)}${ja ? ' · já devolvida: ' + ja : ''}</span></button>`;
+    }).join('')}</div>`;
+    caixa.querySelectorAll('[data-item]').forEach(b=>b.addEventListener('click', e=>{
+      const i = s.items[Number(e.currentTarget.dataset.item)];
+      const p = DB.products.find(x=>x.id === i.productId) || { id:i.productId, name:i.name, cost:i.cost, price:i.price };
+      const v = (p.variations||[]).find(v=>v.size === i.size && v.color === i.color) || { size:i.size, color:i.color, barcode:'' };
+      escolher(p, v, { name:i.name, custoUnit: i.cost !== undefined ? Number(i.cost)||0 : Number(p.cost)||0, precoUnit:Number(i.price)||0,
+                       saleId:s.id, customerId:s.customerId || null, maximo: Math.max(0, Number(i.qty) - devolvidoDaVenda(s.id, i)) });
+      q('#pd_qtd').value = 1;
+      atualizar();
+    }));
+    if(s.items.length === 1 && !escolhida) caixa.querySelector('[data-item]:not([disabled])')?.click();
+  }
+
+  q('#pd_cancelar').addEventListener('click', fechar);
+  q('#pd_busca')?.addEventListener('input', procurar);
+  q('#pd_busca')?.addEventListener('keydown', e=>{
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    const texto = q('#pd_busca').value.trim();
+    const achado = findVariationByBarcode(texto) || acharCodigoNoFim(texto);
+    if(achado) escolher(achado.product, achado.variation);
+    else { const unica = q('#pd_resultados').querySelectorAll('[data-i]'); if(unica.length === 1) unica[0].click(); else somDoBipe(false); }
+  });
+  q('#pd_venda')?.addEventListener('change', ()=>{ escolhida = null; mostrarItensDaVenda(); atualizar(); });
+  ['#pd_qtd','#pd_reembolso','#pd_volta'].forEach(s=>q(s)?.addEventListener('input', atualizar));
+  q('#pd_valor')?.addEventListener('input', ()=>{ valorMexidoNaMao = true; atualizar(); });
+
+  q('#pd_salvar').addEventListener('click', ()=>{
+    if(!escolhida){ toast('Escolha a peça: bipe o código ou digite o nome','error'); q('#pd_busca')?.focus(); return; }
+    const qtd = Math.floor(Number(q('#pd_qtd').value)||0);
+    if(qtd < 1){ toast('A quantidade precisa ser 1 ou mais','error'); return; }
+    if(!editando && escolhida.maximo !== undefined && qtd > escolhida.maximo){
+      toast('Essa venda só tem ' + escolhida.maximo + ' dessa peça para devolver','error'); return;
+    }
+    const dataDigitada = q('#pd_data').value;
+    const data = dataDigitada && !isNaN(new Date(dataDigitada)) ? new Date(dataDigitada).toISOString() : todayISO();
+    if(new Date(data) > new Date(Date.now() + 5 * 60000)){ toast('A data não pode ser no futuro','error'); return; }
+    const valor = ehDev ? Math.round((Number(q('#pd_valor').value)||0) * 100) / 100 : 0;
+    if(ehDev && valor < 0){ toast('O valor não pode ser negativo','error'); return; }
+
+    if(editando){
+      Object.assign(editando, { date:data, motivo:q('#pd_motivo').value, obs:q('#pd_obs').value.trim() });
+      if(ehDev) Object.assign(editando, { valor, reembolso:q('#pd_reembolso').value });
+      carimbar(editando);
+      sincronizarDevolucaoNoFinanceiro(editando);
+      if(exigirGravacao('a alteração')){ fechar(); toast('Registro atualizado'); redesenhar(currentRoute === 'perdas' ? renderPerdas : null); }
+      return;
+    }
+
+    const r = carimbar({
+      id:uid(), tipo, date:data, registradoEm:todayISO(),
+      productId:escolhida.productId, name:escolhida.name, size:escolhida.size, color:escolhida.color, barcode:escolhida.barcode,
+      qty:qtd, motivo:q('#pd_motivo').value, obs:q('#pd_obs').value.trim(),
+      custoUnit:Number(escolhida.custoUnit)||0, precoUnit:Number(escolhida.precoUnit)||0,
+      usuario: SESSION ? SESSION.name : '-', usuarioId: SESSION ? SESSION.id : null
+    });
+    if(ehDev) Object.assign(r, { valor, reembolso:q('#pd_reembolso').value, voltaAoEstoque:q('#pd_volta').checked,
+                                 saleId:escolhida.saleId || null, customerId:escolhida.customerId || null });
+    const antes = JSON.stringify({ cr: DB.cashRegister.movements, fin: DB.finance.entries.length });
+    aplicarMovimentoNoEstoque(r, +1);
+    sincronizarDevolucaoNoFinanceiro(r);
+    registrosDePerdas().push(r);
+    if(!exigirGravacao(ehDev ? 'esta devolução' : 'esta perda')){
+      aplicarMovimentoNoEstoque(r, -1);
+      sincronizarDevolucaoNoFinanceiro(r, true);
+      DB.perdas.records = registrosDePerdas().filter(x=>x.id !== r.id);
+      return;
+    }
+    fechar();
+    if(ehDev && r.reembolso === REEMBOLSO_TROCA && valor > 0){
+      toast('Devolução registrada. Toque aqui para vender a peça nova com ' + money(valor) + ' de crédito.', 'ok', ()=>{
+        pdvDiscount = valor; navigate('pdv');
+      });
+    } else toast(ehDev ? 'Devolução registrada' : 'Perda registrada');
+    redesenhar(currentRoute === 'perdas' ? renderPerdas : null);
+    renderVendasTable();
+  });
+
+  if(ehDev && !editando) mostrarItensDaVenda();
+  atualizar();
+  (q('#pd_busca') || q('#pd_motivo')).focus();
 }
 
 /* =========================================================

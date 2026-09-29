@@ -21,6 +21,8 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
 
 - **PDV**: busca/bipe de código de barras, variações tamanho/cor, desconto, cliente, PIX/Dinheiro/Débito/Crédito,
   comprovante com impressão.
+- **Etiquetas**: `desenharEtiqueta()` (em `pdf-etiquetas.js`) devolve a lista do que desenhar; `desenhoParaPdf()` e
+  `desenhoParaSvg()` geram o arquivo e a prévia a partir da mesma lista. Etiqueta comprida sai deitada.
 - **Leitor de código de barras**: campo `barcode` por variação. Bipagem por câmera (BarcodeDetector) com fallback
   de digitação manual em PDV, Estoque (entrada/saída) e cadastro de Produtos.
 - **Produtos**: SKU, categoria, marca, custo/venda, variações com estoque e código de barras; foto (URL),
@@ -29,6 +31,9 @@ HTML/CSS/JS puro, sem framework. Estado em `localStorage`, sincronizado com Supa
 - **Clientes**: cadastro simples com histórico de compras.
 - **Vendas**: histórico completo; cancelamento devolve estoque; pedidos da loja virtual com fluxo
   Pendente → Pago (gera receita no Financeiro) → Entregue.
+- **Perdas e Devoluções**: registro com dia, horário, peça, quantidade, motivo, valor e quem registrou. Perda baixa
+  o estoque e entra no Balanço a custo; devolução volta a peça ao estoque (se estiver boa), lança a despesa no
+  Financeiro e tira da gaveta do caixa quando é em dinheiro. Exporta CSV. Dados em `DB.perdas.records`.
 - **Caixa**: abertura/fechamento, sangria, reforço, resumo por forma de pagamento.
 - **Financeiro**: receitas/despesas, contas a pagar/receber, saldo do mês (vendas entram automaticamente).
 - **Gastos Mensais**: controle recorrente de despesas fixas da loja — Aluguel, Água, Luz, Internet, Telefone,

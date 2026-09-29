@@ -439,6 +439,136 @@ caso('preço mudado no carrinho vale só na venda, e a venda guarda o do cadastr
   igual(DB.finance.entries[DB.finance.entries.length-1].amount, 75, 'o Financeiro recebe o valor cobrado');
 });
 
+/* ============ perdas e devoluções ============ */
+function registrarMovimento(r){
+  r = carimbar(Object.assign({ id: uid(), date: todayISO(), qty: 1, usuario:'Teste' }, r));
+  aplicarMovimentoNoEstoque(r, +1); sincronizarDevolucaoNoFinanceiro(r); registrosDePerdas().push(r);
+  return r;
+}
+caso('perda: tira do estoque, guarda quanto tirou, e excluir devolve', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  const r = registrarMovimento({ tipo:'perda', productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:2, custoUnit:10, precoUnit:30, motivo:'Furto' });
+  igual(DB.products[0].variations[0].stock, 3); igual(r.baixou, 2);
+  igual(DB.finance.entries.length, 0, 'perda não é despesa de caixa');
+  const resumo = resumoPerdas(()=>true);
+  igual([resumo.perdas, resumo.perdasPecas, resumo.perdasCusto], [1, 2, 20]);
+  excluirPerda(r.id);
+  igual(DB.products[0].variations[0].stock, 5, 'voltou');
+  igual(registrosDePerdas().length, 0); igual(DB.apagados.perdas, [r.id]);
+  // perda de peça que o sistema já marcava zerada: não fica negativo, e excluir não inventa estoque
+  DB.products[1].variations[0].stock = 0;
+  const z = registrarMovimento({ tipo:'perda', productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, custoUnit:20 });
+  igual(z.baixou, 0); igual(DB.products[1].variations[0].stock, 0);
+  excluirPerda(z.id); igual(DB.products[1].variations[0].stock, 0);
+});
+caso('devolução em dinheiro: peça volta, despesa no Financeiro, sai da gaveta; excluir desfaz tudo', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.cashRegister = { open:true, openedAt:'2026-01-01T00:00:00.000Z', openingAmount:100, movements:[], closedHistory:[] };
+  DB.sales = [{ id:'v1', date: todayISO(), origin:'pdv', status:'concluida', canceled:false, total:30, payment:'Dinheiro',
+                items:[{ productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, price:30, cost:10, baixou:1 }] }];
+  DB.products[0].variations[0].stock = 4;
+  const r = registrarMovimento({ tipo:'devolucao', productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, custoUnit:10, precoUnit:30,
+                                 valor:30, reembolso:'Dinheiro', voltaAoEstoque:true, saleId:'v1', motivo:'Não serviu (tamanho)' });
+  igual(DB.products[0].variations[0].stock, 5, 'voltou para o estoque');
+  igual(DB.finance.entries.map(e=>[e.type, e.category, e.amount, e.origem]), [['despesa','Devolução',30,'devolucao']]);
+  igual(DB.cashRegister.movements.map(m=>[m.type, m.amount]), [['sangria', 30]]);
+  igual(devolvidoDaVenda('v1', DB.sales[0].items[0]), 1);
+  verifica(lancamentoEspelhado(DB.finance.entries[0]), 'o Balanço não soma a devolução duas vezes');
+  // venda com devolução não pode ser cancelada por cima
+  cancelSale('v1'); igual(DB.sales[0].canceled, false);
+  igual(DB.products[0].variations[0].stock, 5);
+  // mudar para troca tira a despesa e a sangria
+  r.reembolso = REEMBOLSO_TROCA; sincronizarDevolucaoNoFinanceiro(r);
+  igual(DB.finance.entries.length, 0); igual(DB.cashRegister.movements.length, 0);
+  r.reembolso = 'PIX'; sincronizarDevolucaoNoFinanceiro(r);
+  igual(DB.finance.entries.length, 1); igual(DB.cashRegister.movements.length, 0, 'PIX não mexe na gaveta');
+  excluirPerda(r.id);
+  igual(DB.products[0].variations[0].stock, 4); igual(DB.finance.entries.length, 0);
+  cancelSale('v1'); igual(DB.sales[0].canceled, true, 'sem devolução, cancela');
+});
+caso('Balanço: devolução desfaz a venda e perda entra a custo', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.sales = [{ id:'v1', date: todayISO(), origin:'pdv', status:'concluida', canceled:false, total:30, payment:'PIX',
+                items:[{ productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, price:30, cost:10, baixou:1 }] },
+              { id:'v2', date: todayISO(), origin:'pdv', status:'concluida', canceled:false, total:50, payment:'PIX',
+                items:[{ productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, price:50, cost:20, baixou:1 }] }];
+  registrarMovimento({ tipo:'devolucao', productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, custoUnit:10, valor:30, reembolso:'PIX', voltaAoEstoque:true, saleId:'v1' });
+  registrarMovimento({ tipo:'perda', productId:'p1', name:'Blusa', size:'M', color:'Preto', qty:1, custoUnit:10 });
+  balancoPeriodo = 'mes';
+  const per = periodoBalanco(), ven = resumoVendas(per), gas = resumoGastos(per), pd = resumoPerdas(per.casa);
+  igual([ven.total, ven.custoVendido], [80, 30]);
+  igual(gas.despesas, 0, 'a despesa da devolução não entra de novo em "outras despesas"');
+  igual([pd.devValor, pd.devCustoVoltou, pd.perdasCusto], [30, 10, 10]);
+  igual(ven.total - pd.devValor - (ven.custoVendido - pd.devCustoVoltou) - gas.total - pd.perdasCusto, 20, 'sobrou: a Saia (50−20) menos a perda (10)');
+});
+caso('junção: perda num aparelho e venda da mesma peça no outro, as duas baixam', ()=>{
+  const A = bancoDeTeste(), B = bancoDeTeste();
+  DB = A; migrateDB();
+  registrarMovimento({ id:'m1', tipo:'perda', productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, custoUnit:10 });   // A: 5 -> 4
+  comVenda(B, 'vB', 'p1', 'P', 'Preto', 1);                                                                                    // B: 5 -> 4
+  B.products[0].atualizadoEm = '2099-01-01T00:00:00.000Z';            // o registro de B é o mais novo
+  B.perdas = { records: [] };
+  const emA = juntarBancos(DB, B), emB = juntarBancos(B, DB);
+  igual(emA.products[0].variations[0].stock, 3, 'em A');
+  igual(emB.products[0].variations[0].stock, 3, 'em B');
+  igual(emB.perdas.records.length, 1, 'a perda chega no outro aparelho');
+  // excluída em A, não volta de B
+  DB = emA; excluirPerda('m1');
+  igual(juntarBancos(DB, emB).perdas.records.length, 0);
+  igual(juntarBancos(DB, emB).products[0].variations[0].stock, 4, 'e o estoque volta nos dois');
+});
+
+/* ============ etiqueta ============ */
+caso('etiqueta: tudo dentro da área que a QL-800 imprime, em todos os rolos', ()=>{
+  const margem = 1.5 * 72 / 25.4;
+  const pecas = [
+    { p:{ name:'Conjunto Canelado Manga Longa Feminino', price:120 }, v:{ size:'G', color:'Bege', barcode:'000057' } },
+    { p:{ name:'Blusa Teddy ✨', price:39.99 }, v:{ size:'unico ate 42', color:'Verde Escuro Musgo', barcode:'000207' } },
+    { p:{ name:'TOP', price:1299.9 }, v:{ size:'Único', color:'Padrão', barcode:'000046' } } ];
+  Object.values(MIDIAS_QL800).concat([{ w:29, h:22 }, { w:29, h:30 }, { w:62, h:30 }]).forEach(m=>pecas.forEach(item=>{
+    ['auto','pe','deitada'].forEach(posicao=>{
+    const d = desenharEtiqueta(item, { w:m.w, h:m.h }, 'Estilo Fashion', money, { posicao });
+    d.prims.forEach(p=>{
+      const x0 = p.x, x1 = p.t === 'texto' ? p.x + p.largura : p.t === 'barras' ? p.x + Math.max(...p.barras.map(b=>(b.x + b.w) * p.modulo)) : p.x + p.w;
+      const y0 = p.t === 'texto' ? p.y - p.pt * 0.22 : p.y, y1 = p.t === 'texto' ? p.y + p.pt * 0.75 : p.y + p.h;
+      assert.ok(x0 >= margem - 0.1 && x1 <= d.largura - margem + 0.1, `${m.w}x${m.h} "${item.p.name}": ${p.t} "${p.texto||''}" sai pelos lados`);
+      assert.ok(y0 >= margem - 0.1 && y1 <= d.altura - margem + 0.1, `${m.w}x${m.h} "${item.p.name}": ${p.t} "${p.texto||''}" sai por cima ou por baixo`);
+    });
+    resultados.verificacoes++;
+    verifica(d.prims.some(p=>p.t === 'barras'), 'tem código de barras');
+    });
+  }));
+});
+caso('etiqueta: hierarquia, medidas da fonte e fita estreita deitada', ()=>{
+  igual(Math.round(larguraTexto('Estilo', 10, false) * 100) / 100, 24.45, 'Helvetica de verdade, letra a letra');
+  verifica(larguraTexto('iiii', 10, false) < larguraTexto('MMMM', 10, false) / 3, 'i estreito, M largo');
+  igual(larguraTexto('ção', 10, false), larguraTexto('cao', 10, false), 'acento não muda a largura');
+  igual(limparTexto('Blusa ✨ Teddy  '), 'Blusa Teddy');
+  const item = { p:{ name:'Conjunto Canelado Manga Longa Feminino', price:120 }, v:{ size:'G', color:'Bege', barcode:'000057' } };
+  const d = desenharEtiqueta(item, { w:29, h:40 }, 'Estilo Fashion', money);
+  const textos = d.prims.filter(p=>p.t === 'texto');
+  igual(textos.map(p=>p.texto), ['ESTILO FASHION','Conjunto Canelado Manga','Longa Feminino','G','Bege','000057','R$','120,00']);
+  const preco = textos.find(p=>p.texto === '120,00'), nome = textos.find(p=>p.texto === 'Longa Feminino');
+  verifica(preco.negrito && preco.pt > nome.pt * 1.8, 'o preço é o maior texto da etiqueta');
+  igual(textos.find(p=>p.texto === 'G').cor, 1, 'tamanho em branco sobre a tarja preta');
+  verifica(d.prims.some(p=>p.t === 'ret' && p.raio), 'a tarja');
+  igual(Math.round(barraDaEtiquetaMM({ w:29, h:40 }, '000057') * 1000), 254, 'barra de 3 pontos na fita de 29 mm');
+  const fina = desenharEtiqueta(item, { w:17, h:54 }, 'Estilo Fashion', money);
+  igual(fina.girar, true);
+  igual(desenharEtiqueta(item, { w:29, h:90 }, 'Estilo Fashion', money).girar, true, 'a 29 × 90 da loja sai deitada');
+  igual(desenharEtiqueta(item, { w:29, h:90 }, 'Estilo Fashion', money, { posicao:'pe' }).girar, false, 'a loja pode pedir em pé');
+  igual(desenharEtiqueta(item, { w:29, h:40 }, 'Estilo Fashion', money).girar, false, 'a 29 × 40 continua em pé');
+  igual(desenharEtiqueta(item, { w:29, h:40 }, 'Estilo Fashion', money, { posicao:'deitada' }).girar, true);
+  verifica(barraDaEtiquetaMM({ w:17, h:54 }, '000057') >= BARRA_MINIMA_MM, 'deitada, a fita de 17 mm passa a ser lida');
+  const semNada = desenharEtiqueta(item, { w:29, h:40 }, 'Estilo Fashion', money, { semLoja:true, semPreco:true, semVariante:true });
+  igual(semNada.prims.filter(p=>p.t === 'texto').map(p=>p.texto), ['Conjunto Canelado Manga','Longa Feminino','000057']);
+  const baixa = desenharEtiqueta(item, { w:29, h:22 }, 'Estilo Fashion', money);
+  verifica(baixa.prims.some(p=>p.t === 'texto' && /G\/Bege$/.test(p.texto)), 'na etiqueta baixa, quem é cortado é o nome, não o tamanho');
+  const svg = desenhoParaSvg(fina, 17, 54, 2);
+  verifica(/width="34.00mm"/.test(svg) && /matrix\(0 -1 1 0 0/.test(svg), 'a prévia gira junto');
+  verifica(criarPdfEtiquetas([item, item], { w:17, h:54 }, 'Estilo Fashion', money).size > 1500);
+});
+
 /* ============ leitor de código de barras ============ */
 caso('bipe: código exato, com Caps Lock, e código no fim de um campo sujo', ()=>{
   DB = bancoDeTeste(); DB.products[0].variations[0].barcode = 'EC000007'; migrateDB();

@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 60 - gerado em 18/09/2026
+Versao 61 - gerado em 28/09/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,48 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 61
+------------------------
+PERDAS E DEVOLUCOES (tela nova, no menu, logo abaixo de Vendas)
+  - Registrar perda: peca (bipando ou pelo nome), quantidade, motivo
+    (defeito, danificada, manchada, furto, extravio, uso interno/brinde),
+    observacao, dia e horario. O estoque baixa na hora e a perda entra no
+    Balanco pelo preco de custo.
+  - Registrar devolucao: escolhe a venda de origem (ou so a peca), motivo,
+    como a loja devolve (dinheiro, PIX, estorno no cartao ou troca por
+    outra peca) e se a peca volta para o estoque. Devolveu dinheiro: vira
+    despesa no Financeiro e, se foi em dinheiro com o caixa aberto, sai da
+    gaveta. Troca: nao sai dinheiro; o aviso leva ao PDV com o credito ja
+    no desconto.
+  - Lista com dia, horario, tipo, peca, quantidade, motivo, valor, o que
+    aconteceu com o estoque e quem registrou. Filtro por periodo, tipo e
+    busca. Botao "Baixar planilha (CSV)", que abre no Excel.
+  - Editar (motivo, observacao, data, valor) e excluir (desfaz estoque,
+    Financeiro e gaveta).
+  - Em Vendas: botao "Devolucao" em cada venda e o selo "1 devolvida".
+    Venda com devolucao nao pode ser cancelada por cima (devolveria a
+    peca duas vezes).
+  - Painel e Balanco mostram perdas e devolucoes do periodo.
+  - Tudo sincroniza entre os aparelhos, com as mesmas protecoes das vendas.
+
+ETIQUETA COM LAYOUT NOVO
+  - Nome da loja em versalete com filete; nome da peca em ate duas linhas
+    (quebra em vez de encolher a letra); TAMANHO numa tarja preta e a cor
+    ao lado; codigo de barras; numero; preco grande com o "R$" menor.
+  - A largura de cada letra agora e a real da fonte: o texto fica
+    centralizado de verdade.
+  - Etiqueta comprida (29 x 90, 29 x 62, 17 x 54...) sai DEITADA: texto de
+    um lado, codigo de barras do outro, ocupando a etiqueta inteira. O
+    arquivo continua no tamanho do rolo. Na 29 x 90 a barra do codigo
+    passou de 0,25 para 0,51 mm; na fita de 17 mm, de 0,08 (ilegivel) para
+    0,25 mm.
+  - Opcoes na tela de Etiquetas: mostrar ou nao o nome da loja, tamanho e
+    cor, preco; e a posicao (automatica, em pe, deitada). Ficam salvas.
+  - A previa e desenhada pelo mesmo codigo do PDF, em tamanho real e
+    ampliada. Mostra a primeira peca marcada na lista.
+  - Emoji no nome da peca nao vira mais "?" na etiqueta.
 
 
 O QUE MUDOU NA VERSAO 60

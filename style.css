@@ -499,3 +499,25 @@ canvas{max-width:100%}
 @media (max-width:420px){
   .cards-row{grid-template-columns:1fr 1fr}
 }
+
+/* ===== Perdas e devoluções ===== */
+.card .value .unidade{font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+.pd-resultados{display:grid;gap:6px;margin-top:8px;max-height:230px;overflow-y:auto}
+.pd-opcao{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:13px;line-height:1.35}
+.pd-opcao:hover:not([disabled]){border-color:var(--accent);background:var(--accent-soft)}
+.pd-opcao[disabled]{opacity:.5;cursor:not-allowed}
+.pd-opcao span{font-size:12px}
+.pd-escolhida{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:11px 14px;
+  border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px}
+
+/* ===== Etiqueta: opções e prévia ===== */
+.etq-opcoes{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12.5px;color:var(--text-2);margin:-4px 0 4px}
+.etq-opcoes span{font-weight:600;color:var(--muted)}
+.etq-opcoes label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.etq-opcoes input{accent-color:var(--accent);width:16px;height:16px}
+.etq-opcoes select{padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:12.5px}
+.etq-previas{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.etq-folha{display:inline-block;background:#fff;border:1px solid var(--border-2);border-radius:3px;box-shadow:var(--shadow);line-height:0}
+.etq-previas > div{max-width:100%;min-width:0}
+.etq-folha{max-width:100%}
+.etq-folha svg{max-width:100%;height:auto}
