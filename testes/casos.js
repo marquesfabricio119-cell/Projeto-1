@@ -947,7 +947,9 @@ caso('recibo automático: cabeçalho da loja, número da venda e dados da client
   const pdf = criarPdfRecibo(venda, DB.storeName, money, dateBR, dados);
   const texto = requireNode('buffer').Buffer.from(await pdf.arrayBuffer()).toString('latin1');
   ['Rua das Flores', 'CNPJ 12.345.678/0001-99', 'RECIBO DE VENDA N', '23XYZ', 'Cliente: Maria Teste', 'CPF: 123.456.789-01', 'Telefone: ', '98888-7777'].forEach(t=>verifica(new RegExp(t).test(texto), 'tem ' + t));
-  igual(reciboAutomatico(), true, 'ligado por padrão');
+  igual(reciboAoFinalizar(), 'mostrar', 'por padrão mostra o recibo com o botão Imprimir');
+  DB.config.reciboAoFinalizar = 'imprimir'; igual(reciboAoFinalizar(), 'imprimir');
+  verifica(/recibo-papel/.test(htmlDoRecibo(venda)) && /Maria Teste/.test(htmlDoRecibo(venda)) && /R\$/.test(htmlDoRecibo(venda)), 'recibo desenhado com cliente e valor');
   verifica(/Maria Teste/.test(textoDoRecibo(venda)) && /Total: R\$/.test(textoDoRecibo(venda)), 'texto do WhatsApp');
 });
 

@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "63";
+const APP_VERSION = "64";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -4364,6 +4364,7 @@ function renderPDV(el){
           <div class="row total"><span>Total</span><span>${money(Math.max(0,cartSubtotal()-pdvDiscount))}</span></div>
         </div>
         <button class="btn btn-accent" style="margin-top:12px" onclick="finalizeSale()">Finalizar venda</button>
+        <button class="btn btn-imprimir" style="margin-top:8px" onclick="finalizeSale({ imprimir:true })" title="Registra a venda e já manda o recibo para a impressora">🖨️ Finalizar e imprimir recibo</button>
         <button class="btn" style="margin-top:8px" onclick="clearCart()">Limpar carrinho</button>
       </div>
     </div>
@@ -4650,7 +4651,8 @@ function changeQty(idx,delta){
 function removeFromCart(idx){ cart.splice(idx,1); renderCartItems(); }
 function clearCart(){ cart=[]; pdvDiscount=0; redesenhar(renderPDV); }
 
-function finalizeSale(){
+function finalizeSale(opcoes){
+  opcoes = opcoes || {};
   if(!cart.length){ toast('Carrinho vazio','error'); return; }
   if(pdvDiscount < 0){ toast('Desconto não pode ser negativo','error'); return; }
   const cpfDigitado = (pdvCpf||'').replace(/\D/g,'');
@@ -4722,7 +4724,7 @@ function finalizeSale(){
   }
   cart=[]; pdvDiscount=0; pdvCustomer=''; pdvCpf='';
   redesenhar(renderPDV);
-  mostrarOfertaDeRecibo(sale);
+  mostrarOfertaDeRecibo(sale, opcoes.imprimir);
   toast('Venda finalizada!');
 }
 /* O recibo saía pela impressão do navegador e, no celular da loja, isso
@@ -4783,7 +4785,6 @@ function gerarReciboPdf(sale){
    computador o arquivo é baixado. A prévia some quando a próxima peça é
    bipada. Quem não quiser o PDF automático desliga em Configurações; a
    prévia e os botões continuam. */
-function reciboAutomatico(){ return !DB.config || DB.config.reciboAutomatico !== false; }
 function textoDoRecibo(sale){
   const d = dadosDoRecibo(sale);
   const linhas = [`*${DB.storeName}*`, `Recibo de venda nº ${String(sale.id).slice(-6).toUpperCase()} — ${dateBR(sale.date)}`, ''];
@@ -4797,16 +4798,10 @@ function textoDoRecibo(sale){
   linhas.push('', 'Obrigado pela preferência!');
   return linhas.join('\n');
 }
-function mostrarOfertaDeRecibo(sale){
-  const box = document.getElementById('reciboDaVenda');
-  if(!box) return;
+/* O recibo desenhado — o mesmo HTML na prévia do PDV e na impressão. */
+function htmlDoRecibo(sale){
   const d = dadosDoRecibo(sale);
-  const fiscal = configFiscal().ativo;
-  const fone = String(d.clienteFone||'').replace(/\D/g,'');
-  const whats = fone ? `https://wa.me/${(fone.length === 10 || fone.length === 11 ? '55' : '') + fone}?text=${encodeURIComponent(textoDoRecibo(sale))}` : '';
-  box.className = 'recibo-pronto';
-  box.innerHTML = `
-    <div class="recibo-papel">
+  return `<div class="recibo-papel">
       <div class="rc-loja">${escapeHtml(DB.storeName)}</div>
       ${d.endereco ? `<div class="rc-mini">${escapeHtml(d.endereco)}</div>` : ''}
       ${d.telefone || d.cnpj ? `<div class="rc-mini">${[d.telefone ? 'Tel. ' + escapeHtml(d.telefone) : '', d.cnpj ? 'CNPJ ' + escapeHtml(d.cnpj) : ''].filter(Boolean).join(' · ')}</div>` : ''}
@@ -4829,16 +4824,83 @@ function mostrarOfertaDeRecibo(sale){
         ${d.cpf ? `<div class="rc-item"><span>CPF</span><span>${escapeHtml(d.cpf)}</span></div>` : ''}` : ''}
       ${temCupom(sale) ? `<div class="rc-mini" style="margin-top:6px">NFC-e nº ${escapeHtml(String(sale.nfce.numero||''))}</div>` : ''}
       <div class="rc-mini" style="margin-top:8px">Obrigado pela preferência!</div>
-    </div>
+    </div>`;
+}
+/* Celular e tablet não têm "imprimir" direto da página que funcione (o
+   Safari manda uma folha A4 em branco): neles o caminho é o PDF, que
+   abre a folha de compartilhar com Imprimir e WhatsApp. */
+function ehCelular(){
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod|Android|Mobile/i.test(ua) || ((navigator.maxTouchPoints||0) > 1 && /Mac/i.test(navigator.platform||''));
+}
+/* IMPRIMIR O RECIBO, de verdade: no computador abre a janela de impressão
+   já com o recibo de 80 mm; no celular, a folha de compartilhar com o PDF.
+   Um toque só, sem baixar arquivo e abrir depois. */
+function imprimirRecibo(sale){
+  if(ehCelular()){
+    gerarReciboPdf(sale);
+    toast('Na folha que abriu, toque em Imprimir — ou mande o recibo pelo WhatsApp.');
+    return;
+  }
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Recibo ${escapeHtml(String(sale.id).slice(-6).toUpperCase())}</title><style>
+    @page{ size: 80mm auto; margin: 4mm }
+    body{ margin:0; width:72mm; font-family:"Courier New", ui-monospace, Menlo, monospace; font-size:12px; color:#000; line-height:1.4 }
+    .rc-loja{ font-weight:700; font-size:15px; text-align:center; text-transform:uppercase; letter-spacing:.04em }
+    .rc-mini{ text-align:center; font-size:11px }
+    .rc-titulo{ text-align:center; font-weight:700 }
+    .rc-traco{ border-top:1px dashed #000; margin:6px 0 }
+    .rc-item{ display:flex; justify-content:space-between; gap:8px }
+    .rc-item span:last-child{ white-space:nowrap }
+    .rc-item small{ color:#444 }
+    .rc-total{ display:flex; justify-content:space-between; font-weight:700; font-size:14px; margin:4px 0 }
+  </style></head><body>${htmlDoRecibo(sale)}</body></html>`;
+  const quadro = document.createElement('iframe');
+  quadro.setAttribute('aria-hidden', 'true');
+  quadro.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0';
+  document.body.appendChild(quadro);
+  const doc = quadro.contentDocument;
+  doc.open(); doc.write(html); doc.close();
+  const janela = quadro.contentWindow;
+  const tirar = ()=>setTimeout(()=>{ if(quadro.parentNode) quadro.remove(); }, 500);
+  try{ janela.addEventListener('afterprint', tirar); }catch(e){}
+  setTimeout(()=>{
+    try{ janela.focus(); janela.print(); }
+    catch(e){ console.warn('Impressão direta falhou, vai em PDF:', e); quadro.remove(); gerarReciboPdf(sale); }
+  }, 150);
+  setTimeout(tirar, 180000);
+}
+function imprimirReciboDaVendaAgora(id){
+  const sale = DB.sales.find(x=>x.id===id);
+  if(!sale){ toast('Venda não encontrada','error'); return; }
+  imprimirRecibo(sale);
+}
+/* O que o sistema faz com o recibo logo depois da venda. */
+function reciboAoFinalizar(){
+  const c = DB.config || {};
+  if(c.reciboAoFinalizar) return c.reciboAoFinalizar;        // 'mostrar' | 'imprimir' | 'pdf'
+  return c.reciboAutomatico === true ? 'pdf' : 'mostrar';
+}
+function mostrarOfertaDeRecibo(sale, imprimirAgora){
+  const box = document.getElementById('reciboDaVenda');
+  if(!box) return;
+  const d = dadosDoRecibo(sale);
+  const fiscal = configFiscal().ativo;
+  const fone = String(d.clienteFone||'').replace(/\D/g,'');
+  const whats = fone ? `https://wa.me/${(fone.length === 10 || fone.length === 11 ? '55' : '') + fone}?text=${encodeURIComponent(textoDoRecibo(sale))}` : '';
+  const modo = reciboAoFinalizar();
+  box.className = 'recibo-pronto';
+  box.innerHTML = htmlDoRecibo(sale) + `
     <div class="rc-acoes">
-      <button class="btn btn-accent btn-sm" onclick="imprimirReciboDaVenda('${sale.id}')">📄 Salvar / imprimir PDF</button>
-      ${whats ? `<a class="btn btn-sm" href="${whats}" target="_blank" rel="noopener">💬 Enviar no WhatsApp</a>` : ''}
+      <button class="btn btn-imprimir" onclick="imprimirReciboDaVendaAgora('${sale.id}')">🖨️ Imprimir recibo</button>
+      <button class="btn btn-sm" onclick="imprimirReciboDaVenda('${sale.id}')">📄 PDF</button>
+      ${whats ? `<a class="btn btn-sm" href="${whats}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ''}
       ${fiscal ? `<button class="btn btn-sm" onclick="emitirCupomFiscal('${sale.id}')">${temCupom(sale) ? '🧾 Abrir o cupom fiscal' : '🧾 Emitir NFC-e'}</button>` : ''}
       <button class="btn btn-sm" onclick="fecharRecibo()">Fechar</button>
     </div>
-    <span class="rc-ajuda">${reciboAutomatico() ? 'O PDF do recibo já foi gerado.' : 'A venda já está salva.'} A prévia some ao bipar a próxima peça.</span>`;
+    <span class="rc-ajuda">A venda já está salva. A prévia some ao bipar a próxima peça.</span>`;
   box.scrollIntoView({ behavior:'smooth', block:'nearest' });
-  if(reciboAutomatico()) gerarReciboPdf(sale);
+  if(imprimirAgora || modo === 'imprimir') imprimirRecibo(sale);
+  else if(modo === 'pdf') gerarReciboPdf(sale);
 }
 function fecharRecibo(){
   const box = document.getElementById('reciboDaVenda');
@@ -5061,7 +5123,7 @@ function saleActions(s){
     else if(s.nfce && s.nfce.status === 'processando_autorizacao') btns += `<button class="btn btn-sm" onclick="consultarCupomFiscal('${s.id}')">🔄 Ver situação</button> `;
     else if(s.status !== 'pendente') btns += `<button class="btn btn-sm btn-gold" onclick="emitirCupomFiscal('${s.id}')">🧾 Emitir NFC-e</button> `;
   }
-  btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVenda('${s.id}')">📄 Recibo</button> `;
+  btns += `<button class="btn btn-sm" onclick="imprimirReciboDaVendaAgora('${s.id}')">🖨️ Recibo</button> `;
   /* O que se usa pouco (e o que é perigoso) fica atrás do "Mais": cinco
      botões por linha empilhavam, a linha ficava com um palmo de altura e
      o Excluir ficava colado no Recibo, pedindo para ser tocado sem querer. */
@@ -5082,6 +5144,7 @@ const MENUS = {
     const itens = [];
     if(s.status !== 'pendente') itens.push({ rotulo:'↩ Registrar devolução', fazer:()=>openPerdaModal('devolucao', { saleId:id }) });
     itens.push({ rotulo:'✏️ Editar venda', fazer:()=>openSaleModal(id) });
+    itens.push({ rotulo:'📄 Recibo em PDF', fazer:()=>imprimirReciboDaVenda(id) });
     itens.push({ rotulo:'Cancelar venda', fazer:()=>cancelSale(id) });
     if(ehAdmin()) itens.push({ rotulo:'🗑️ Excluir venda', perigo:true, fazer:()=>excluirVenda(id) });
     return itens;
@@ -6695,8 +6758,13 @@ function renderConfig(el){
         <h3>Loja</h3>
         <div class="field"><label>Nome da loja</label><input id="cfg_storeName" value="${escapeHtml(DB.storeName)}"></div>
         <div class="field" style="margin-top:10px"><label>Estoque mínimo</label><input type="number" id="cfg_minStock" value="${DB.config.minStock}"></div>
-        <div class="field" style="margin-top:12px"><label><input type="checkbox" id="cfg_recibo" ${reciboAutomatico() ? 'checked' : ''}> Gerar o PDF do recibo sozinho ao finalizar cada venda</label>
-          <div class="text-muted" style="font-size:12px;margin-top:4px">A prévia do recibo aparece no PDV de qualquer jeito. O endereço, o telefone (WhatsApp) e o CNPJ do cadastro fiscal saem no cabeçalho.</div></div>
+        <div class="field" style="margin-top:12px"><label>Recibo ao finalizar a venda</label>
+          <select id="cfg_recibo">
+            <option value="mostrar" ${reciboAoFinalizar()==='mostrar'?'selected':''}>Mostrar o recibo com o botão Imprimir (padrão)</option>
+            <option value="imprimir" ${reciboAoFinalizar()==='imprimir'?'selected':''}>Imprimir o recibo sozinho, em toda venda</option>
+            <option value="pdf" ${reciboAoFinalizar()==='pdf'?'selected':''}>Gerar o PDF do recibo sozinho</option>
+          </select>
+          <div class="text-muted" style="font-size:12px;margin-top:4px">O botão "Finalizar e imprimir recibo" do PDV imprime sempre. O endereço, o telefone (WhatsApp) e o CNPJ do cadastro fiscal saem no cabeçalho.</div></div>
         <button class="btn btn-accent" style="margin-top:14px" id="saveStoreBtn">Salvar</button>
       </div>
       <div class="panel">
@@ -6852,7 +6920,8 @@ function renderConfig(el){
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
     DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
-    DB.config.reciboAutomatico = el.querySelector('#cfg_recibo').checked;
+    DB.config.reciboAoFinalizar = el.querySelector('#cfg_recibo').value;
+    delete DB.config.reciboAutomatico;
     carimbar(DB.config);
     saveDB(); renderShell(); toast('Configurações salvas');
   });

@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 63 - gerado em 04/10/2026
+Versao 64 - gerado em 04/10/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -22,7 +22,7 @@ testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
 
 
-O QUE MUDOU NA VERSAO 63
+O QUE MUDOU NAS VERSOES 63 E 64
 ------------------------
 RECIBO AUTOMATICO NO PDV
   - Ao finalizar a venda, o recibo aparece desenhado na propria tela do
@@ -34,14 +34,19 @@ RECIBO AUTOMATICO NO PDV
   - Botoes na previa: salvar/imprimir PDF, enviar no WhatsApp da cliente
     (quando ela tem telefone cadastrado) e emitir NFC-e (quando o cupom
     fiscal estiver ligado). A previa some ao bipar a proxima peca.
-  - Configuracoes > Loja: "Gerar o PDF do recibo sozinho" pode ser
-    desligado; a previa continua.
-  - O recibo da tela de Vendas tambem saiu com os dados novos.
+  - IMPRIMIR DIRETO: botao "Finalizar e imprimir recibo" no PDV (registra
+    a venda e ja abre a impressao do recibo de 80 mm) e botao "Imprimir
+    recibo" na previa e na tela de Vendas. No computador abre a janela
+    de impressao; no celular, a folha de compartilhar (Imprimir/WhatsApp).
+  - Configuracoes > Loja > "Recibo ao finalizar a venda": mostrar com o
+    botao (padrao), imprimir sozinho em toda venda, ou gerar o PDF.
+  - O recibo da tela de Vendas tambem saiu com os dados novos ("Recibo em
+    PDF" fica no menu "Mais").
 
 SEGURANCA DO TESTE LOCAL
   - Copia aberta em localhost nao fala com a nuvem da loja por padrao.
 
-TESTES: node testes/rodar.js -> 67 casos, 625 verificacoes.
+TESTES: node testes/rodar.js -> 67 casos, 627 verificacoes.
 
 
 O QUE MUDOU NA VERSAO 62

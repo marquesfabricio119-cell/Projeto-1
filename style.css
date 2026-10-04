@@ -604,3 +604,9 @@ canvas{max-width:100%}
 .recibo-papel .rc-total{display:flex;justify-content:space-between;font-weight:800;font-size:15px;margin:4px 0}
 .rc-acoes{display:flex;flex-wrap:wrap;gap:8px}
 .rc-ajuda{display:block;color:var(--muted);font-size:12px}
+
+/* Botão de imprimir o recibo: grande e à mão, no PDV e na prévia */
+.btn-imprimir{background:var(--text);color:#fff;border-color:var(--text);font-weight:700}
+.btn-imprimir:hover{background:#2C2C33;border-color:#2C2C33;color:#fff}
+.cart-box > .btn-imprimir{width:100%;padding:13px;font-size:14px}
+.rc-acoes .btn-imprimir{padding:11px 18px;font-size:14px}
