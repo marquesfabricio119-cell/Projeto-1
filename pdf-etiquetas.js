@@ -678,7 +678,11 @@ function criarPdfEtiquetas(items, layout, nomeLoja, formatarPreco, opcoes){
 
 const RECIBO_LARGURA_MM = 80;
 
-function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData){
+/* `dados` (opcional) é o que a loja quer no cabeçalho e no rodapé:
+   { endereco, telefone, cnpj, cliente, clienteFone, cpf } — tudo texto,
+   e cada campo só aparece quando preenchido. */
+function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData, dados){
+  dados = dados || {};
   const L = RECIBO_LARGURA_MM * MM_EM_PONTOS;
   const margem = 4 * MM_EM_PONTOS;
   const util = L - margem * 2;
@@ -690,6 +694,11 @@ function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData){
   const traco = ()=>linhas.push({ onde:'traco', pt: 6 });
 
   add(String(nomeLoja).toUpperCase(), 11, true, 'centro');
+  if(dados.endereco) quebrarLinhas(dados.endereco, 7, false, util).forEach(l=>add(l, 7, false, 'centro'));
+  const contato = [dados.telefone ? 'Tel. ' + dados.telefone : '', dados.cnpj ? 'CNPJ ' + dados.cnpj : ''].filter(Boolean).join('  ·  ');
+  if(contato) add(cortarParaCaber(contato, 7, false, util), 7, false, 'centro');
+  traco();
+  add('RECIBO DE VENDA Nº ' + String(sale.id || '').slice(-6).toUpperCase(), 8.5, true, 'centro');
   add(formatarData(sale.date), 7.5, false, 'centro');
   traco();
 
@@ -706,6 +715,12 @@ function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData){
   add('TOTAL: ' + formatarPreco(sale.total), 12, true, 'dir');
   add(cortarParaCaber('Pagamento: ' + (sale.payment || '-'), 8, false, util), 8, false, 'esq');
   add(cortarParaCaber('Vendedor(a): ' + (sale.seller || '-'), 8, false, util), 8, false, 'esq');
+  if(dados.cliente || dados.cpf){
+    traco();
+    if(dados.cliente) add(cortarParaCaber('Cliente: ' + dados.cliente, 8, false, util), 8, false, 'esq');
+    if(dados.clienteFone) add(cortarParaCaber('Telefone: ' + dados.clienteFone, 8, false, util), 8, false, 'esq');
+    if(dados.cpf) add('CPF: ' + dados.cpf, 8, false, 'esq');
+  }
   traco();
   add('Obrigado pela preferência!', 8.5, false, 'centro');
 

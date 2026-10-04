@@ -936,6 +936,21 @@ caso('recibo: pedido sem tamanho/cor e nome de uma palavra só gigante não vaza
   verifica(/Cinto/.test(texto));
 });
 
+caso('recibo automático: cabeçalho da loja, número da venda e dados da cliente saem no PDF', async ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.config.address = 'Rua das Flores, 123'; DB.config.whatsapp = '11999990000'; DB.config.fiscal = Object.assign({}, DB.config.fiscal, { cnpj:'12345678000199' });
+  DB.customers.push({ id:'c1', name:'Maria Teste', phone:'11988887777' });
+  const venda = { id:'abc123xyz', date: todayISO(), total: 30, discount:0, payment:'PIX', seller:'Ana', customerId:'c1', cpfNota:'12345678901',
+    items:[{ name:'Blusa', size:'P', color:'Preto', qty:1, price:30 }] };
+  const dados = dadosDoRecibo(venda);
+  igual(dados, { endereco:'Rua das Flores, 123', telefone:'(11) 99999-0000', cnpj:'12.345.678/0001-99', cliente:'Maria Teste', clienteFone:'(11) 98888-7777', cpf:'123.456.789-01' });
+  const pdf = criarPdfRecibo(venda, DB.storeName, money, dateBR, dados);
+  const texto = requireNode('buffer').Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+  ['Rua das Flores', 'CNPJ 12.345.678/0001-99', 'RECIBO DE VENDA N', '23XYZ', 'Cliente: Maria Teste', 'CPF: 123.456.789-01', 'Telefone: ', '98888-7777'].forEach(t=>verifica(new RegExp(t).test(texto), 'tem ' + t));
+  igual(reciboAutomatico(), true, 'ligado por padrão');
+  verifica(/Maria Teste/.test(textoDoRecibo(venda)) && /Total: R\$/.test(textoDoRecibo(venda)), 'texto do WhatsApp');
+});
+
 /* ============ roda tudo ============ */
 (async ()=>{
   for(const c of filaDeCasos){

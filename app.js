@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "62";
+const APP_VERSION = "63";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -41,6 +41,12 @@ function configNuvem(){
       return { ...NUVEM_PADRAO, ...c };
     }
   }catch(e){}
+  /* Cópia aberta num servidor local (teste, desenvolvimento) NÃO fala com
+     a nuvem da loja por padrão: um teste de venda iria parar no estoque
+     de verdade. Quem precisar liga a nuvem em Configurações → Nuvem. */
+  if(typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname || '')){
+    return { ...NUVEM_PADRAO, url:'https://teste-desligado.supabase.co', key:'teste-local' };
+  }
   return { ...NUVEM_PADRAO };
 }
 function salvarConfigNuvem(c){
@@ -4539,6 +4545,8 @@ function estoqueNoSistema(item){
   return v ? Math.max(0, Number(v.stock)||0) : 0;
 }
 function addToCart(product, variation){
+  const recibo = document.getElementById('reciboDaVenda');
+  if(recibo && recibo.innerHTML) fecharRecibo();
   const noSistema = Math.max(0, Number(variation.stock)||0);
   const existing = cart.find(i=>i.productId===product.id && i.size===variation.size && i.color===variation.color);
   if(existing) existing.qty++;
@@ -4731,10 +4739,32 @@ function finalizeSale(){
 function receiptFileName(sale){
   return 'recibo-' + String(sale.id||'venda').slice(-6) + '.pdf';
 }
+/* O que vai no recibo além dos itens: a loja (endereço, telefone, CNPJ
+   do cadastro fiscal) e a cliente (nome, telefone, CPF da nota). */
+function formatarCpf(d){ d = String(d||'').replace(/\D/g,''); return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ''; }
+function formatarCnpj(d){ d = String(d||'').replace(/\D/g,''); return d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : ''; }
+function formatarTelefone(d){
+  d = String(d||'').replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/, '');
+  if(d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  if(d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  return String(d||'');
+}
+function dadosDoRecibo(sale){
+  const cliente = sale.customerId ? DB.customers.find(c=>c.id === sale.customerId) : null;
+  const entrega = sale.entrega || {};
+  return {
+    endereco: DB.config.address || '',
+    telefone: formatarTelefone(DB.config.whatsapp),
+    cnpj: formatarCnpj(configFiscal().cnpj),
+    cliente: entrega.nome || (cliente ? cliente.name : ''),
+    clienteFone: formatarTelefone(entrega.telefone || (cliente ? cliente.phone : '')),
+    cpf: formatarCpf(sale.cpfNota)
+  };
+}
 function gerarReciboPdf(sale){
   let blob;
   try{
-    blob = criarPdfRecibo(sale, DB.storeName, money, dateBR);
+    blob = criarPdfRecibo(sale, DB.storeName, money, dateBR, dadosDoRecibo(sale));
   }catch(err){
     console.error('Erro ao montar o recibo:', err);
     toast('Não foi possível montar o recibo: ' + err.message, 'error');
@@ -4746,17 +4776,76 @@ function gerarReciboPdf(sale){
     'O recibo tem 80 mm de largura, o tamanho do cupom. Abra o arquivo e mande imprimir, ou envie para a cliente.',
     'Recibo');
 }
-/* Depois de finalizar, o recibo fica à mão sem atrapalhar o caixa: um
-   botão só, que some quando a próxima venda começa. */
+/* O RECIBO SAI SOZINHO. Assim que a venda é finalizada, ele aparece
+   desenhado na tela do PDV, com valor e dados (loja, cliente, peças,
+   pagamento, quem vendeu), e o PDF de 80 mm é gerado na mesma hora — no
+   celular abre a folha de compartilhar (WhatsApp, imprimir); no
+   computador o arquivo é baixado. A prévia some quando a próxima peça é
+   bipada. Quem não quiser o PDF automático desliga em Configurações; a
+   prévia e os botões continuam. */
+function reciboAutomatico(){ return !DB.config || DB.config.reciboAutomatico !== false; }
+function textoDoRecibo(sale){
+  const d = dadosDoRecibo(sale);
+  const linhas = [`*${DB.storeName}*`, `Recibo de venda nº ${String(sale.id).slice(-6).toUpperCase()} — ${dateBR(sale.date)}`, ''];
+  (sale.items||[]).forEach(i=>{
+    const variante = [i.size, i.color].filter(v=>v && v !== 'Único' && v !== 'Padrão').join('/');
+    linhas.push(`${i.qty} x ${i.name}${variante ? ' (' + variante + ')' : ''} — ${money(i.qty * i.price)}`);
+  });
+  if(Number(sale.discount) > 0) linhas.push(`Desconto: -${money(sale.discount)}`);
+  linhas.push(`*Total: ${money(sale.total)}*`, `Pagamento: ${sale.payment}`);
+  if(d.cliente) linhas.push(`Cliente: ${d.cliente}`);
+  linhas.push('', 'Obrigado pela preferência!');
+  return linhas.join('\n');
+}
 function mostrarOfertaDeRecibo(sale){
   const box = document.getElementById('reciboDaVenda');
   if(!box) return;
-  box.className = 'pdf-pronto';
+  const d = dadosDoRecibo(sale);
   const fiscal = configFiscal().ativo;
-  box.innerHTML = `<strong>Venda de ${escapeHtml(money(sale.total))} registrada${temCupom(sale) ? ' · NFC-e nº ' + escapeHtml(String(sale.nfce.numero||'')) : ''}</strong>
-    ${fiscal ? `<a href="#" onclick="event.preventDefault();emitirCupomFiscal('${sale.id}')">${temCupom(sale) ? '🧾 Abrir o cupom fiscal' : '🧾 Emitir cupom fiscal (NFC-e)'}</a> ` : ''}
-    <a href="#" onclick="event.preventDefault();imprimirReciboDaVenda('${sale.id}')">📄 Recibo simples</a>
-    <span>${fiscal ? 'O cupom fiscal vai para a SEFAZ; o recibo simples é só um comprovante.' : 'Só se a cliente pedir — a venda já está salva.'}</span>`;
+  const fone = String(d.clienteFone||'').replace(/\D/g,'');
+  const whats = fone ? `https://wa.me/${(fone.length === 10 || fone.length === 11 ? '55' : '') + fone}?text=${encodeURIComponent(textoDoRecibo(sale))}` : '';
+  box.className = 'recibo-pronto';
+  box.innerHTML = `
+    <div class="recibo-papel">
+      <div class="rc-loja">${escapeHtml(DB.storeName)}</div>
+      ${d.endereco ? `<div class="rc-mini">${escapeHtml(d.endereco)}</div>` : ''}
+      ${d.telefone || d.cnpj ? `<div class="rc-mini">${[d.telefone ? 'Tel. ' + escapeHtml(d.telefone) : '', d.cnpj ? 'CNPJ ' + escapeHtml(d.cnpj) : ''].filter(Boolean).join(' · ')}</div>` : ''}
+      <div class="rc-traco"></div>
+      <div class="rc-titulo">Recibo de venda nº ${escapeHtml(String(sale.id).slice(-6).toUpperCase())}</div>
+      <div class="rc-mini">${escapeHtml(dateBR(sale.date))}</div>
+      <div class="rc-traco"></div>
+      ${(sale.items||[]).map(i=>{
+        const variante = [i.size, i.color].filter(v=>v && v !== 'Único' && v !== 'Padrão').join('/');
+        return `<div class="rc-item"><span>${i.qty} × ${escapeHtml(i.name)}${variante ? ' <small>(' + escapeHtml(variante) + ')</small>' : ''}</span><span>${money(i.qty * i.price)}</span></div>`;
+      }).join('')}
+      <div class="rc-traco"></div>
+      ${Number(sale.discount) > 0 ? `<div class="rc-item"><span>Desconto</span><span>-${money(sale.discount)}</span></div>` : ''}
+      <div class="rc-total"><span>TOTAL</span><span>${money(sale.total)}</span></div>
+      <div class="rc-item"><span>Pagamento</span><span>${escapeHtml(sale.payment)}</span></div>
+      <div class="rc-item"><span>Vendedor(a)</span><span>${escapeHtml(sale.seller||'-')}</span></div>
+      ${d.cliente || d.cpf ? `<div class="rc-traco"></div>
+        ${d.cliente ? `<div class="rc-item"><span>Cliente</span><span>${escapeHtml(d.cliente)}</span></div>` : ''}
+        ${d.clienteFone ? `<div class="rc-item"><span>Telefone</span><span>${escapeHtml(d.clienteFone)}</span></div>` : ''}
+        ${d.cpf ? `<div class="rc-item"><span>CPF</span><span>${escapeHtml(d.cpf)}</span></div>` : ''}` : ''}
+      ${temCupom(sale) ? `<div class="rc-mini" style="margin-top:6px">NFC-e nº ${escapeHtml(String(sale.nfce.numero||''))}</div>` : ''}
+      <div class="rc-mini" style="margin-top:8px">Obrigado pela preferência!</div>
+    </div>
+    <div class="rc-acoes">
+      <button class="btn btn-accent btn-sm" onclick="imprimirReciboDaVenda('${sale.id}')">📄 Salvar / imprimir PDF</button>
+      ${whats ? `<a class="btn btn-sm" href="${whats}" target="_blank" rel="noopener">💬 Enviar no WhatsApp</a>` : ''}
+      ${fiscal ? `<button class="btn btn-sm" onclick="emitirCupomFiscal('${sale.id}')">${temCupom(sale) ? '🧾 Abrir o cupom fiscal' : '🧾 Emitir NFC-e'}</button>` : ''}
+      <button class="btn btn-sm" onclick="fecharRecibo()">Fechar</button>
+    </div>
+    <span class="rc-ajuda">${reciboAutomatico() ? 'O PDF do recibo já foi gerado.' : 'A venda já está salva.'} A prévia some ao bipar a próxima peça.</span>`;
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  if(reciboAutomatico()) gerarReciboPdf(sale);
+}
+function fecharRecibo(){
+  const box = document.getElementById('reciboDaVenda');
+  if(box){ box.className = ''; box.innerHTML = ''; }
+  const link = document.getElementById('linkDoPdf');
+  if(link && currentRoute === 'pdv'){ link.className = ''; link.innerHTML = ''; }
+  document.getElementById('pdvSearchInput')?.focus();
 }
 
 function imprimirReciboDaVenda(id){
@@ -6606,6 +6695,8 @@ function renderConfig(el){
         <h3>Loja</h3>
         <div class="field"><label>Nome da loja</label><input id="cfg_storeName" value="${escapeHtml(DB.storeName)}"></div>
         <div class="field" style="margin-top:10px"><label>Estoque mínimo</label><input type="number" id="cfg_minStock" value="${DB.config.minStock}"></div>
+        <div class="field" style="margin-top:12px"><label><input type="checkbox" id="cfg_recibo" ${reciboAutomatico() ? 'checked' : ''}> Gerar o PDF do recibo sozinho ao finalizar cada venda</label>
+          <div class="text-muted" style="font-size:12px;margin-top:4px">A prévia do recibo aparece no PDV de qualquer jeito. O endereço, o telefone (WhatsApp) e o CNPJ do cadastro fiscal saem no cabeçalho.</div></div>
         <button class="btn btn-accent" style="margin-top:14px" id="saveStoreBtn">Salvar</button>
       </div>
       <div class="panel">
@@ -6761,6 +6852,7 @@ function renderConfig(el){
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
     DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
+    DB.config.reciboAutomatico = el.querySelector('#cfg_recibo').checked;
     carimbar(DB.config);
     saveDB(); renderShell(); toast('Configurações salvas');
   });
