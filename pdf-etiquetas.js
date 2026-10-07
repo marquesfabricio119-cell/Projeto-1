@@ -120,6 +120,17 @@ const QL800_PONTO_MM = 25.4 / QL800_DPI;          // 0,08467 mm
    cada lado que o cabeçote não alcança. Desenhar ali é desenhar no que
    vai sair branco. */
 const MARGEM_NAO_IMPRIMIVEL_MM = 1.5;
+/* OUTRAS IMPRESSORAS. O desenho sempre foi feito na régua da QL-800
+   (300 dpi, 1,5 mm de margem). Uma impressora térmica de cupom, como a
+   OIA-8383 (203 dpi, papel de 58 mm, só 48 mm impressos), tem outro ponto
+   e outra margem — e o código de barras precisa cair na grade de pontos
+   DELA, senão as barras saem desiguais e o leitor não lê. O rolo diz
+   qual impressora é (`dpi` e `margem`); sem dizer, vale a QL-800. */
+function impressoraDe(layout){
+  const dpi = (layout && Number(layout.dpi)) || QL800_DPI;
+  const margemMM = layout && layout.margem !== undefined ? Number(layout.margem) : MARGEM_NAO_IMPRIMIVEL_MM;
+  return { dpi, pontoPdf: 72 / dpi, pontoMM: 25.4 / dpi, margemMM };
+}
 /* O Code 128 exige 10 módulos de silêncio (branco) antes e depois das
    barras. Sem isso o leitor não sabe onde o código começa — é a causa
    mais comum de "a etiqueta saiu, mas o leitor não lê". */
@@ -273,8 +284,8 @@ function quebrarLinhas(texto, tamanho, negrito, larguraMax){
    ========================================================= */
 /* Quantos pontos da impressora cabem em cada barra fina, dada a largura
    livre (em mm) que o código tem para ocupar, silêncio incluído. */
-function pontosNaLargura(livreMM, modulos){
-  const cabe = Math.floor((livreMM / (modulos + SILENCIO_EM_MODULOS * 2)) / QL800_PONTO_MM);
+function pontosNaLargura(livreMM, modulos, pontoMM){
+  const cabe = Math.floor((livreMM / (modulos + SILENCIO_EM_MODULOS * 2)) / (pontoMM || QL800_PONTO_MM));
   return cabe > 0 ? cabe : 0;
 }
 
@@ -297,7 +308,8 @@ function desenharEtiqueta(item, layout, nomeLoja, formatarPreco, opcoes){
 
   const L = larguraMM * MM_EM_PONTOS;
   const A = alturaMM * MM_EM_PONTOS;
-  const margem = MARGEM_NAO_IMPRIMIVEL_MM * MM_EM_PONTOS;
+  const impressora = impressoraDe(layout);
+  const margem = impressora.margemMM * MM_EM_PONTOS;
   const util = L - margem * 2;
   const altUtil = A - margem * 2;
   const escalaPara = largura => Math.max(0.62, Math.min(1.4, largura / 73.7));   // 1 = fita de 29 mm
@@ -495,14 +507,14 @@ function desenharEtiqueta(item, layout, nomeLoja, formatarPreco, opcoes){
         /* A barra recebe um número INTEIRO de pontos da impressora. Se a
            largura cair no meio de um ponto, a QL-800 arredonda cada barra
            do jeito dela e o leitor recusa. */
-        const pontos = Math.max(1, pontosNaLargura(larg / MM_EM_PONTOS, codigo.modulos));
-        const modulo = pontos * PONTO_PDF_DA_IMPRESSORA;
+        const pontos = Math.max(1, pontosNaLargura(larg / MM_EM_PONTOS, codigo.modulos, impressora.pontoMM));
+        const modulo = pontos * impressora.pontoPdf;
         const largura = codigo.modulos * modulo;
         /* O começo do código também cai em cima de um ponto da
            impressora: com as barras inteiras mas o início no meio de um
            ponto, há leitor de PDF que engorda cada barra e afina cada
            espaço na hora de imprimir. */
-        const inicio = Math.round((cx - largura / 2) / PONTO_PDF_DA_IMPRESSORA) * PONTO_PDF_DA_IMPRESSORA;
+        const inicio = Math.round((cx - largura / 2) / impressora.pontoPdf) * impressora.pontoPdf;
         prims.push({ t:'barras', x: inicio, y: topo - b.h, h: b.h, modulo, barras: codigo.barras });
       } else b.desenhar(topo, prims);
       topo -= b.h + vao;
@@ -683,8 +695,11 @@ const RECIBO_LARGURA_MM = 80;
    e cada campo só aparece quando preenchido. */
 function criarPdfRecibo(sale, nomeLoja, formatarPreco, formatarData, dados){
   dados = dados || {};
-  const L = RECIBO_LARGURA_MM * MM_EM_PONTOS;
-  const margem = 4 * MM_EM_PONTOS;
+  /* Papel de 58 mm (impressora térmica de cupom OIA-8383): só 48 mm são
+     impressos, então a margem é de 5 mm de cada lado. */
+  const larguraMM = Number(dados.larguraMM) === 58 ? 58 : RECIBO_LARGURA_MM;
+  const L = larguraMM * MM_EM_PONTOS;
+  const margem = (larguraMM === 58 ? 5 : 4) * MM_EM_PONTOS;
   const util = L - margem * 2;
 
   /* Monta a lista de linhas primeiro, para saber a altura da página antes

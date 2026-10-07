@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "64";
+const APP_VERSION = "65";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -3660,6 +3660,10 @@ const MIDIAS_QL800 = {
   dk1203: { name:'DK-1203 · 17 × 87 mm',           w:17, h:87 },
   dk1204: { name:'DK-1204 · 17 × 54 mm',           w:17, h:54 },
   dk1221: { name:'DK-1221 · 23 × 23 mm',           w:23, h:23 },
+  /* Impressora térmica de cupom OIA-8383: 203 dpi, papel de 58 mm com
+     48 mm impressos (5 mm de margem de cada lado), USB, ESC/POS. Imprime
+     pelo driver dela no computador, como um cupom curto. */
+  termica58: { name:'Impressora térmica OIA-8383 · papel 58 mm', w:58, h:40, continua:true, dpi:203, margem:5, termica:true },
   outro:  { name:'Outro rolo (eu meço)', w:29, h:40, continua:true, medido:true },
 };
 let etiquetaMidia = 'dk2210';
@@ -3753,9 +3757,9 @@ function renderEtiquetas(el){
   const daMidia = MIDIAS_QL800[etiquetaMidia] || MIDIAS_QL800.dk2210;
   el.innerHTML = `
     <div class="panel">
-      <h3>Imprimir etiquetas — Brother QL-800
+      <h3>Imprimir etiquetas — <span id="etqImpressora">${daMidia.termica ? 'impressora térmica OIA-8383' : 'Brother QL-800'}</span>
         <span class="text-muted" style="font-size:11px;font-weight:400">· versão ${APP_VERSION}</span></h3>
-      <p class="text-muted" style="margin-bottom:14px">Escolha o rolo que está na impressora, marque as peças e gere o arquivo. O código de barras é criado sozinho para quem ainda não tem.</p>
+      <p class="text-muted" style="margin-bottom:14px">Escolha a impressora e o rolo, marque as peças e gere o arquivo. O código de barras é criado sozinho para quem ainda não tem.</p>
       <div class="toolbar">
         <label style="font-size:12px;color:var(--muted);font-weight:600">Rolo na impressora:</label>
         <select id="midiaSel">
@@ -3778,8 +3782,12 @@ function renderEtiquetas(el){
         ${missing>0 ? `<button class="btn" id="genMissingBtn">🔢 Gerar ${missing} código(s) faltando</button>` : ''}
         <button class="btn" id="selAllBtn">✔️ Marcar todas as peças</button>
         <button class="btn" id="testLabelBtn" title="Gera uma etiqueta só, para conferir antes de gastar o rolo">🧪 Testar 1 etiqueta</button>
-        <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o arquivo já no tamanho do rolo da QL-800">🏷️ Gerar etiquetas para a QL-800</button>
+        <button class="btn btn-accent" id="pdfLabelsBtn" title="Gera o arquivo já no tamanho do rolo">🏷️ Gerar etiquetas${daMidia.termica ? ' (58 mm)' : ' para a QL-800'}</button>
       </div>
+      <div id="etqAvisoTermica" class="aviso-codigo" style="margin-bottom:10px;${daMidia.termica ? '' : 'display:none'}"><strong>OIA-8383 (térmica de cupom, 58 mm):</strong>
+        ela é ligada por cabo USB e imprime pelo computador. Ao abrir o PDF e mandar imprimir, escolha a impressora <strong>OIA-8383</strong>,
+        tamanho de papel <strong>58 mm</strong> (ou "58 × 40 mm" / personalizado), escala <strong>100%</strong>, sem "ajustar à página".
+        Cada etiqueta sai como um cupom curto; o comprimento é o que você escolher aqui. Só os 48 mm do meio são impressos.</div>
       <div class="etq-opcoes">
         <span>Mostrar na etiqueta:</span>
         <label><input type="checkbox" data-mostra="loja" ${etiquetaMostra.loja?'checked':''}> Nome da loja</label>
@@ -3853,6 +3861,9 @@ function renderEtiquetas(el){
     el.querySelector('#campoComprimento').style.display = (nova.continua && !nova.medido) ? 'inline-flex' : 'none';
     el.querySelector('#campoMedido').style.display = nova.medido ? 'inline-flex' : 'none';
     el.querySelector('#compEtq').value = midiaAtual().h;
+    el.querySelector('#etqImpressora').textContent = nova.termica ? 'impressora térmica OIA-8383' : 'Brother QL-800';
+    el.querySelector('#etqAvisoTermica').style.display = nova.termica ? '' : 'none';
+    el.querySelector('#pdfLabelsBtn').textContent = '🏷️ Gerar etiquetas' + (nova.termica ? ' (58 mm)' : ' para a QL-800');
     guardarEscolhaDaEtiqueta();
     atualizaAvisoDoCodigo();
     renderPreviewEtiqueta();
@@ -4238,10 +4249,12 @@ function entregarArquivo(blob, nome, recado, rotulo, ajuda, titulo){
 
 function entregarPdf(blob, quantas, layout){
   entregarArquivo(blob,
-    `etiquetas-QL800-${layout.w}x${layout.h}mm.pdf`,
+    `etiquetas-${layout.termica ? 'termica58' : 'QL800'}-${layout.w}x${layout.h}mm.pdf`,
     `${quantas} etiqueta(s) de ${layout.w} × ${layout.h} mm`,
     '🏷️ Abrir / salvar as etiquetas',
-    'Abra este arquivo no computador em que a Brother QL-800 está ligada pelo cabo USB e mande imprimir por ele, com o redimensionamento em 100%.',
+    layout.termica
+      ? 'Abra este arquivo no computador em que a OIA-8383 está ligada pelo cabo USB e mande imprimir nela: papel 58 mm, escala 100%.'
+      : 'Abra este arquivo no computador em que a Brother QL-800 está ligada pelo cabo USB e mande imprimir por ele, com o redimensionamento em 100%.',
     'Etiquetas');
 }
 
@@ -4751,10 +4764,12 @@ function formatarTelefone(d){
   if(d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
   return String(d||'');
 }
+function larguraDoRecibo(){ return Number(DB.config && DB.config.reciboLargura) === 58 ? 58 : 80; }
 function dadosDoRecibo(sale){
   const cliente = sale.customerId ? DB.customers.find(c=>c.id === sale.customerId) : null;
   const entrega = sale.entrega || {};
   return {
+    larguraMM: larguraDoRecibo(),
     endereco: DB.config.address || '',
     telefone: formatarTelefone(DB.config.whatsapp),
     cnpj: formatarCnpj(configFiscal().cnpj),
@@ -4775,7 +4790,7 @@ function gerarReciboPdf(sale){
   entregarArquivo(blob, receiptFileName(sale),
     'Recibo de ' + money(sale.total),
     '🧾 Abrir / salvar o recibo',
-    'O recibo tem 80 mm de largura, o tamanho do cupom. Abra o arquivo e mande imprimir, ou envie para a cliente.',
+    'O recibo tem ' + larguraDoRecibo() + ' mm de largura, o tamanho do cupom. Abra o arquivo e mande imprimir, ou envie para a cliente.',
     'Recibo');
 }
 /* O RECIBO SAI SOZINHO. Assim que a venda é finalizada, ele aparece
@@ -4842,9 +4857,11 @@ function imprimirRecibo(sale){
     toast('Na folha que abriu, toque em Imprimir — ou mande o recibo pelo WhatsApp.');
     return;
   }
+  /* O papel: 80 mm (cupom comum) ou 58 mm (OIA-8383, que imprime só 48 mm). */
+  const larg = larguraDoRecibo(), marg = larg === 58 ? 5 : 4;
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Recibo ${escapeHtml(String(sale.id).slice(-6).toUpperCase())}</title><style>
-    @page{ size: 80mm auto; margin: 4mm }
-    body{ margin:0; width:72mm; font-family:"Courier New", ui-monospace, Menlo, monospace; font-size:12px; color:#000; line-height:1.4 }
+    @page{ size: ${larg}mm auto; margin: ${marg}mm }
+    body{ margin:0; width:${larg - marg * 2}mm; font-family:"Courier New", ui-monospace, Menlo, monospace; font-size:${larg === 58 ? 11 : 12}px; color:#000; line-height:1.4 }
     .rc-loja{ font-weight:700; font-size:15px; text-align:center; text-transform:uppercase; letter-spacing:.04em }
     .rc-mini{ text-align:center; font-size:11px }
     .rc-titulo{ text-align:center; font-weight:700 }
@@ -6758,6 +6775,11 @@ function renderConfig(el){
         <h3>Loja</h3>
         <div class="field"><label>Nome da loja</label><input id="cfg_storeName" value="${escapeHtml(DB.storeName)}"></div>
         <div class="field" style="margin-top:10px"><label>Estoque mínimo</label><input type="number" id="cfg_minStock" value="${DB.config.minStock}"></div>
+        <div class="field" style="margin-top:12px"><label>Impressora de recibo (largura do papel)</label>
+          <select id="cfg_reciboLargura">
+            <option value="80" ${larguraDoRecibo()===80?'selected':''}>80 mm (cupom comum)</option>
+            <option value="58" ${larguraDoRecibo()===58?'selected':''}>58 mm — impressora térmica OIA-8383</option>
+          </select></div>
         <div class="field" style="margin-top:12px"><label>Recibo ao finalizar a venda</label>
           <select id="cfg_recibo">
             <option value="mostrar" ${reciboAoFinalizar()==='mostrar'?'selected':''}>Mostrar o recibo com o botão Imprimir (padrão)</option>
@@ -6921,6 +6943,7 @@ function renderConfig(el){
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
     DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
     DB.config.reciboAoFinalizar = el.querySelector('#cfg_recibo').value;
+    DB.config.reciboLargura = Number(el.querySelector('#cfg_reciboLargura').value) === 58 ? 58 : 80;
     delete DB.config.reciboAutomatico;
     carimbar(DB.config);
     saveDB(); renderShell(); toast('Configurações salvas');

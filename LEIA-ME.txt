@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 64 - gerado em 04/10/2026
+Versao 65 - gerado em 07/10/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,21 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 65
+------------------------
+IMPRESSORA TERMICA OIA-8383 (papel 58 mm, 203 dpi, USB, ESC/POS)
+  - Etiquetas: novo rolo "Impressora termica OIA-8383 - papel 58 mm".
+    O desenho respeita a regua dela: so os 48 mm do meio sao impressos
+    (5 mm de margem de cada lado) e o codigo de barras cai na grade de
+    203 dpi (barra de 0,25 mm, legivel). Comprimento da etiqueta a
+    escolher (padrao 40 mm). Imprime pelo driver no computador: papel
+    58 mm, escala 100%.
+  - Recibo: Configuracoes > Loja > "Impressora de recibo" com a opcao
+    58 mm. O recibo (impressao direta e PDF) sai na largura certa.
+
+TESTES: node testes/rodar.js -> 68 casos, 724 verificacoes.
 
 
 O QUE MUDOU NAS VERSOES 63 E 64

@@ -943,7 +943,7 @@ caso('recibo automático: cabeçalho da loja, número da venda e dados da client
   const venda = { id:'abc123xyz', date: todayISO(), total: 30, discount:0, payment:'PIX', seller:'Ana', customerId:'c1', cpfNota:'12345678901',
     items:[{ name:'Blusa', size:'P', color:'Preto', qty:1, price:30 }] };
   const dados = dadosDoRecibo(venda);
-  igual(dados, { endereco:'Rua das Flores, 123', telefone:'(11) 99999-0000', cnpj:'12.345.678/0001-99', cliente:'Maria Teste', clienteFone:'(11) 98888-7777', cpf:'123.456.789-01' });
+  igual(dados, { larguraMM:80, endereco:'Rua das Flores, 123', telefone:'(11) 99999-0000', cnpj:'12.345.678/0001-99', cliente:'Maria Teste', clienteFone:'(11) 98888-7777', cpf:'123.456.789-01' });
   const pdf = criarPdfRecibo(venda, DB.storeName, money, dateBR, dados);
   const texto = requireNode('buffer').Buffer.from(await pdf.arrayBuffer()).toString('latin1');
   ['Rua das Flores', 'CNPJ 12.345.678/0001-99', 'RECIBO DE VENDA N', '23XYZ', 'Cliente: Maria Teste', 'CPF: 123.456.789-01', 'Telefone: ', '98888-7777'].forEach(t=>verifica(new RegExp(t).test(texto), 'tem ' + t));
@@ -951,6 +951,35 @@ caso('recibo automático: cabeçalho da loja, número da venda e dados da client
   DB.config.reciboAoFinalizar = 'imprimir'; igual(reciboAoFinalizar(), 'imprimir');
   verifica(/recibo-papel/.test(htmlDoRecibo(venda)) && /Maria Teste/.test(htmlDoRecibo(venda)) && /R\$/.test(htmlDoRecibo(venda)), 'recibo desenhado com cliente e valor');
   verifica(/Maria Teste/.test(textoDoRecibo(venda)) && /Total: R\$/.test(textoDoRecibo(venda)), 'texto do WhatsApp');
+});
+
+caso('impressora térmica OIA-8383 (58 mm, 203 dpi): etiqueta dentro dos 48 mm impressos, barras na grade dela; recibo de 58 mm', async ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  const midia = MIDIAS_QL800.termica58;
+  verifica(midia && midia.dpi === 203 && midia.margem === 5 && midia.w === 58, 'rolo cadastrado com a régua da impressora');
+  const ponto = 25.4 / 203;
+  for(const posicao of ['auto','pe','deitada']){
+    const d = desenharEtiqueta({ p:{ name:'Vestido longo floral manga bufante', price:189.9 }, v:{ size:'M', color:'Rosa', barcode:'000123' } }, midia, 'Estilo Fashion', money, { posicao });
+    const larguraMM = d.largura / MM_EM_PONTOS, alturaMM = d.altura / MM_EM_PONTOS;
+    d.prims.forEach(p=>{
+      const x0 = p.x / MM_EM_PONTOS, w = (p.t === 'barras' ? p.barras.reduce((m,b)=>Math.max(m, (b.x + b.w) * p.modulo), 0) : (p.largura||p.w||0)) / MM_EM_PONTOS;
+      verifica(x0 >= 5 - 0.01 && x0 + w <= larguraMM - 5 + 0.01, posicao + ': "' + (p.texto||p.t) + '" dentro dos 48 mm (' + x0.toFixed(1) + '–' + (x0 + w).toFixed(1) + ' de ' + larguraMM + ')');
+      const y0 = p.y / MM_EM_PONTOS;
+      verifica(y0 >= 5 - 0.01 && y0 + (p.h||0) / MM_EM_PONTOS <= alturaMM - 5 + 0.01, posicao + ': altura dentro da margem');
+    });
+    const b = d.prims.find(p=>p.t === 'barras');
+    const moduloMM = b.modulo / MM_EM_PONTOS;
+    verifica(Math.abs(moduloMM / ponto - Math.round(moduloMM / ponto)) < 1e-6, 'barra é um número inteiro de pontos de 203 dpi');
+    verifica(moduloMM >= 0.19, posicao + ': barra legível (' + moduloMM.toFixed(3) + ' mm)');
+    verifica(Math.abs((b.x / (72 / 203)) - Math.round(b.x / (72 / 203))) < 1e-6, 'início do código na grade de 203 dpi');
+  }
+  igual(barraDaEtiquetaMM(midia, '000123', { posicao:'auto' }) >= 0.25, true, 'aviso da tela não dispara nesta impressora');
+  DB.config.reciboLargura = 58;
+  igual(dadosDoRecibo({ items:[] }).larguraMM, 58);
+  const pdf = criarPdfRecibo({ id:'v1', date: todayISO(), total: 30, discount:0, payment:'PIX', seller:'Ana', items:[{ name:'Blusa', size:'P', color:'Preto', qty:1, price:30 }] }, 'Estilo Fashion', money, dateBR, dadosDoRecibo({ items:[] }));
+  const texto = requireNode('buffer').Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+  const media = texto.match(/MediaBox \[0 0 ([\d.]+) /);
+  igual(Math.round(Number(media[1]) / MM_EM_PONTOS), 58, 'página do recibo com 58 mm');
 });
 
 /* ============ roda tudo ============ */
