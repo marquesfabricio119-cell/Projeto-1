@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "66";
+const APP_VERSION = "67";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -1974,6 +1974,10 @@ function showApp(){
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   renderShell();
+  /* Depois do botão Atualizar (ou de recarregar a página), volta para a
+     tela em que estava — o endereço guarda qual era. */
+  const rotaDoEndereco = (location.hash || '').replace('#','');
+  if(rotaDoEndereco && currentRoute === 'painel' && NAV.some(n=>n.id === rotaDoEndereco)) currentRoute = rotaDoEndereco;
   navigate(currentRoute);
   /* A nuvem costuma falhar ANTES do login, enquanto a tela de entrada está
      na frente — e recado dado numa tela que ninguém está vendo é recado
@@ -3627,6 +3631,28 @@ async function restaurarVersaoDaNuvem(i){
     toast('Versão de ' + dateBR(v.gravado_em) + ' restaurada. Enviando para a nuvem…');
     entrarDepoisDeTrocarOBanco();
   }
+}
+
+/* BOTÃO ATUALIZAR (no alto de toda tela). Recarrega a página com a
+   versão mais nova do sistema e os dados mais novos da nuvem. Antes de
+   recarregar, manda para a nuvem o que ainda não subiu (espera até
+   alguns segundos). Mesmo que a internet esteja fora, nada se perde: o
+   trabalho fica guardado no aparelho e sobe depois. */
+let atualizandoPagina = false;
+async function atualizarPagina(){
+  if(atualizandoPagina) return;
+  if(temFormularioAberto() && !confirm('Há um formulário aberto. Atualizar agora fecha o formulário sem salvar o que foi digitado nele.\n\nAtualizar mesmo assim?')) return;
+  atualizandoPagina = true;
+  const botao = document.getElementById('btnAtualizar');
+  if(botao){ botao.classList.add('girando'); botao.disabled = true; }
+  try{
+    if(temPendencia && (nuvemLida || nuvemVaziaConfirmada)){
+      clearTimeout(pushTimer);
+      await Promise.race([cloudPush(), new Promise(r=>setTimeout(r, 5000))]);
+    }
+  }catch(e){ /* sem nuvem agora: o trabalho continua guardado aqui */ }
+  try{ sessionStorage.removeItem(CHAVE_RECARGA); }catch(e){}
+  location.reload();
 }
 
 /* =========================================================
@@ -7816,6 +7842,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   conferirVersao();
   ligarGatilhosDeEnvio();
+  document.getElementById('btnAtualizar')?.addEventListener('click', atualizarPagina);
   document.getElementById('seloNuvem')?.addEventListener('click', ()=>{
     if(!SESSION) return;
     /* Configurações é tela do administrador: para a vendedora o selo

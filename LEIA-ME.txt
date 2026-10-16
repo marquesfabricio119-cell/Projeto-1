@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 66 - gerado em 15/10/2026
+Versao 67 - gerado em 15/10/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,20 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 67
+------------------------
+BOTAO ATUALIZAR
+  - No alto de todas as telas, ao lado do selo da nuvem (no celular
+    aparece so o icone de seta circular).
+  - Um toque: manda para a nuvem o que ainda nao subiu (espera ate 5 s),
+    recarrega a pagina com a versao mais nova do sistema e os dados mais
+    novos, e volta para a mesma tela em que estava.
+  - Com um formulario aberto, pergunta antes (o que foi digitado nele
+    seria perdido).
+  - Sem internet, nada se perde: o trabalho fica no aparelho e sobe
+    depois, como sempre.
 
 
 O QUE MUDOU NA VERSAO 66

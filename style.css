@@ -678,3 +678,19 @@ canvas{max-width:100%}
   .kpi-valor{font-size:20px}
   .alertas{grid-template-columns:1fr}
 }
+
+/* ===== Botão Atualizar (barra de cima) ===== */
+.topbar-acoes{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.btn-atualizar{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);
+  font:inherit;font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:999px;cursor:pointer;box-shadow:var(--shadow-xs);
+  transition:background .12s,border-color .12s}
+.btn-atualizar:hover{background:var(--surface-2);border-color:#C9C9D2}
+.btn-atualizar:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn-atualizar:disabled{opacity:.7;cursor:wait}
+.btn-atualizar.girando svg{animation:girar .8s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+@media (max-width:760px){
+  .btn-atualizar{padding:8px 11px;min-height:36px;min-width:40px;justify-content:center}
+  .btn-atualizar span{display:none}
+  .btn-atualizar svg{width:17px;height:17px}
+}

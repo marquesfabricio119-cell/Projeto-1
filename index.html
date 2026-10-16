@@ -6,7 +6,7 @@
 <meta name="description" content="Sistema de gestão (ERP/PDV) da Estilo Fashion — vendas, estoque, financeiro e loja virtual.">
 <meta name="robots" content="noindex, nofollow">
 <title>Estilo Fashion — Sistema</title>
-<link rel="icon" href="marca/simbolo.svg?v=66" type="image/svg+xml">
+<link rel="icon" href="marca/simbolo.svg?v=67" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://mfywchoecdhbzuiskpwx.supabase.co">
@@ -18,14 +18,14 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="style.css?v=66">
+<link rel="stylesheet" href="style.css?v=67">
 </head>
 <body>
 
 <div id="login-screen">
   <aside class="login-brand">
     <div class="login-brand-top">
-      <img src="marca/simbolo.svg?v=66" alt="" class="brand-mark">
+      <img src="marca/simbolo.svg?v=67" alt="" class="brand-mark">
       <span id="loginBrandName">Estilo Fashion</span>
     </div>
     <div class="login-brand-body">
@@ -62,7 +62,7 @@
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img src="marca/simbolo.svg?v=66" alt="">
+      <img src="marca/simbolo.svg?v=67" alt="">
       <span id="sidebarStoreName">Estilo Fashion</span>
     </div>
     <ul class="nav-list" id="navList"></ul>
@@ -78,7 +78,13 @@
         <button id="menuToggle" class="btn btn-icon menu-toggle">☰</button>
         <h1 id="viewTitle">Painel</h1>
       </div>
-      <button type="button" id="seloNuvem" class="selo-nuvem salvo" title="Estado da nuvem">☁️ salvo</button>
+      <div class="topbar-acoes">
+        <button type="button" id="btnAtualizar" class="btn-atualizar" title="Atualizar: salva o que falta na nuvem e recarrega a página com os dados mais novos">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          <span>Atualizar</span>
+        </button>
+        <button type="button" id="seloNuvem" class="selo-nuvem salvo" title="Estado da nuvem">☁️ salvo</button>
+      </div>
     </div>
     <div class="view" id="view"></div>
   </div>
@@ -88,7 +94,7 @@
      o tamanho de página pedido pelo site, mas respeita o que vem dentro de
      um PDF — por isso no celular a impressão sai por aqui. Feito no próprio
      sistema: sem isso, uma rede ruim na loja deixava o lojista sem etiqueta. -->
-<script src="pdf-etiquetas.js?v=66"></script>
-<script src="app.js?v=66"></script>
+<script src="pdf-etiquetas.js?v=67"></script>
+<script src="app.js?v=67"></script>
 </body>
 </html>
