@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 65 - gerado em 07/10/2026
+Versao 66 - gerado em 15/10/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,56 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 66
+------------------------
+Nenhum dado da loja foi alterado nesta versao: so telas novas, filtros
+e a possibilidade de corrigir o que antes nao dava.
+
+PAINEL NOVO
+  - Periodo: Hoje, Ontem, 7, 15, 30 ou 90 dias, Este mes, Mes passado,
+    Este ano, Tudo, ou De/ate (datas escolhidas).
+  - Filtros: forma de pagamento, vendedor(a), balcao ou loja virtual.
+  - Numeros do periodo, comparados com o periodo anterior do mesmo
+    tamanho (seta verde/vermelha): faturamento, vendas, ticket medio,
+    pecas vendidas, lucro bruto (so admin) e descontos dados.
+  - Atalhos: Nova venda, Nova peca, Etiquetas, Perda/devolucao.
+  - Avisos clicaveis: caixa (dinheiro na gaveta), estoque baixo, pedidos
+    do site pendentes, perdas e devolucoes, saldo do Financeiro (admin).
+  - Grafico por hora (1 dia), por dia, por semana ou por mes, conforme o
+    periodo; passe o mouse na barra para ver o valor.
+  - Pecas mais vendidas, formas de pagamento (com %), vendedor(a),
+    ultimas vendas ("Ver todas" abre Vendas com o mesmo filtro).
+  - A escolha de periodo/filtro fica lembrada no aparelho (nao vai para
+    a nuvem e nao mexe nos dados).
+
+VENDAS
+  - Mesmo filtro de periodo + busca (cliente, peca, n da venda, valor),
+    situacao (concluidas, pendentes, canceladas, com devolucao),
+    pagamento, vendedor(a) e origem.
+  - Resumo do filtro (quantidade, faturado, ticket, pecas) e planilha
+    (CSV) das vendas filtradas. Numero da venda na lista.
+
+RELATORIOS
+  - Mesmo filtro de periodo; numeros com comparacao; grafico; pecas mais
+    vendidas com lucro; por categoria; forma de pagamento; vendedor(a);
+    dia da semana (melhor dia); horario (pico); tabela dia a dia.
+  - Planilhas: resumo por dia e vendas do periodo.
+
+FINANCEIRO
+  - Filtro de periodo, tipo (receita/despesa), situacao e busca; cards do
+    periodo; planilha (CSV).
+  - Lancamento agora tem DATA editavel, e a categoria sugere as ja usadas.
+
+CAIXA (mais editavel)
+  - Corrigir o valor inicial do caixa aberto.
+  - Editar ou excluir sangria/reforco lancado errado (a gaveta e
+    recalculada). Os da devolucao continuam sendo mexidos pela devolucao.
+  - A conta do dinheiro esperado aparece por extenso.
+  - Correcoes feitas em um aparelho valem nos outros (vence a mais nova).
+
+TESTES: node testes/rodar.js -> 73 casos, 783 verificacoes.
 
 
 O QUE MUDOU NA VERSAO 65

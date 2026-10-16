@@ -982,6 +982,119 @@ caso('impressora térmica OIA-8383 (58 mm, 203 dpi): etiqueta dentro dos 48 mm i
   igual(Math.round(Number(media[1]) / MM_EM_PONTOS), 58, 'página do recibo com 58 mm');
 });
 
+/* ============ versão 66: período, filtros, Painel e correções no caixa ============ */
+caso('período: hoje, 7 dias, mês, mês passado e de/até viram o intervalo certo, com o período anterior', ()=>{
+  const hoje = inicioDoDia(new Date());
+  let r = intervaloDoFiltro({ periodo:'hoje' });
+  igual(r.inicio.getTime(), hoje.getTime()); igual(r.dias, 1); igual(r.anterior.inicio.getTime(), somarDias(hoje, -1).getTime());
+  r = intervaloDoFiltro({ periodo:'7d' });
+  igual(r.inicio.getTime(), somarDias(hoje, -6).getTime()); igual(r.dias, 7); igual(r.anterior.fim.getTime(), r.inicio.getTime());
+  r = intervaloDoFiltro({ periodo:'mes' });
+  igual(r.inicio.getDate(), 1); verifica(r.anterior.inicio.getMonth() === new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).getMonth(), 'compara com o começo do mês anterior');
+  r = intervaloDoFiltro({ periodo:'mesPassado' });
+  igual(r.fim.getTime(), new Date(hoje.getFullYear(), hoje.getMonth(), 1).getTime());
+  r = intervaloDoFiltro({ periodo:'pers', de:'2026-09-10', ate:'2026-09-01' });
+  igual(campoDaData(r.inicio), '2026-09-01', 'datas trocadas são desvirada'); igual(campoDaData(r.fim), '2026-09-11', 'o último dia entra inteiro'); igual(r.dias, 10);
+  verifica(noIntervalo(new Date(2026, 8, 10, 23, 59).toISOString(), r) && !noIntervalo(new Date(2026, 8, 11, 0, 0).toISOString(), r), 'bordas em hora local');
+  r = intervaloDoFiltro({ periodo:'tudo' });
+  igual(r.inicio, null); igual(r.anterior, null);
+});
+
+caso('filtros de venda: período, pagamento, vendedor, origem, situação e busca sem acento', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.customers.push({ id:'c1', name:'Joana Conceição' });
+  const agora = new Date();
+  const dia = n => new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - n, 15).toISOString();
+  DB.sales = [
+    { id:'v-hoje-pix', date: dia(0), total:30, discount:0, payment:'PIX', seller:'Ana', origin:'pdv', customerId:'c1', items:[{ productId:'p1', name:'Blusa', size:'P', color:'Preto', qty:1, price:30, cost:10 }] },
+    { id:'v-ontem-din', date: dia(1), total:45, discount:5, payment:'Dinheiro', seller:'Bia', origin:'pdv', items:[{ productId:'p2', name:'Saia', size:'Único', color:'Padrão', qty:1, price:50, cost:20 }] },
+    { id:'v-site-pend', date: dia(2), total:50, discount:0, payment:'PIX', seller:'Loja virtual', origin:'loja', status:'pendente', items:[{ productId:'p2', name:'Saia', qty:1, price:50 }] },
+    { id:'v-cancel', date: dia(3), total:30, discount:0, payment:'PIX', seller:'Ana', origin:'pdv', canceled:true, items:[{ productId:'p1', name:'Blusa', qty:1, price:30 }] },
+    { id:'v-velha', date: dia(40), total:99, discount:0, payment:'Crédito', seller:'Ana', origin:'pdv', items:[{ productId:'p1', name:'Blusa', qty:3, price:33 }] }
+  ];
+  const ids = l => l.map(s=>s.id).sort();
+  const base = { ...FILTRO_VAZIO };
+  igual(ids(vendasDoFiltro({ ...base, periodo:'7d' }, intervaloDoFiltro({ periodo:'7d' }))), ['v-hoje-pix','v-ontem-din'], 'números só contam venda valendo');
+  igual(ids(vendasDoFiltro({ ...base, periodo:'7d' }, intervaloDoFiltro({ periodo:'7d' }), { comStatus:true })).length, 4, 'lista mostra todas as do período');
+  igual(ids(vendasDoFiltro({ ...base, status:'canceladas' }, intervaloDoFiltro({ periodo:'tudo' }), { comStatus:true })), ['v-cancel']);
+  igual(ids(vendasDoFiltro({ ...base, status:'pendente' }, intervaloDoFiltro({ periodo:'tudo' }), { comStatus:true })), ['v-site-pend']);
+  igual(ids(vendasDoFiltro({ ...base, pagamento:'pix' }, intervaloDoFiltro({ periodo:'tudo' }))), ['v-hoje-pix'], 'forma sem olhar maiúscula');
+  igual(ids(vendasDoFiltro({ ...base, vendedor:'Bia' }, intervaloDoFiltro({ periodo:'tudo' }))), ['v-ontem-din']);
+  igual(ids(vendasDoFiltro({ ...base, origem:'loja' }, intervaloDoFiltro({ periodo:'tudo' }), { comStatus:true })), ['v-site-pend']);
+  igual(ids(vendasDoFiltro({ ...base, busca:'conceicao blusa' }, intervaloDoFiltro({ periodo:'tudo' }))), ['v-hoje-pix'], 'busca sem acento, todas as palavras');
+  igual(ids(vendasDoFiltro({ ...base, busca:'45' }, intervaloDoFiltro({ periodo:'tudo' }))), ['v-ontem-din'], 'busca pelo valor');
+  const res = resumoDasVendas(vendasDoFiltro({ ...base, periodo:'7d' }, intervaloDoFiltro({ periodo:'7d' })));
+  igual(res, { vendas:2, faturamento:75, pecas:2, descontos:5, ticket:37.5, lucro:45, semCusto:0 });
+  igual(variacao(75, 50).texto, '▲ 50%'); igual(variacao(45, 50).classe, 'desce'); igual(variacao(10, 0).texto, 'novo'); igual(variacao(0, 0).texto, '= igual');
+  const serie = serieDoGrafico(vendasDoFiltro({ ...base }, intervaloDoFiltro({ periodo:'7d' })), intervaloDoFiltro({ periodo:'7d' }));
+  igual(serie.pontos.length, 7); igual(serie.pontos[6].total, 30); igual(serie.pontos[5].total, 45);
+  igual(serieDoGrafico([], intervaloDoFiltro({ periodo:'hoje' })).titulo, 'Faturamento por hora');
+  igual(serieDoGrafico([], intervaloDoFiltro({ periodo:'90d' })).titulo, 'Faturamento por semana');
+  igual(serieDoGrafico([], intervaloDoFiltro({ periodo:'ano' })).titulo, new Date().getMonth() >= 7 ? 'Faturamento por mês' : intervaloDoFiltro({ periodo:'ano' }).dias <= 45 ? 'Faturamento por dia' : 'Faturamento por semana');
+});
+
+caso('filtros ficam neste aparelho, sem a busca, e nunca tocam no banco da loja', ()=>{
+  DB = bancoDeTeste(); migrateDB(); gravarLocal(); clearTimeout(pushTimer); lembrarPendencia(false);
+  const bancoAntes = localStorage.getItem(STORAGE_KEY);
+  filtrosGuardados = null; localStorage.removeItem(CHAVE_FILTROS);
+  const f = filtrosDe('vendas'); igual(f.periodo, 'tudo');
+  verifica(filtrosDe('vendas') === f, 'sempre o mesmo objeto');
+  f.periodo = '30d'; f.busca = 'joana'; f.pagamento = 'PIX'; guardarFiltros();
+  const guardado = JSON.parse(localStorage.getItem(CHAVE_FILTROS));
+  igual(guardado.vendas.periodo, '30d'); igual(guardado.vendas.busca, '', 'busca não fica guardada');
+  verifica(filtroMexido('vendas'));
+  limparFiltros('vendas'); igual(filtrosDe('vendas').pagamento, ''); verifica(!filtroMexido('vendas'));
+  filtrosGuardados = { painel:{ periodo:'inventado' } };
+  igual(filtrosDe('painel').periodo, '7d', 'período desconhecido volta ao padrão');
+  igual(localStorage.getItem(STORAGE_KEY), bancoAntes, 'o banco da loja ficou exatamente igual');
+  igual(temPendencia, false, 'nada foi marcado para subir para a nuvem');
+});
+
+caso('caixa: corrigir e excluir sangria recalcula a gaveta, e a correção mais nova vence na junção', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  DB.cashRegister = { open:true, openedAt:'2026-10-15T10:00:00.000Z', openingAmount:100, closedHistory:[],
+    movements:[{ type:'sangria', amount:30, note:'banco', date:'2026-10-15T11:00:00.000Z' },
+               { id:'m2', type:'reforco', amount:20, note:'', date:'2026-10-15T12:00:00.000Z' }] };
+  igual(resumoDoCaixa(DB.cashRegister).naGaveta, 90);
+  const outroAparelho = JSON.parse(JSON.stringify(DB.cashRegister));
+  const antiga = DB.cashRegister.movements[0];
+  const chave = chaveDoMovimento(antiga);
+  const m = movimentoPelaChave(chave);
+  igual(m.id, chave, 'movimentação antiga ganha como número a própria chave');
+  Object.assign(m, { amount:50 }); carimbar(m);
+  igual(resumoDoCaixa(DB.cashRegister).naGaveta, 70);
+  const m2 = movimentoPelaChave('m2'); m2.anulado = true; carimbar(m2);
+  igual(resumoDoCaixa(DB.cashRegister).naGaveta, 50, 'reforço excluído não conta');
+  igual(movimentosValidos(DB.cashRegister).length, 1);
+  /* o outro aparelho ainda tem as versões antigas: a junção fica com as corrigidas */
+  const j1 = juntarCaixa(outroAparelho, DB.cashRegister, []);
+  igual(j1.movements.length, 2, 'não duplica a movimentação corrigida');
+  igual(resumoDoCaixa(j1).naGaveta, 50);
+  igual(resumoDoCaixa(juntarCaixa(DB.cashRegister, outroAparelho, [])).naGaveta, 50, 'nos dois sentidos');
+  DB.cashRegister.openingAmount = 150; DB.cashRegister.valorInicialEm = todayISO();
+  igual(juntarCaixa(outroAparelho, DB.cashRegister, []).openingAmount, 150, 'valor inicial corrigido vence');
+  igual(juntarCaixa(DB.cashRegister, outroAparelho, []).openingAmount, 150);
+});
+
+caso('financeiro: filtro por período, tipo, situação e busca', ()=>{
+  DB = bancoDeTeste(); migrateDB();
+  const hoje = new Date();
+  const dia = n => new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - n, 12).toISOString();
+  DB.finance.entries = [
+    { id:'f1', type:'receita', category:'Venda PDV', description:'Venda #1', amount:30, status:'pago', date: dia(0) },
+    { id:'f2', type:'despesa', category:'Aluguel', description:'Outubro', amount:1410, status:'pendente', date: dia(1) },
+    { id:'f3', type:'despesa', category:'Energia', description:'Conta de luz', amount:200, status:'pago', date: dia(60) }
+  ];
+  filtrosGuardados = null; localStorage.removeItem(CHAVE_FILTROS);
+  const f = filtrosDe('financeiro');
+  Object.assign(f, { periodo:'30d' });
+  igual(lancamentosDaTela().map(e=>e.id), ['f1','f2']);
+  Object.assign(f, { tipo:'despesa' }); igual(lancamentosDaTela().map(e=>e.id), ['f2']);
+  Object.assign(f, { tipo:'', status:'pago', periodo:'tudo' }); igual(lancamentosDaTela().map(e=>e.id), ['f1','f3']);
+  Object.assign(f, { status:'', busca:'luz' }); igual(lancamentosDaTela().map(e=>e.id), ['f3']);
+  limparFiltros('financeiro');
+});
+
 /* ============ roda tudo ============ */
 (async ()=>{
   for(const c of filaDeCasos){

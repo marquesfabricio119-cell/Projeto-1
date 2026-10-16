@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "65";
+const APP_VERSION = "66";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -1212,7 +1212,9 @@ function juntarMovimentos(a, b, perdasJuntas){
     /* A saída de gaveta de uma devolução excluída não volta. */
     if(m.devolucaoId && !vivas.has(String(m.devolucaoId))) return;
     const k = chaveDoMovimento(m);
-    if(!visto.has(k)) visto.set(k, m);
+    const ja = visto.get(k);
+    /* Corrigida ou excluída num aparelho: vale a versão mexida por último. */
+    if(!ja || (Date.parse(m.atualizadoEm || '') || 0) > (Date.parse(ja.atualizadoEm || '') || 0)) visto.set(k, m);
   });
   return [...visto.values()].sort((x, y)=>new Date(x.date) - new Date(y.date));
 }
@@ -1247,6 +1249,11 @@ function juntarCaixa(daqui, deLa, perdasJuntas){
   }
   const movements = juntarMovimentos(abertas[0].movements, abertas[1] ? abertas[1].movements : [], perdasJuntas);
   const junto = { ...fica, open:true, movements, closedHistory };
+  /* Valor inicial corrigido num aparelho: vale a correção mais nova. */
+  if(abertas.length > 1 && abertas[1].openedAt === abertas[0].openedAt){
+    const novo = abertas.slice().sort((x, y)=>(Date.parse(y.valorInicialEm || '') || 0) - (Date.parse(x.valorInicialEm || '') || 0))[0];
+    if(novo.valorInicialEm){ junto.openingAmount = novo.openingAmount; junto.valorInicialEm = novo.valorInicialEm; }
+  }
   if(!junto.automatica) delete junto.automatica;
   return junto;
 }
@@ -2050,52 +2057,468 @@ function repairAndReload(){
 }
 
 /* =========================================================
+   PERÍODO E FILTROS — Painel, Vendas, Relatórios e Financeiro
+   Escolher período e filtro é SÓ LEITURA: nada aqui grava no banco da
+   loja. A última escolha de cada tela fica lembrada neste aparelho, numa
+   chave própria do navegador, separada dos dados.
+   ========================================================= */
+const CHAVE_FILTROS = 'estiloFashion_filtros';
+const PERIODOS = [
+  ['hoje','Hoje'], ['ontem','Ontem'], ['7d','7 dias'], ['15d','15 dias'], ['30d','30 dias'], ['90d','90 dias'],
+  ['mes','Este mês'], ['mesPassado','Mês passado'], ['ano','Este ano'], ['tudo','Tudo'], ['pers','De / até']
+];
+const FILTRO_VAZIO = { periodo:'7d', de:'', ate:'', pagamento:'', vendedor:'', origem:'', status:'', tipo:'', busca:'' };
+const FILTROS_PADRAO = {
+  painel:     { periodo:'7d' },
+  vendas:     { periodo:'tudo' },
+  relatorios: { periodo:'30d' },
+  financeiro: { periodo:'mes' }
+};
+let filtrosGuardados = null;
+function filtrosDe(tela){
+  if(!filtrosGuardados){
+    try{ filtrosGuardados = JSON.parse(localStorage.getItem(CHAVE_FILTROS) || '{}') || {}; }
+    catch(e){ filtrosGuardados = {}; }
+  }
+  const padrao = { ...FILTRO_VAZIO, ...(FILTROS_PADRAO[tela] || {}) };
+  /* Sempre o MESMO objeto: quem guardou a referência (a barra de filtros)
+     continua mexendo no filtro de verdade. */
+  if(!filtrosGuardados[tela] || typeof filtrosGuardados[tela] !== 'object') filtrosGuardados[tela] = padrao;
+  const f = filtrosGuardados[tela];
+  Object.keys(padrao).forEach(k=>{ if(f[k] === undefined || f[k] === null) f[k] = padrao[k]; });
+  if(!PERIODOS.some(([k])=>k === f.periodo)) f.periodo = padrao.periodo;
+  return f;
+}
+/* A busca digitada não fica guardada: voltar à tela dias depois com uma
+   busca esquecida no campo faz parecer que as vendas sumiram. */
+function guardarFiltros(){
+  try{
+    const copia = {};
+    Object.entries(filtrosGuardados || {}).forEach(([t, f])=>{ copia[t] = { ...f, busca:'' }; });
+    localStorage.setItem(CHAVE_FILTROS, JSON.stringify(copia));
+  }catch(e){}
+}
+function limparFiltros(tela){
+  Object.assign(filtrosDe(tela), FILTRO_VAZIO, FILTROS_PADRAO[tela] || {});
+  guardarFiltros();
+}
+function filtroMexido(tela){
+  const f = filtrosDe(tela), p = { ...FILTRO_VAZIO, ...(FILTROS_PADRAO[tela] || {}) };
+  return ['periodo','pagamento','vendedor','origem','status','tipo','busca'].some(k=>(f[k]||'') !== (p[k]||''));
+}
+
+function inicioDoDia(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function somarDias(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function dataDoCampo(v){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+function campoDaData(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function diaCurto(d){ return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }); }
+/* A data mais antiga que a loja tem (para "Tudo"). */
+function primeiraDataDaLoja(){
+  let menor = null;
+  (DB.sales || []).forEach(s=>{ const t = s && Date.parse(s.date); if(t && (!menor || t < menor)) menor = t; });
+  return inicioDoDia(menor ? new Date(menor) : new Date());
+}
+/* O período escolhido vira um intervalo [inicio, fim) em hora local, com
+   o período anterior do mesmo tamanho para a comparação. */
+function intervaloDoFiltro(f){
+  const hoje = inicioDoDia(new Date()), amanha = somarDias(hoje, 1);
+  const ultimos = n => ({ inicio: somarDias(hoje, -(n - 1)), fim: amanha, rotulo: 'últimos ' + n + ' dias' });
+  let r, anterior = null;
+  switch(f && f.periodo){
+    case 'hoje':  r = { inicio: hoje, fim: amanha, rotulo:'hoje' }; break;
+    case 'ontem': r = { inicio: somarDias(hoje, -1), fim: hoje, rotulo:'ontem' }; break;
+    case '7d':  r = ultimos(7); break;
+    case '15d': r = ultimos(15); break;
+    case '30d': r = ultimos(30); break;
+    case '90d': r = ultimos(90); break;
+    case 'mes': {
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      r = { inicio: ini, fim: amanha, rotulo: monthLabel(monthKey(hoje)) };
+      const iniAnt = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const fimAnt = somarDias(iniAnt, Math.round((amanha - ini) / 86400000));
+      anterior = { inicio: iniAnt, fim: fimAnt < ini ? fimAnt : ini };
+      break;
+    }
+    case 'mesPassado': {
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      r = { inicio: ini, fim: new Date(hoje.getFullYear(), hoje.getMonth(), 1), rotulo: monthLabel(monthKey(ini)) };
+      anterior = { inicio: new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1), fim: ini };
+      break;
+    }
+    case 'ano': {
+      r = { inicio: new Date(hoje.getFullYear(), 0, 1), fim: amanha, rotulo: String(hoje.getFullYear()) };
+      anterior = { inicio: new Date(hoje.getFullYear() - 1, 0, 1), fim: new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate() + 1) };
+      break;
+    }
+    case 'pers': {
+      let de = dataDoCampo(f.de), ate = dataDoCampo(f.ate);
+      if(de && ate && de > ate){ const t = de; de = ate; ate = t; }
+      r = { inicio: de, fim: ate ? somarDias(ate, 1) : null,
+            rotulo: (de ? de.toLocaleDateString('pt-BR') : 'o começo') + ' a ' + (ate ? ate.toLocaleDateString('pt-BR') : 'hoje') };
+      break;
+    }
+    default: r = { inicio: null, fim: null, rotulo: 'desde o começo' };
+  }
+  const ini = r.inicio || primeiraDataDaLoja(), fim = r.fim || amanha;
+  r.dias = Math.max(1, Math.round((fim - ini) / 86400000));
+  r.anterior = anterior || (r.inicio ? { inicio: somarDias(r.inicio, -r.dias), fim: r.inicio } : null);
+  return r;
+}
+function noIntervalo(iso, r){
+  if(!r) return true;
+  const t = new Date(iso);
+  if(isNaN(t)) return !r.inicio && !r.fim;
+  return (!r.inicio || t >= r.inicio) && (!r.fim || t < r.fim);
+}
+function semAcento(t){ return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+
+/* As vendas que valem para os números (não canceladas, pedido do site só
+   depois de pago) — ou, na tela de Vendas, todas, com o filtro de status. */
+function vendasDoFiltro(f, r, opcoes){
+  opcoes = opcoes || {};
+  const busca = semAcento(f.busca);
+  const clientes = new Map((DB.customers || []).map(c=>[c.id, c.name || '']));
+  return (DB.sales || []).filter(s=>{
+    if(!s) return false;
+    if(!noIntervalo(s.date, r)) return false;
+    if(f.pagamento && semAcento(s.payment) !== semAcento(f.pagamento)) return false;
+    if(f.vendedor && (s.seller || '-') !== f.vendedor) return false;
+    if(f.origem === 'pdv' && s.origin === 'loja') return false;
+    if(f.origem === 'loja' && s.origin !== 'loja') return false;
+    if(opcoes.comStatus){
+      if(f.status === 'validas' && !vendaValida(s)) return false;
+      if(f.status === 'pendente' && (s.canceled || s.status !== 'pendente')) return false;
+      if(f.status === 'canceladas' && !s.canceled) return false;
+      if(f.status === 'devolucao' && !devolucoesDaVenda(s.id).length) return false;
+    } else if(!vendaValida(s)) return false;
+    if(busca){
+      const texto = semAcento([
+        String(s.id).slice(-6), clientes.get(s.customerId), s.entrega && s.entrega.nome, s.entrega && s.entrega.telefone,
+        s.payment, s.seller, (s.items || []).map(i=>[i.name, i.size, i.color].join(' ')).join(' '),
+        String(s.total).replace('.', ',')
+      ].join(' '));
+      if(!busca.split(/\s+/).every(p=>texto.includes(p))) return false;
+    }
+    return true;
+  });
+}
+/* Quanto a peça rendeu de verdade na venda (o desconto da venda é
+   repartido pelas peças, na proporção do preço). */
+function fatorDoDesconto(s){
+  const soma = (s.items || []).reduce((a,i)=>a + (Number(i.price)||0) * (Number(i.qty)||0), 0);
+  return soma > 0 ? Math.max(0, Math.min(1, (Number(s.total)||0) / soma)) : 0;
+}
+function custoDoItem(i, porId){
+  if(i.cost !== undefined && i.cost !== null && i.cost !== '') return Number(i.cost) || 0;
+  const p = porId.get(i.productId);
+  return p ? Number(p.cost) || 0 : 0;
+}
+function resumoDasVendas(vendas){
+  const porId = new Map((DB.products || []).map(p=>[p.id, p]));
+  let faturamento = 0, pecas = 0, descontos = 0, custo = 0, semCusto = 0;
+  vendas.forEach(s=>{
+    faturamento += Number(s.total) || 0;
+    descontos += Number(s.discount) || 0;
+    (s.items || []).forEach(i=>{
+      const q = Number(i.qty) || 0, c = custoDoItem(i, porId);
+      pecas += q; custo += c * q;
+      if(!c) semCusto += q;
+    });
+  });
+  return { vendas: vendas.length, faturamento: centavos(faturamento), pecas, descontos: centavos(descontos),
+           ticket: vendas.length ? faturamento / vendas.length : 0, lucro: centavos(faturamento - custo), semCusto };
+}
+/* Para o que é melhor quando DIMINUI (desconto dado): a seta continua
+   dizendo a verdade, só a cor troca. */
+function variacaoInversa(atual, antes){
+  const v = variacao(atual, antes);
+  if(v && v.classe !== 'igual') v.classe = v.classe === 'sobe' ? 'desce' : 'sobe';
+  return v;
+}
+function variacao(atual, antes){
+  if(antes === undefined || antes === null) return null;
+  if(!antes) return atual ? { texto:'novo', classe:'sobe' } : { texto:'= igual', classe:'igual' };
+  const p = (atual - antes) / Math.abs(antes) * 100;
+  if(Math.abs(p) < 0.5) return { texto:'= igual', classe:'igual' };
+  const n = Math.abs(p);
+  return { texto: (p > 0 ? '▲ ' : '▼ ') + (n < 10 ? n.toFixed(1) : n.toFixed(0)).replace('.', ',') + '%', classe: p > 0 ? 'sobe' : 'desce' };
+}
+/* Agrupa as vendas no gráfico: por hora (um dia), por dia (até 45 dias),
+   por semana (até ~7 meses) ou por mês. */
+function serieDoGrafico(vendas, r){
+  const hoje = inicioDoDia(new Date());
+  const ini = r.inicio || primeiraDataDaLoja(), fim = r.fim || somarDias(hoje, 1);
+  const pontos = [];
+  if(r.dias <= 1){
+    const porHora = new Array(24).fill(0);
+    vendas.forEach(s=>{ porHora[new Date(s.date).getHours()] += Number(s.total) || 0; });
+    const comVenda = porHora.map((v,h)=>v ? h : -1).filter(h=>h >= 0);
+    const de = Math.min(8, comVenda.length ? comVenda[0] : 8), ate = Math.max(20, comVenda.length ? comVenda[comVenda.length - 1] : 20);
+    for(let h = de; h <= ate; h++) pontos.push({ label: h + 'h', dica: h + 'h às ' + (h + 1) + 'h', total: centavos(porHora[h]) });
+    return { titulo:'Faturamento por hora', pontos };
+  }
+  let passo, nome, rotular;
+  if(r.dias <= 45){ passo = 1; nome = 'dia'; rotular = d => r.dias <= 7 ? d.toLocaleDateString('pt-BR', { weekday:'short' }).replace('.', '') : diaCurto(d); }
+  else if(r.dias <= 210){ passo = 7; nome = 'semana'; rotular = diaCurto; }
+  else { passo = 0; nome = 'mês'; rotular = d => monthLabel(monthKey(d)).replace('/20', '/'); }
+  const baldes = [];
+  if(passo){
+    for(let d = new Date(ini); d < fim; d = somarDias(d, passo)) baldes.push({ inicio: d, fim: somarDias(d, passo) });
+  } else {
+    for(let d = new Date(ini.getFullYear(), ini.getMonth(), 1); d < fim; d = new Date(d.getFullYear(), d.getMonth() + 1, 1))
+      baldes.push({ inicio: d, fim: new Date(d.getFullYear(), d.getMonth() + 1, 1) });
+  }
+  baldes.forEach(b=>{ b.total = 0; b.vendas = 0; });
+  vendas.forEach(s=>{
+    const t = new Date(s.date);
+    const b = baldes.find(x=>t >= x.inicio && t < x.fim);
+    if(b){ b.total += Number(s.total) || 0; b.vendas++; }
+  });
+  baldes.forEach(b=>pontos.push({
+    label: rotular(b.inicio),
+    dica: (passo === 1 ? b.inicio.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' })
+          : passo === 7 ? 'semana de ' + diaCurto(b.inicio) : monthLabel(monthKey(b.inicio))) + ' · ' + b.vendas + ' venda(s)',
+    total: centavos(b.total)
+  }));
+  return { titulo: 'Faturamento por ' + nome, pontos };
+}
+
+/* A barra de filtros. `campos` diz quais filtros esta tela usa. */
+function opcoesDeFormas(){
+  const vistas = new Map();
+  [...FORMAS_DE_PAGAMENTO, ...(DB.sales || []).map(s=>s && s.payment)].forEach(f=>{
+    if(f && !vistas.has(semAcento(f))) vistas.set(semAcento(f), f);
+  });
+  return [...vistas.values()];
+}
+function barraDeFiltros(tela, campos){
+  campos = campos || {};
+  const f = filtrosDe(tela);
+  const sel = (chave, rotulo, opcoes) => `<select data-f="${chave}" aria-label="${escapeHtml(rotulo)}">
+      ${opcoes.map(([v, n])=>`<option value="${escapeHtml(v)}" ${String(f[chave]||'') === String(v) ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}
+    </select>`;
+  const vendedores = [...new Set((DB.sales || []).map(s=>s && s.seller).filter(Boolean))].sort((a,b)=>a.localeCompare(b, 'pt-BR'));
+  const r = intervaloDoFiltro(f);
+  return `<div class="filtros" data-filtros="${tela}">
+    <div class="filtro-periodos" role="group" aria-label="Período">
+      ${PERIODOS.map(([k, n])=>`<button type="button" class="chip ${f.periodo === k ? 'ativo' : ''}" data-periodo="${k}" aria-pressed="${f.periodo === k}">${n}</button>`).join('')}
+    </div>
+    <div class="filtro-linha">
+      <span class="filtro-datas" ${f.periodo === 'pers' ? '' : 'hidden'}>
+        <label>De <input type="date" data-f="de" value="${escapeHtml(f.de)}"></label>
+        <label>até <input type="date" data-f="ate" value="${escapeHtml(f.ate)}"></label>
+      </span>
+      ${campos.busca ? `<input type="search" data-f="busca" placeholder="${escapeHtml(campos.busca)}" value="${escapeHtml(f.busca)}" autocomplete="off">` : ''}
+      ${campos.tipo ? sel('tipo', 'Tipo', [['','Receitas e despesas'],['receita','Só receitas'],['despesa','Só despesas']]) : ''}
+      ${campos.statusFinanceiro ? sel('status', 'Situação', [['','Pagos e pendentes'],['pago','Só pagos'],['pendente','Só pendentes']]) : ''}
+      ${campos.status ? sel('status', 'Situação', [['','Todas as situações'],['validas','Concluídas e pagas'],['pendente','Pedidos pendentes'],['canceladas','Canceladas'],['devolucao','Com devolução']]) : ''}
+      ${campos.pagamento ? sel('pagamento', 'Forma de pagamento', [['','Todas as formas'], ...opcoesDeFormas().map(x=>[x, x])]) : ''}
+      ${campos.vendedor && vendedores.length > 1 ? sel('vendedor', 'Vendedor(a)', [['','Todos(as) vendedores(as)'], ...vendedores.map(x=>[x, x])]) : ''}
+      ${campos.origem ? sel('origem', 'Origem', [['','Balcão e loja virtual'],['pdv','Só balcão (PDV)'],['loja','Só loja virtual']]) : ''}
+      <span class="filtro-rotulo">${escapeHtml(r.rotulo.charAt(0).toUpperCase() + r.rotulo.slice(1))}</span>
+      ${filtroMexido(tela) ? `<button type="button" class="btn btn-sm" data-limpar>✕ Limpar filtros</button>` : ''}
+    </div>
+  </div>`;
+}
+/* `aoMudar(soResultados)`: soResultados = true quando só a busca mudou
+   (redesenhar a tela inteira tiraria o cursor do campo). */
+function ligarFiltros(raiz, tela, aoMudar){
+  const caixa = raiz.querySelector(`[data-filtros="${tela}"]`);
+  if(!caixa) return;
+  const f = filtrosDe(tela);
+  caixa.querySelectorAll('[data-periodo]').forEach(b=>b.addEventListener('click', ()=>{
+    f.periodo = b.dataset.periodo;
+    if(f.periodo === 'pers' && !f.de && !f.ate){
+      f.de = campoDaData(somarDias(new Date(), -29)); f.ate = campoDaData(new Date());
+    }
+    guardarFiltros(); aoMudar(false);
+  }));
+  let espera = null;
+  caixa.querySelectorAll('[data-f]').forEach(campo=>{
+    const k = campo.dataset.f;
+    if(k === 'busca'){
+      campo.addEventListener('input', ()=>{
+        f.busca = campo.value;
+        clearTimeout(espera); espera = setTimeout(()=>aoMudar(true), 180);
+      });
+    } else campo.addEventListener('change', ()=>{ f[k] = campo.value; guardarFiltros(); aoMudar(false); });
+  });
+  caixa.querySelector('[data-limpar]')?.addEventListener('click', ()=>{ limparFiltros(tela); aoMudar(false); });
+}
+/* Abre outra tela já com um filtro (ex.: "ver as vendas deste período"). */
+function abrirComFiltro(tela, mudancas){
+  Object.assign(filtrosDe(tela), FILTRO_VAZIO, FILTROS_PADRAO[tela] || {}, mudancas || {});
+  guardarFiltros();
+  navigate(tela);
+}
+function cartaoKpi(rotulo, valor, delta, sub){
+  return `<div class="kpi">
+    <div class="kpi-rotulo">${rotulo}</div>
+    <div class="kpi-valor">${valor}</div>
+    <div class="kpi-pe">${delta ? `<span class="delta ${delta.classe}" title="Comparado com o período anterior do mesmo tamanho">${delta.texto}</span>` : ''}${sub ? `<span class="kpi-sub">${sub}</span>` : ''}</div>
+  </div>`;
+}
+function barraPct(pct){ return `<div class="barra-pct"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`; }
+function baixarCsv(nome, linhas){
+  const c = v => '"' + textoSeguroNaPlanilha(v).replace(/"/g, '""') + '"';
+  const blob = new Blob(['﻿' + linhas.map(l=>l.map(c).join(';')).join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nome;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); }, 4000);
+}
+const reais = v => (Number(v) || 0).toFixed(2).replace('.', ',');
+
+/* O caixa em números — um lugar só para a tela do Caixa, o fechamento e
+   o Painel. Sangria/reforço anulados não contam. */
+function movimentosValidos(cr){ return ((cr && cr.movements) || []).filter(m=>m && !m.anulado); }
+function resumoDoCaixa(cr){
+  const vendas = vendasDoCaixa(cr);
+  const movs = movimentosValidos(cr);
+  const dinheiro = vendas.filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a + (Number(s.total)||0), 0);
+  const reforcos = movs.filter(m=>m.type === 'reforco').reduce((a,m)=>a + Number(m.amount || 0), 0);
+  const sangrias = movs.filter(m=>m.type === 'sangria').reduce((a,m)=>a + Number(m.amount || 0), 0);
+  const porForma = {};
+  vendas.forEach(s=>{ porForma[s.payment] = centavos((porForma[s.payment] || 0) + (Number(s.total)||0)); });
+  return { vendas, movs, porForma, total: centavos(vendas.reduce((a,s)=>a + (Number(s.total)||0), 0)),
+           dinheiro: centavos(dinheiro), reforcos: centavos(reforcos), sangrias: centavos(sangrias),
+           naGaveta: centavos(Number((cr && cr.openingAmount) || 0) + dinheiro + reforcos - sangrias) };
+}
+
+/* =========================================================
    PAINEL
    ========================================================= */
 function renderPainel(el){
-  const today = new Date(); today.setHours(0,0,0,0);
-  const salesToday = DB.sales.filter(s=>vendaValida(s) && new Date(s.date)>=today);
-  const totalToday = salesToday.reduce((a,s)=>a+s.total,0);
+  const f = filtrosDe('painel');
+  const r = intervaloDoFiltro(f);
+  const vendas = vendasDoFiltro(f, r);
+  const res = resumoDasVendas(vendas);
+  const ant = r.anterior ? resumoDasVendas(vendasDoFiltro(f, { ...r.anterior })) : null;
+  const admin = ehAdmin();
   const lowStock = countLowStock();
-  const pendingOnline = DB.sales.filter(s=>s.origin==='loja' && s.status==='pendente' && !s.canceled).length;
-  const mk = monthKey();
-  const financeMonth = DB.finance.entries.filter(e=>chaveMes(e.date) === mk);
-  const receitasMes = financeMonth.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
-  const despesasMes = financeMonth.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
-  const perdasMes = resumoPerdas(d => chaveMes(d) === mk);
+  const pendentes = DB.sales.filter(s=>s.origin === 'loja' && s.status === 'pendente' && !s.canceled).length;
+  const perdas = resumoPerdas(d => noIntervalo(d, r));
+  const cr = DB.cashRegister;
+  const caixa = cr.open ? resumoDoCaixa(cr) : null;
+  const lanc = DB.finance.entries.filter(e=>e.status === 'pago' && noIntervalo(e.date, r));
+  const saldo = lanc.reduce((a,e)=>a + (e.type === 'receita' ? 1 : -1) * (Number(e.amount)||0), 0);
+  const serie = serieDoGrafico(vendas, r);
+  const nome = SESSION ? String(SESSION.name || SESSION.user || '').split(' ')[0] : '';
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+
+  /* Top peças, formas de pagamento e vendedores do período. */
+  const porPeca = new Map(), porForma = new Map(), porVendedor = new Map();
+  vendas.forEach(s=>{
+    const fator = fatorDoDesconto(s);
+    (s.items || []).forEach(i=>{
+      const k = i.name || 'Peça';
+      const x = porPeca.get(k) || { nome:k, qtd:0, valor:0 };
+      x.qtd += Number(i.qty)||0; x.valor += (Number(i.price)||0) * (Number(i.qty)||0) * fator;
+      porPeca.set(k, x);
+    });
+    const fp = s.payment || '-';
+    const y = porForma.get(fp) || { nome:fp, vendas:0, valor:0 }; y.vendas++; y.valor += Number(s.total)||0; porForma.set(fp, y);
+    const vd = s.seller || '-';
+    const z = porVendedor.get(vd) || { nome:vd, vendas:0, valor:0 }; z.vendas++; z.valor += Number(s.total)||0; porVendedor.set(vd, z);
+  });
+  const topPecas = [...porPeca.values()].sort((a,b)=>b.qtd - a.qtd || b.valor - a.valor).slice(0, 8);
+  const formas = [...porForma.values()].sort((a,b)=>b.valor - a.valor);
+  const vendedores = [...porVendedor.values()].sort((a,b)=>b.valor - a.valor);
+  const ultimas = [...vendas].sort((a,b)=>new Date(b.date) - new Date(a.date)).slice(0, 6);
+  const totalGeral = res.faturamento || 1;
+  const vazio = t => `<div class="empty-state">${t}</div>`;
 
   el.innerHTML = `
-    <div class="cards-row">
-      <div class="card"><div class="label">Vendas hoje</div><div class="value">${salesToday.length}</div></div>
-      <div class="card"><div class="label">Faturado hoje</div><div class="value">${money(totalToday)}</div></div>
-      <div class="card"><div class="label">Estoque baixo</div><div class="value ${lowStock>0?'text-danger':''}">${lowStock}</div></div>
-      <div class="card"><div class="label">Pedidos online pendentes</div><div class="value ${pendingOnline>0?'text-danger':''}">${pendingOnline}</div></div>
-      ${ehAdmin() ? `<div class="card"><div class="label">Saldo do mês</div><div class="value ${receitasMes-despesasMes>=0?'text-success':'text-danger'}">${money(receitasMes-despesasMes)}</div></div>` : ''}
-      <div class="card" style="cursor:pointer" onclick="navigate('perdas')" title="Abrir Perdas e Devoluções"><div class="label">Perdas e devoluções no mês</div>
-        <div class="value ${perdasMes.perdasPecas ? 'text-danger' : ''}">${perdasMes.perdasPecas} <span class="unidade">perda(s)</span> · ${perdasMes.devPecas} <span class="unidade">devol.</span></div></div>
+    <div class="painel-cabeca">
+      <div>
+        <div class="painel-ola">${saudacao}${nome ? ', ' + escapeHtml(nome) : ''}</div>
+        <div class="text-muted" style="font-size:13px">${escapeHtml(new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' }))}</div>
+      </div>
+      <div class="painel-atalhos">
+        <button class="btn btn-accent" onclick="navigate('pdv')">🛒 Nova venda</button>
+        <button class="btn" onclick="navigate('produtos');setTimeout(()=>openProductModal(),60)">＋ Nova peça</button>
+        <button class="btn" onclick="navigate('etiquetas')">🏷️ Etiquetas</button>
+        <button class="btn" onclick="navigate('perdas')">↩ Perda/devolução</button>
+      </div>
+    </div>
+    ${barraDeFiltros('painel', { pagamento:true, vendedor:true, origem:true })}
+    <div class="kpis">
+      ${cartaoKpi('Faturamento', money(res.faturamento), ant && variacao(res.faturamento, ant.faturamento))}
+      ${cartaoKpi('Vendas', res.vendas, ant && variacao(res.vendas, ant.vendas))}
+      ${cartaoKpi('Ticket médio', money(res.ticket), ant && variacao(res.ticket, ant.ticket))}
+      ${cartaoKpi('Peças vendidas', res.pecas, ant && variacao(res.pecas, ant.pecas))}
+      ${admin ? cartaoKpi('Lucro bruto', money(res.lucro), ant && variacao(res.lucro, ant.lucro),
+          res.semCusto ? res.semCusto + ' peça(s) sem custo' : (res.faturamento ? 'margem ' + Math.round(res.lucro / res.faturamento * 100) + '%' : '')) : ''}
+      ${cartaoKpi('Descontos dados', money(res.descontos), ant && variacaoInversa(res.descontos, ant.descontos))}
+    </div>
+    <div class="alertas">
+      <button type="button" class="alerta ${cr.open ? 'ok' : 'atencao'}" onclick="navigate('caixa')">
+        <span class="ic">💵</span><span><strong>${cr.open ? 'Caixa aberto' : 'Caixa fechado'}</strong>
+        <span>${cr.open ? money(caixa.naGaveta) + ' na gaveta · ' + caixa.vendas.length + ' venda(s)' : 'Abre sozinho na primeira venda'}</span></span></button>
+      <button type="button" class="alerta ${lowStock ? 'atencao' : 'ok'}" onclick="navigate('estoque')">
+        <span class="ic">📦</span><span><strong>${lowStock} com estoque baixo</strong><span>até ${DB.config.minStock} peça(s) · toque para ver</span></span></button>
+      <button type="button" class="alerta ${pendentes ? 'perigo' : 'ok'}" onclick="abrirComFiltro('vendas',{ periodo:'tudo', status:'pendente' })">
+        <span class="ic">🛍️</span><span><strong>${pendentes} pedido(s) do site</strong><span>${pendentes ? 'esperando pagamento' : 'nada pendente'}</span></span></button>
+      <button type="button" class="alerta ${perdas.perdasPecas ? 'atencao' : 'ok'}" onclick="navigate('perdas')">
+        <span class="ic">↩</span><span><strong>${perdas.perdasPecas} perda(s) · ${perdas.devPecas} devol.</strong><span>${escapeHtml(r.rotulo)}</span></span></button>
+      ${admin ? `<button type="button" class="alerta ${saldo >= 0 ? 'ok' : 'perigo'}" onclick="verFinanceiroDoPainel()">
+        <span class="ic">📊</span><span><strong>Saldo ${money(saldo)}</strong><span>Financeiro · ${escapeHtml(r.rotulo)}</span></span></button>` : ''}
+    </div>
+    <div class="panel">
+      <div class="panel-titulo"><h3>${serie.titulo}</h3>
+        <span class="text-muted" style="font-size:12.5px">${money(res.faturamento)} em ${res.vendas} venda(s) · ${escapeHtml(r.rotulo)}</span></div>
+      <canvas id="graficoPainel" height="90"></canvas>
     </div>
     <div class="grid-2">
       <div class="panel">
-        <h3>Últimas vendas</h3>
-        ${lastSalesTable()}
+        <div class="panel-titulo"><h3>Peças mais vendidas</h3></div>
+        ${topPecas.length ? `<div class="table-wrap"><table><thead><tr><th>Peça</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Faturado</th></tr></thead><tbody>
+          ${topPecas.map(x=>`<tr><td>${escapeHtml(x.nome)}</td><td style="text-align:right">${x.qtd}</td><td style="text-align:right">${money(x.valor)}</td></tr>`).join('')}
+        </tbody></table></div>` : vazio('Nenhuma venda neste período')}
       </div>
       <div class="panel">
-        <h3>Produtos com estoque baixo</h3>
-        ${lowStockTable()}
+        <div class="panel-titulo"><h3>Formas de pagamento</h3></div>
+        ${formas.length ? formas.map(x=>`<div class="linha-pct">
+            <div class="linha-pct-topo"><span>${escapeHtml(x.nome)} <small class="text-muted">${x.vendas} venda(s)</small></span><strong>${money(x.valor)}</strong></div>
+            ${barraPct(x.valor / totalGeral * 100)}</div>`).join('') : vazio('Nenhuma venda neste período')}
       </div>
-    </div>`;
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-titulo"><h3>Últimas vendas do período</h3>
+          ${res.vendas ? `<button type="button" class="link-mais" onclick="verVendasDoPainel()">Ver todas →</button>` : ''}</div>
+        ${ultimas.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Pagto</th><th style="text-align:right">Total</th></tr></thead><tbody>
+          ${ultimas.map(s=>`<tr><td>${dateBR(s.date)}</td><td>${escapeHtml(s.entrega && s.entrega.nome ? s.entrega.nome : customerName(s.customerId))}</td><td>${escapeHtml(s.payment)}</td><td style="text-align:right">${money(s.total)}</td></tr>`).join('')}
+        </tbody></table></div>` : vazio('Nenhuma venda neste período')}
+      </div>
+      <div class="panel">
+        <div class="panel-titulo"><h3>${vendedores.length > 1 ? 'Vendas por vendedor(a)' : 'Produtos com estoque baixo'}</h3>
+          ${vendedores.length > 1 ? '' : `<button type="button" class="link-mais" onclick="navigate('estoque')">Abrir estoque →</button>`}</div>
+        ${vendedores.length > 1 ? vendedores.map(x=>`<div class="linha-pct">
+            <div class="linha-pct-topo"><span>${escapeHtml(x.nome)} <small class="text-muted">${x.vendas} venda(s) · ticket ${money(x.valor / x.vendas)}</small></span><strong>${money(x.valor)}</strong></div>
+            ${barraPct(x.valor / totalGeral * 100)}</div>`).join('') : lowStockTable()}
+      </div>
+    </div>
+    ${vendedores.length > 1 ? `<div class="panel"><div class="panel-titulo"><h3>Produtos com estoque baixo</h3>
+      <button type="button" class="link-mais" onclick="navigate('estoque')">Abrir estoque →</button></div>${lowStockTable()}</div>` : ''}`;
+  ligarFiltros(el, 'painel', ()=>redesenhar(renderPainel));
+  drawBarChart('graficoPainel', serie.pontos);
 }
+/* Do Painel para a lista, levando o mesmo período e os mesmos filtros. */
+function verVendasDoPainel(){
+  const f = filtrosDe('painel');
+  abrirComFiltro('vendas', { periodo:f.periodo, de:f.de, ate:f.ate, pagamento:f.pagamento, vendedor:f.vendedor, origem:f.origem, status:'validas' });
+}
+function verFinanceiroDoPainel(){
+  const f = filtrosDe('painel');
+  abrirComFiltro('financeiro', { periodo:f.periodo, de:f.de, ate:f.ate });
+}
+
 function countLowStock(){
   let n=0;
   DB.products.forEach(p=>p.variations.forEach(v=>{ if(v.stock<=DB.config.minStock) n++; }));
   return n;
-}
-function lastSalesTable(){
-  const list = [...DB.sales].filter(s=>!s.canceled).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
-  if(!list.length) return `<div class="empty-state">Nenhuma venda ainda</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Total</th><th>Pagto</th></tr></thead><tbody>
-    ${list.map(s=>`<tr><td>${dateBR(s.date)}</td><td>${escapeHtml(customerName(s.customerId))}</td><td>${money(s.total)}</td><td>${escapeHtml(s.payment)}${s.status==='pendente'?' <span class="badge badge-warning">Pendente</span>':''}</td></tr>`).join('')}
-  </tbody></table></div>`;
 }
 function lowStockTable(){
   const rows=[];
@@ -5081,8 +5504,14 @@ async function testarCupomFiscal(){
    VENDAS
    ========================================================= */
 function renderVendas(el){
-  el.innerHTML = `<div id="linkDoPdf"></div><div id="vendasWrap"></div>`;
+  el.innerHTML = barraDeFiltros('vendas', { busca:'Buscar cliente, peça, nº da venda ou valor', status:true, pagamento:true, vendedor:true, origem:true })
+    + `<div id="linkDoPdf"></div><div id="vendasWrap"></div>`;
+  ligarFiltros(el, 'vendas', so=>{ vendasMostradas = 100; if(so) renderVendasTable(); else redesenhar(renderVendas); });
   renderVendasTable();
+}
+function vendasDaTela(){
+  const f = filtrosDe('vendas');
+  return vendasDoFiltro(f, intervaloDoFiltro(f), { comStatus:true }).sort((a,b)=>new Date(b.date) - new Date(a.date));
 }
 /* A tela desenhava TODAS as vendas de uma vez. Com 800 vendas já eram 8.814
    elementos na tela; em um ano de loja isso trava o celular. Mostramos as
@@ -5094,17 +5523,32 @@ function renderVendasTable(){
      sistema aqui: não havia tabela para redesenhar. Sem tela, nada a
      fazer — o dado já foi salvo, que é o que importa. */
   if(!wrap) return;
-  const todas = [...DB.sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!todas.length){ wrap.innerHTML=`<div class="empty-state">Nenhuma venda registrada</div>`; return; }
+  if(!DB.sales.length){ wrap.innerHTML=`<div class="empty-state">Nenhuma venda registrada</div>`; return; }
+  const todas = vendasDaTela();
+  if(!todas.length){
+    wrap.innerHTML = `<div class="empty-state">Nenhuma venda com esses filtros.
+      <button class="btn btn-sm" onclick="limparFiltros('vendas');redesenhar(renderVendas)">Limpar filtros</button></div>`;
+    return;
+  }
+  const validas = todas.filter(vendaValida);
+  const res = resumoDasVendas(validas);
   const list = todas.slice(0, vendasMostradas);
   const faltam = todas.length - list.length;
-  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>
+  wrap.innerHTML = `<div class="lista-resumo">
+      <span><strong>${todas.length}</strong> venda(s)${validas.length !== todas.length ? ` · ${validas.length} valendo` : ''}</span>
+      <span>Faturado <strong>${money(res.faturamento)}</strong></span>
+      <span>Ticket médio <strong>${money(res.ticket)}</strong></span>
+      <span>Peças <strong>${res.pecas}</strong></span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" onclick="exportarVendas()">⬇ Planilha (CSV)</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr>
     <th>Data</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagto</th><th>Origem</th><th>Status</th><th></th>
   </tr></thead><tbody>
     ${list.map(s=>`<tr style="${s.canceled?'opacity:.5':''}">
-      <td>${dateBR(s.date)}</td>
+      <td>${dateBR(s.date)}<div class="text-muted" style="font-size:11px">nº ${escapeHtml(String(s.id).slice(-6).toUpperCase())}</div></td>
       <td>${escapeHtml(s.entrega && s.entrega.nome ? s.entrega.nome : customerName(s.customerId))}${s.entrega && s.entrega.endereco ? `<div class="text-muted" style="font-size:11.5px;white-space:normal">Entregar em: ${escapeHtml(s.entrega.endereco)}${s.entrega.telefone ? ' · ' + escapeHtml(s.entrega.telefone) : ''}</div>` : ''}</td>
-      <td>${s.items.reduce((a,i)=>a+i.qty,0)}</td>
+      <td title="${escapeHtml((s.items||[]).map(i=>i.qty + ' × ' + i.name).join('\n'))}">${s.items.reduce((a,i)=>a+i.qty,0)}</td>
       <td>${money(s.total)}</td>
       <td>${escapeHtml(s.payment)}</td>
       <td>${s.origin==='loja'?'<span class="badge badge-gold">Loja virtual</span>':'PDV'}</td>
@@ -5113,10 +5557,30 @@ function renderVendasTable(){
     </tr>`).join('')}
   </tbody></table></div>
   ${faltam ? `<div style="text-align:center;margin-top:12px">
-    <button class="btn" onclick="verMaisVendas()">Ver mais ${Math.min(faltam,100)} de ${faltam} vendas antigas</button>
+    <button class="btn" onclick="verMaisVendas()">Ver mais ${Math.min(faltam,100)} de ${faltam} vendas</button>
   </div>` : ''}`;
 }
 function verMaisVendas(){ vendasMostradas += 100; renderVendasTable(); }
+function situacaoDaVenda(s){
+  if(s.canceled) return 'Cancelada';
+  if(s.status === 'pendente') return 'Pendente';
+  if(s.status === 'entregue') return 'Entregue';
+  return 'Concluída';
+}
+function exportarVendas(lista){
+  lista = lista || vendasDaTela();
+  if(!lista.length){ toast('Não há vendas neste filtro','warn'); return; }
+  baixarCsv(`vendas-${new Date().toISOString().slice(0,10)}.csv`, [
+    ['Dia','Horário','Nº','Cliente','Peças (descrição)','Qtd. de peças','Desconto (R$)','Total (R$)','Pagamento','Vendedor(a)','Origem','Situação'],
+    ...lista.map(s=>[new Date(s.date).toLocaleDateString('pt-BR'), horaBR(s.date), String(s.id).slice(-6).toUpperCase(),
+      s.entrega && s.entrega.nome ? s.entrega.nome : customerName(s.customerId),
+      (s.items||[]).map(i=>i.qty + ' x ' + i.name + ([i.size, i.color].filter(v=>v && v !== 'Único' && v !== 'Padrão').length ? ' (' + [i.size, i.color].filter(v=>v && v !== 'Único' && v !== 'Padrão').join('/') + ')' : '')).join('; '),
+      (s.items||[]).reduce((a,i)=>a + (Number(i.qty)||0), 0), reais(s.discount), reais(s.total), s.payment, s.seller || '-',
+      s.origin === 'loja' ? 'Loja virtual' : 'PDV', situacaoDaVenda(s)])
+  ]);
+  toast(lista.length + ' venda(s) na planilha');
+}
+
 function saleStatusBadge(s){
   if(s.canceled) return '<span class="badge badge-danger">Cancelada</span>';
   if(s.status==='pendente') return '<span class="badge badge-warning">Pendente</span>';
@@ -6074,22 +6538,19 @@ function vendasDoCaixa(cr){
 }
 function renderCaixa(el){
   const cr = DB.cashRegister;
-  const salesInSession = vendasDoCaixa(cr);
-  const byPay = {};
-  salesInSession.forEach(s=>{ byPay[s.payment]=(byPay[s.payment]||0)+s.total; });
-  const dinheiro = salesInSession.filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
-  const reforcos = cr.movements.filter(m=>m.type==='reforco').reduce((a,m)=>a+Number(m.amount||0),0);
-  const sangrias = cr.movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+Number(m.amount||0),0);
-  const naGaveta = Number(cr.openingAmount||0) + dinheiro + reforcos - sangrias;
+  const cx = resumoDoCaixa(cr);
+  const movs = [...cx.movs].sort((a,b)=>new Date(b.date) - new Date(a.date));
   el.innerHTML = `
     <div class="panel">
       <h3>Status do caixa</h3>
       ${cr.open ? `
-        <p>Caixa <strong class="text-success">aberto</strong> desde ${dateBR(cr.openedAt)} — valor inicial ${money(cr.openingAmount)}</p>
+        <p>Caixa <strong class="text-success">aberto</strong> desde ${dateBR(cr.openedAt)} — valor inicial ${money(cr.openingAmount)}
+          <button type="button" class="link-mais" onclick="editarValorInicial()">✏️ corrigir</button></p>
         <div class="cards-row" style="margin-top:14px;margin-bottom:0">
-          <div class="card"><div class="label">Vendas nesta sessão</div><div class="value">${salesInSession.length}</div></div>
-          <div class="card"><div class="label">Total vendido</div><div class="value">${money(salesInSession.reduce((a,s)=>a+s.total,0))}</div></div>
-          <div class="card"><div class="label">Dinheiro na gaveta (esperado)</div><div class="value">${money(naGaveta)}</div></div>
+          <div class="card"><div class="label">Vendas nesta sessão</div><div class="value">${cx.vendas.length}</div></div>
+          <div class="card"><div class="label">Total vendido</div><div class="value">${money(cx.total)}</div></div>
+          <div class="card"><div class="label">Dinheiro na gaveta (esperado)</div><div class="value">${money(cx.naGaveta)}</div>
+            <div class="text-muted" style="font-size:11.5px;margin-top:6px">inicial ${money(cr.openingAmount)} + vendas em dinheiro ${money(cx.dinheiro)} + reforços ${money(cx.reforcos)} − sangrias ${money(cx.sangrias)}</div></div>
         </div>
         <div class="toolbar" style="margin-top:14px">
           <button class="btn" onclick="openMovementModal('sangria')">➖ Sangria</button>
@@ -6100,7 +6561,7 @@ function renderCaixa(el){
       ` : `
         <p>Caixa <strong class="text-danger">fechado</strong></p>
         <div class="toolbar" style="margin-top:14px">
-          <input type="number" id="openAmount" placeholder="Valor inicial (R$)" style="width:180px">
+          <input type="number" id="openAmount" placeholder="Valor inicial (R$)" step="0.01" min="0" inputmode="decimal" style="width:180px">
           <button class="btn btn-accent" onclick="openCashRegister()">Abrir caixa</button>
         </div>
       `}
@@ -6108,11 +6569,15 @@ function renderCaixa(el){
     ${cr.open ? `<div class="panel">
       <h3>Resumo por forma de pagamento</h3>
       <div class="table-wrap"><table><thead><tr><th>Forma</th><th>Total</th></tr></thead><tbody>
-        ${Object.keys(byPay).length ? Object.entries(byPay).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma venda nesta sessão</td></tr>'}
+        ${Object.keys(cx.porForma).length ? Object.entries(cx.porForma).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma venda nesta sessão</td></tr>'}
       </tbody></table></div>
       <h3 style="margin-top:18px">Movimentações</h3>
-      <div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Valor</th><th>Obs</th><th>Data</th></tr></thead><tbody>
-        ${cr.movements.length ? cr.movements.map(m=>`<tr><td>${m.type==='sangria'?'➖ Sangria':'➕ Reforço'}</td><td>${money(m.amount)}</td><td>${escapeHtml(m.note||'-')}</td><td>${dateBR(m.date)}</td></tr>`).join('') : '<tr><td colspan="4">Nenhuma movimentação</td></tr>'}
+      <div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Valor</th><th>Obs</th><th>Data</th><th></th></tr></thead><tbody>
+        ${movs.length ? movs.map(m=>`<tr><td>${m.type==='sangria'?'➖ Sangria':'➕ Reforço'}</td><td>${money(m.amount)}</td><td>${escapeHtml(m.note||'-')}</td><td>${dateBR(m.date)}</td>
+          <td>${m.devolucaoId ? '<span class="text-muted" style="font-size:12px">pela devolução</span>'
+              : `<button class="btn btn-sm" data-editar-mov="${escapeHtml(chaveDoMovimento(m))}">Editar</button>
+                 <button class="btn btn-sm btn-danger" data-anular-mov="${escapeHtml(chaveDoMovimento(m))}">Excluir</button>`}</td></tr>`).join('')
+          : '<tr><td colspan="5">Nenhuma movimentação</td></tr>'}
       </tbody></table></div>
     </div>` : ''}
     ${cr.closedHistory.length ? `<div class="panel">
@@ -6123,6 +6588,8 @@ function renderCaixa(el){
           <td>${h.naGaveta === undefined ? '-' : money(h.naGaveta)}</td><td>${escapeHtml(h.fechadoPor||'-')}</td></tr>`).join('')}
       </tbody></table></div>
     </div>` : ''}`;
+  el.querySelectorAll('[data-editar-mov]').forEach(b=>b.addEventListener('click', ()=>openMovementModal(null, b.dataset.editarMov)));
+  el.querySelectorAll('[data-anular-mov]').forEach(b=>b.addEventListener('click', ()=>anularMovimento(b.dataset.anularMov)));
 }
 function openCashRegister(){
   const amount = Number(document.getElementById('openAmount').value)||0;
@@ -6132,77 +6599,147 @@ function openCashRegister(){
 function closeCashRegister(){
   if(!confirm('Fechar o caixa?')) return;
   const cr = DB.cashRegister;
-  const salesInSession = vendasDoCaixa(cr);
-  const total = centavos(salesInSession.reduce((a,s)=>a+s.total,0));
-  const dinheiro = salesInSession.filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
-  const reforcos = cr.movements.filter(m=>m.type==='reforco').reduce((a,m)=>a+Number(m.amount||0),0);
-  const sangrias = cr.movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+Number(m.amount||0),0);
-  const porForma = {};
-  salesInSession.forEach(s=>{ porForma[s.payment] = centavos((porForma[s.payment]||0) + s.total); });
-  cr.closedHistory.push({ openedAt:cr.openedAt, closedAt: todayISO(), openingAmount:cr.openingAmount, totalSales: total,
-    vendas: salesInSession.length, porForma, dinheiro: centavos(dinheiro), reforcos: centavos(reforcos), sangrias: centavos(sangrias),
-    naGaveta: centavos(Number(cr.openingAmount||0) + dinheiro + reforcos - sangrias),
-    fechadoPor: SESSION ? SESSION.name : '-', movements: cr.movements });
+  const cx = resumoDoCaixa(cr);
+  cr.closedHistory.push({ openedAt:cr.openedAt, closedAt: todayISO(), openingAmount:cr.openingAmount, totalSales: cx.total,
+    vendas: cx.vendas.length, porForma: cx.porForma, dinheiro: cx.dinheiro, reforcos: cx.reforcos, sangrias: cx.sangrias,
+    naGaveta: cx.naGaveta, fechadoPor: SESSION ? SESSION.name : '-', movements: cr.movements });
   DB.cashRegister = { open:false, openedAt:null, openingAmount:0, movements:[], closedHistory: cr.closedHistory };
   saveDB(); renderCaixa(document.getElementById('view')); toast('Caixa fechado');
 }
-function openMovementModal(type){
+/* Achar a movimentação pela chave que a tela mostrou. Movimentação antiga
+   (sem número próprio) ganha como número a própria chave — assim a
+   junção entre aparelhos continua reconhecendo que é a mesma. */
+function movimentoPelaChave(chave){
+  const m = (DB.cashRegister.movements || []).find(x=>x && chaveDoMovimento(x) === chave);
+  if(m && !m.id) m.id = chaveDoMovimento(m);
+  return m || null;
+}
+function openMovementModal(type, chave){
+  const editando = chave ? movimentoPelaChave(chave) : null;
+  if(chave && !editando){ toast('Movimentação não encontrada. Atualize a tela.','error'); return; }
+  if(editando) type = editando.type;
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:400px">
-    <h2>${type==='sangria'?'➖ Sangria':'➕ Reforço'}</h2>
-    <div class="field"><label>Valor (R$)</label><input type="number" id="m_amount" step="0.01"></div>
-    <div class="field" style="margin-top:10px"><label>Observação</label><input id="m_note"></div>
-    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Confirmar</button></div>
+    <h2>${editando ? 'Editar ' : ''}${type==='sangria'?'➖ Sangria':'➕ Reforço'}</h2>
+    ${editando ? `<div class="field"><label>Tipo</label>
+      <select id="m_tipo"><option value="sangria" ${type==='sangria'?'selected':''}>➖ Sangria (saiu da gaveta)</option><option value="reforco" ${type==='reforco'?'selected':''}>➕ Reforço (entrou na gaveta)</option></select></div>` : ''}
+    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="m_amount" step="0.01" min="0" inputmode="decimal" value="${editando ? Number(editando.amount)||'' : ''}"></div>
+    <div class="field" style="margin-top:10px"><label>Observação</label><input id="m_note" value="${escapeHtml(editando ? editando.note||'' : '')}"></div>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">${editando ? 'Salvar' : 'Confirmar'}</button></div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#m_amount').focus();
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
-    const amount = Number(overlay.querySelector('#m_amount').value)||0;
+    const amount = centavos(Number(overlay.querySelector('#m_amount').value)||0);
     if(amount<=0){ toast('Informe um valor','error'); return; }
-    if(type === 'sangria'){
-      const cr = DB.cashRegister;
-      const dinheiro = vendasDoCaixa(cr).filter(s=>/dinheiro/i.test(s.payment)).reduce((a,s)=>a+s.total,0);
-      const naGaveta = Number(cr.openingAmount||0) + dinheiro
-        + cr.movements.reduce((a,m)=>a + (m.type==='reforco' ? 1 : -1) * Number(m.amount||0), 0);
+    const tipo = editando ? overlay.querySelector('#m_tipo').value : type;
+    if(tipo === 'sangria'){
+      const naGaveta = resumoDoCaixa(DB.cashRegister).naGaveta + (editando && editando.type === 'sangria' ? Number(editando.amount)||0 : 0)
+                     - (editando && editando.type === 'reforco' ? Number(editando.amount)||0 : 0);
       if(amount > naGaveta + 0.004 && !confirm('A sangria (' + money(amount) + ') é maior que o dinheiro que o sistema espera na gaveta (' + money(naGaveta) + ').\n\nRegistrar mesmo assim?')) return;
     }
-    DB.cashRegister.movements.push({ id:uid(), type, amount: centavos(amount), note: overlay.querySelector('#m_note').value.trim(), date: todayISO() });
+    const nota = overlay.querySelector('#m_note').value.trim();
+    if(editando){
+      Object.assign(editando, { type: tipo, amount, note: nota });
+      carimbar(editando);
+    } else DB.cashRegister.movements.push(carimbar({ id:uid(), type: tipo, amount, note: nota, date: todayISO() }));
     saveDB(); overlay.remove(); renderCaixa(document.getElementById('view'));
-    toast('Movimentação registrada');
+    toast(editando ? 'Movimentação corrigida' : 'Movimentação registrada');
+  });
+}
+/* Excluir uma sangria/reforço lançado errado. A linha fica marcada como
+   anulada (e some da tela e das contas) em vez de ser apagada: assim o
+   outro aparelho, que ainda tem a versão antiga, recebe a anulação na
+   junção em vez de trazer a movimentação de volta. */
+function anularMovimento(chave){
+  const m = movimentoPelaChave(chave);
+  if(!m) return;
+  if(!confirm('Excluir esta ' + (m.type === 'sangria' ? 'sangria' : 'movimentação') + ' de ' + money(m.amount) + '?\n\nO dinheiro esperado na gaveta é recalculado.')) return;
+  m.anulado = true; carimbar(m);
+  saveDB(); renderCaixa(document.getElementById('view')); toast('Movimentação excluída');
+}
+function editarValorInicial(){
+  const cr = DB.cashRegister;
+  if(!cr.open) return;
+  const overlay = document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:380px">
+    <h2>Valor inicial do caixa</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">O troco que estava na gaveta quando o caixa abriu (${dateBR(cr.openedAt)}).</p>
+    <div class="field"><label>Valor (R$)</label><input type="number" id="vi_valor" step="0.01" min="0" inputmode="decimal" value="${Number(cr.openingAmount)||0}"></div>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-accent" id="saveBtn">Salvar</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const campo = overlay.querySelector('#vi_valor'); campo.focus(); campo.select();
+  overlay.querySelector('#cancelBtn').addEventListener('click', ()=>overlay.remove());
+  overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
+    const v = Number(String(campo.value).replace(',', '.'));
+    if(!(v >= 0) || campo.value === ''){ toast('Digite o valor (0 ou mais)','error'); return; }
+    cr.openingAmount = centavos(v);
+    cr.valorInicialEm = todayISO();
+    delete cr.automatica;               // o lojista conferiu: o caixa é dele
+    saveDB(); overlay.remove(); renderCaixa(document.getElementById('view'));
+    toast('Valor inicial corrigido');
   });
 }
 
 /* =========================================================
    FINANCEIRO
    ========================================================= */
+function lancamentosDaTela(){
+  const f = filtrosDe('financeiro'), r = intervaloDoFiltro(f), busca = semAcento(f.busca);
+  return DB.finance.entries.filter(e=>{
+    if(!e || !noIntervalo(e.date, r)) return false;
+    if(f.tipo && e.type !== f.tipo) return false;
+    if(f.status && e.status !== f.status) return false;
+    if(busca){
+      const texto = semAcento([e.category, e.description, String(e.amount).replace('.', ',')].join(' '));
+      if(!busca.split(/\s+/).every(p=>texto.includes(p))) return false;
+    }
+    return true;
+  }).sort((a,b)=>new Date(b.date) - new Date(a.date));
+}
 function renderFinanceiro(el){
-  const mk = monthKey();
-  const monthEntries = DB.finance.entries.filter(e=>chaveMes(e.date) === mk);
-  const receitas = monthEntries.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
-  const despesas = monthEntries.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+e.amount,0);
-  const aPagar = DB.finance.entries.filter(e=>e.type==='despesa' && e.status==='pendente').reduce((a,e)=>a+e.amount,0);
-  const aReceber = DB.finance.entries.filter(e=>e.type==='receita' && e.status==='pendente').reduce((a,e)=>a+e.amount,0);
+  const f = filtrosDe('financeiro'), r = intervaloDoFiltro(f);
+  const doPeriodo = DB.finance.entries.filter(e=>e && noIntervalo(e.date, r));
+  const receitas = doPeriodo.filter(e=>e.type==='receita' && e.status==='pago').reduce((a,e)=>a+(Number(e.amount)||0),0);
+  const despesas = doPeriodo.filter(e=>e.type==='despesa' && e.status==='pago').reduce((a,e)=>a+(Number(e.amount)||0),0);
+  const aPagar = DB.finance.entries.filter(e=>e.type==='despesa' && e.status==='pendente').reduce((a,e)=>a+(Number(e.amount)||0),0);
+  const aReceber = DB.finance.entries.filter(e=>e.type==='receita' && e.status==='pendente').reduce((a,e)=>a+(Number(e.amount)||0),0);
   el.innerHTML = `
+    ${barraDeFiltros('financeiro', { busca:'Buscar categoria, descrição ou valor', tipo:true, statusFinanceiro:true })}
     <div class="cards-row">
-      <div class="card"><div class="label">Receitas do mês</div><div class="value text-success">${money(receitas)}</div></div>
-      <div class="card"><div class="label">Despesas do mês</div><div class="value text-danger">${money(despesas)}</div></div>
-      <div class="card"><div class="label">Saldo do mês</div><div class="value">${money(receitas-despesas)}</div></div>
-      <div class="card"><div class="label">A pagar</div><div class="value small text-danger">${money(aPagar)}</div></div>
-      <div class="card"><div class="label">A receber</div><div class="value small text-success">${money(aReceber)}</div></div>
+      <div class="card"><div class="label">Receitas pagas</div><div class="value text-success">${money(receitas)}</div></div>
+      <div class="card"><div class="label">Despesas pagas</div><div class="value text-danger">${money(despesas)}</div></div>
+      <div class="card"><div class="label">Saldo do período</div><div class="value ${receitas - despesas >= 0 ? '' : 'text-danger'}">${money(receitas-despesas)}</div></div>
+      <div class="card"><div class="label">A pagar (tudo)</div><div class="value small text-danger">${money(aPagar)}</div></div>
+      <div class="card"><div class="label">A receber (tudo)</div><div class="value small text-success">${money(aReceber)}</div></div>
     </div>
     <div class="toolbar">
       <button class="btn btn-accent" onclick="openFinanceModal('receita')">+ Receita</button>
       <button class="btn btn-accent" onclick="openFinanceModal('despesa')">+ Despesa</button>
+      <div class="spacer"></div>
+      <button class="btn" onclick="exportarFinanceiro()">⬇ Planilha (CSV)</button>
     </div>
     <div id="financeTableWrap"></div>`;
+  ligarFiltros(el, 'financeiro', so=>{ if(so) renderFinanceTable(); else redesenhar(renderFinanceiro); });
   renderFinanceTable();
 }
 function renderFinanceTable(){
   const wrap = document.getElementById('financeTableWrap');
-  const list = [...DB.finance.entries].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!list.length){ wrap.innerHTML=`<div class="empty-state">Nenhum lançamento</div>`; return; }
-  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>
+  if(!wrap) return;
+  const list = lancamentosDaTela();
+  if(!list.length){
+    wrap.innerHTML = DB.finance.entries.length
+      ? `<div class="empty-state">Nenhum lançamento com esses filtros. <button class="btn btn-sm" onclick="limparFiltros('financeiro');redesenhar(renderFinanceiro)">Limpar filtros</button></div>`
+      : `<div class="empty-state">Nenhum lançamento</div>`;
+    return;
+  }
+  const soma = list.reduce((a,e)=>a + (e.type === 'receita' ? 1 : -1) * (Number(e.amount)||0), 0);
+  wrap.innerHTML = `<div class="lista-resumo"><span><strong>${list.length}</strong> lançamento(s)</span><span>Resultado <strong class="${soma >= 0 ? 'text-success' : 'text-danger'}">${money(soma)}</strong></span></div>
+  <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>
     ${list.map(e=>`<tr>
       <td>${dateBR(e.date)}</td>
       <td>${e.type==='receita'?'<span class="badge badge-success">Receita</span>':'<span class="badge badge-danger">Despesa</span>'}</td>
@@ -6214,11 +6751,22 @@ function renderFinanceTable(){
     </tr>`).join('')}
   </tbody></table></div>`;
 }
+function exportarFinanceiro(){
+  const list = lancamentosDaTela();
+  if(!list.length){ toast('Não há lançamentos neste filtro','warn'); return; }
+  baixarCsv(`financeiro-${new Date().toISOString().slice(0,10)}.csv`, [
+    ['Dia','Horário','Tipo','Categoria','Descrição','Valor (R$)','Status'],
+    ...list.map(e=>[new Date(e.date).toLocaleDateString('pt-BR'), horaBR(e.date), e.type === 'receita' ? 'Receita' : 'Despesa',
+                    e.category, e.description||'', reais(e.amount), e.status === 'pago' ? 'Pago' : 'Pendente'])
+  ]);
+  toast(list.length + ' lançamento(s) na planilha');
+}
+function redesenharFinanceiro(){ if(currentRoute === 'financeiro') redesenhar(renderFinanceiro); else renderFinanceTable(); }
 function markFinanceEntryPaid(id){
   const e = DB.finance.entries.find(x=>x.id===id);
   if(!e) return;
   e.status='pago'; e.date=todayISO(); carimbar(e);
-  saveDB(); renderFinanceTable(); toast('Lançamento marcado como pago');
+  saveDB(); redesenharFinanceiro(); toast('Lançamento marcado como pago');
 }
 function deleteFinanceEntry(id){
   const e = DB.finance.entries.find(x=>x.id===id);
@@ -6227,18 +6775,24 @@ function deleteFinanceEntry(id){
   if(!confirm('Excluir este lançamento?' + (venda ? '\n\nEle é a receita de uma venda. A venda continua no histórico; para desfazê-la use Cancelar em Vendas.' : ''))) return;
   DB.finance.entries = DB.finance.entries.filter(x=>x.id!==id);
   registrarApagado('finance', id);
-  saveDB(); renderFinanceTable(); toast('Lançamento excluído');
+  saveDB(); redesenharFinanceiro(); toast('Lançamento excluído');
 }
 function openFinanceModal(type, id){
   const editing = id ? DB.finance.entries.find(x=>x.id===id) : null;
   const e = editing || { id:uid(), type, category:'', description:'', amount:0, status:'pago' };
+  const categorias = [...new Set(DB.finance.entries.filter(x=>x.type === type).map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const diaOriginal = editing ? campoDaData(new Date(editing.date)) : campoDaData(new Date());
   const overlay = document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:420px">
     <h2>${editing?'Editar':'+'} ${type==='receita'?'Receita':'Despesa'}</h2>
-    <div class="field"><label>Categoria</label><input id="fe_cat" value="${escapeHtml(e.category)}"></div>
+    <div class="field"><label>Categoria</label><input id="fe_cat" list="fe_cats" value="${escapeHtml(e.category)}" autocomplete="off">
+      <datalist id="fe_cats">${categorias.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></div>
     <div class="field" style="margin-top:10px"><label>Descrição</label><input id="fe_desc" value="${escapeHtml(e.description||'')}"></div>
-    <div class="field" style="margin-top:10px"><label>Valor (R$)</label><input type="number" id="fe_amount" step="0.01" value="${e.amount}"></div>
+    <div class="form-grid" style="margin-top:10px">
+      <div class="field"><label>Valor (R$)</label><input type="number" id="fe_amount" step="0.01" min="0" inputmode="decimal" value="${e.amount || ''}"></div>
+      <div class="field"><label>Data</label><input type="date" id="fe_data" value="${diaOriginal}"></div>
+    </div>
     <div class="field" style="margin-top:10px"><label>Status</label>
       <select id="fe_status"><option value="pago" ${e.status==='pago'?'selected':''}>Pago</option><option value="pendente" ${e.status==='pendente'?'selected':''}>Pendente</option></select>
     </div>
@@ -6253,13 +6807,17 @@ function openFinanceModal(type, id){
     overlay.remove(); deleteFinanceEntry(e.id);
   });
   overlay.querySelector('#saveBtn').addEventListener('click', ()=>{
-    const amount = Number(overlay.querySelector('#fe_amount').value)||0;
+    const amount = centavos(Number(overlay.querySelector('#fe_amount').value)||0);
     if(amount<=0){ toast('Informe um valor','error'); return; }
     const data = { category: overlay.querySelector('#fe_cat').value.trim()||'Outros',
       description: overlay.querySelector('#fe_desc').value.trim(), amount, status: overlay.querySelector('#fe_status').value };
-    if(editing){ Object.assign(editing, data); carimbar(editing); }
-    else DB.finance.entries.push(carimbar({ ...e, ...data, date: todayISO() }));
-    saveDB(); overlay.remove(); renderFinanceiro(document.getElementById('view'));
+    /* A data só muda se o campo foi mexido; mudando, vale o meio-dia do
+       dia escolhido (meio-dia não vira outro dia em fuso nenhum). */
+    const dia = overlay.querySelector('#fe_data').value;
+    const novaData = dia && dia !== diaOriginal && dataDoCampo(dia) ? new Date(dataDoCampo(dia).setHours(12,0,0,0)).toISOString() : null;
+    if(editing){ Object.assign(editing, data); if(novaData) editing.date = novaData; carimbar(editing); }
+    else DB.finance.entries.push(carimbar({ ...e, ...data, date: novaData || todayISO() }));
+    saveDB(); overlay.remove(); redesenharFinanceiro();
     toast('Lançamento salvo');
   });
 }
@@ -6667,60 +7225,107 @@ function deleteSetup(id){
 /* =========================================================
    RELATÓRIOS
    ========================================================= */
+let diasDoRelatorio = [];
+const DIAS_DA_SEMANA_LONGOS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 function renderRelatorios(el){
+  const f = filtrosDe('relatorios');
+  const r = intervaloDoFiltro(f);
+  const vendas = vendasDoFiltro(f, r);
+  const res = resumoDasVendas(vendas);
+  const ant = r.anterior ? resumoDasVendas(vendasDoFiltro(f, { ...r.anterior })) : null;
+  const serie = serieDoGrafico(vendas, r);
+  const porId = new Map((DB.products || []).map(p=>[p.id, p]));
+  const porPeca = new Map(), porCategoria = new Map(), porForma = new Map(), porVendedor = new Map(), porDia = new Map();
+  const porSemana = DIAS_DA_SEMANA_LONGOS.map(n=>({ nome:n, vendas:0, valor:0 }));
+  const porHora = new Array(24).fill(0).map((_, h)=>({ nome: h + 'h', vendas:0, valor:0 }));
+  const somar = (mapa, chave, base, mais)=>{ const x = mapa.get(chave) || { ...base }; Object.keys(mais).forEach(k=>{ x[k] = (x[k]||0) + mais[k]; }); mapa.set(chave, x); };
+  vendas.forEach(s=>{
+    const fator = fatorDoDesconto(s), t = new Date(s.date), valor = Number(s.total)||0;
+    (s.items || []).forEach(i=>{
+      const q = Number(i.qty)||0, rendeu = (Number(i.price)||0) * q * fator, custo = custoDoItem(i, porId) * q;
+      const p = porId.get(i.productId);
+      somar(porPeca, i.name || 'Peça', { nome: i.name || 'Peça' }, { qtd:q, valor:rendeu, lucro:rendeu - custo });
+      const cat = (p && p.category) || 'Sem categoria';
+      somar(porCategoria, cat, { nome: cat }, { qtd:q, valor:rendeu });
+    });
+    somar(porForma, s.payment || '-', { nome: s.payment || '-' }, { vendas:1, valor });
+    somar(porVendedor, s.seller || '-', { nome: s.seller || '-' }, { vendas:1, valor });
+    const dia = chaveDia(s.date);
+    somar(porDia, dia, { dia, data: inicioDoDia(t) }, { vendas:1, valor, pecas:(s.items||[]).reduce((a,i)=>a + (Number(i.qty)||0), 0), descontos:Number(s.discount)||0 });
+    porSemana[t.getDay()].vendas++; porSemana[t.getDay()].valor += valor;
+    porHora[t.getHours()].vendas++; porHora[t.getHours()].valor += valor;
+  });
+  const total = res.faturamento || 1;
+  const vazio = '<div class="empty-state">Nenhuma venda neste período</div>';
+  const linhasPct = lista => lista.length ? lista.map(x=>`<div class="linha-pct">
+      <div class="linha-pct-topo"><span>${escapeHtml(x.nome)} <small class="text-muted">${x.vendas !== undefined ? x.vendas + ' venda(s)' : x.qtd + ' peça(s)'}</small></span><strong>${money(x.valor)}</strong></div>
+      ${barraPct(x.valor / total * 100)}</div>`).join('') : vazio;
+  const pecas = [...porPeca.values()].sort((a,b)=>b.qtd - a.qtd || b.valor - a.valor).slice(0, 15);
+  const dias = [...porDia.values()].sort((a,b)=>b.data - a.data);
+  const horas = porHora.filter(h=>h.vendas);
+  const melhorDia = [...porSemana].sort((a,b)=>b.valor - a.valor)[0];
+  const melhorHora = [...porHora].sort((a,b)=>b.valor - a.valor)[0];
+  diasDoRelatorio = dias;
+
   el.innerHTML = `
-    <div class="panel"><h3>Vendas nos últimos 7 dias</h3><canvas id="chart7d" height="90"></canvas></div>
-    <div class="grid-2">
-      <div class="panel"><h3>Ticket médio</h3><div class="value" style="font-size:26px">${money(avgTicket())}</div></div>
-      <div class="panel"><h3>Top produtos</h3>${topProductsTable()}</div>
+    ${barraDeFiltros('relatorios', { pagamento:true, vendedor:true, origem:true })}
+    <div class="kpis">
+      ${cartaoKpi('Faturamento', money(res.faturamento), ant && variacao(res.faturamento, ant.faturamento))}
+      ${cartaoKpi('Vendas', res.vendas, ant && variacao(res.vendas, ant.vendas), r.dias > 1 ? (res.vendas / r.dias).toFixed(1).replace('.', ',') + ' por dia' : '')}
+      ${cartaoKpi('Ticket médio', money(res.ticket), ant && variacao(res.ticket, ant.ticket))}
+      ${cartaoKpi('Peças vendidas', res.pecas, ant && variacao(res.pecas, ant.pecas), res.vendas ? (res.pecas / res.vendas).toFixed(1).replace('.', ',') + ' por venda' : '')}
+      ${cartaoKpi('Lucro bruto', money(res.lucro), ant && variacao(res.lucro, ant.lucro),
+          res.semCusto ? res.semCusto + ' peça(s) sem custo cadastrado' : (res.faturamento ? 'margem ' + Math.round(res.lucro / res.faturamento * 100) + '%' : ''))}
+      ${cartaoKpi('Descontos dados', money(res.descontos), ant && variacaoInversa(res.descontos, ant.descontos))}
+    </div>
+    <div class="panel">
+      <div class="panel-titulo"><h3>${serie.titulo}</h3>
+        <span class="text-muted" style="font-size:12.5px">${escapeHtml(r.rotulo)}${ant ? ' · comparado com o período anterior do mesmo tamanho' : ''}</span></div>
+      <canvas id="graficoRelatorio" height="90"></canvas>
     </div>
     <div class="grid-2">
-      <div class="panel"><h3>Vendas por forma de pagamento</h3>${byPaymentTable()}</div>
-      <div class="panel"><h3>Vendas por vendedor(a)</h3>${bySellerTable()}</div>
+      <div class="panel">
+        <div class="panel-titulo"><h3>Peças mais vendidas</h3></div>
+        ${pecas.length ? `<div class="table-wrap"><table><thead><tr><th>Peça</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Faturado</th><th style="text-align:right">Lucro</th></tr></thead><tbody>
+          ${pecas.map(x=>`<tr><td>${escapeHtml(x.nome)}</td><td style="text-align:right">${x.qtd}</td><td style="text-align:right">${money(x.valor)}</td><td style="text-align:right">${money(x.lucro)}</td></tr>`).join('')}
+        </tbody></table></div>` : vazio}
+      </div>
+      <div class="panel"><div class="panel-titulo"><h3>Por categoria</h3></div>${linhasPct([...porCategoria.values()].sort((a,b)=>b.valor - a.valor))}</div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-titulo"><h3>Formas de pagamento</h3></div>${linhasPct([...porForma.values()].sort((a,b)=>b.valor - a.valor))}</div>
+      <div class="panel"><div class="panel-titulo"><h3>Vendedor(a)</h3></div>${linhasPct([...porVendedor.values()].sort((a,b)=>b.valor - a.valor))}</div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-titulo"><h3>Dia da semana</h3>
+        ${res.vendas ? `<span class="text-muted" style="font-size:12.5px">melhor: ${escapeHtml(melhorDia.nome)}</span>` : ''}</div>
+        ${res.vendas ? linhasPct(porSemana) : vazio}</div>
+      <div class="panel"><div class="panel-titulo"><h3>Horário</h3>
+        ${res.vendas ? `<span class="text-muted" style="font-size:12.5px">pico: ${escapeHtml(melhorHora.nome)}</span>` : ''}</div>
+        ${linhasPct(horas)}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-titulo"><h3>Dia a dia</h3>
+        <span style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="exportarResumoPorDia()">⬇ Resumo por dia (CSV)</button>
+          <button class="btn btn-sm" onclick="exportarVendas(vendasDoFiltro(filtrosDe('relatorios'), intervaloDoFiltro(filtrosDe('relatorios'))))">⬇ Vendas do período (CSV)</button>
+        </span></div>
+      ${dias.length ? `<div class="table-wrap"><table><thead><tr><th>Dia</th><th style="text-align:right">Vendas</th><th style="text-align:right">Peças</th><th style="text-align:right">Descontos</th><th style="text-align:right">Faturado</th><th style="text-align:right">Ticket</th></tr></thead><tbody>
+        ${dias.map(d=>`<tr><td>${escapeHtml(d.data.toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }))}</td>
+          <td style="text-align:right">${d.vendas}</td><td style="text-align:right">${d.pecas}</td><td style="text-align:right">${money(d.descontos)}</td>
+          <td style="text-align:right"><strong>${money(d.valor)}</strong></td><td style="text-align:right">${money(d.valor / d.vendas)}</td></tr>`).join('')}
+      </tbody></table></div>` : vazio}
     </div>`;
-  drawBarChart('chart7d', last7Days());
+  ligarFiltros(el, 'relatorios', ()=>redesenhar(renderRelatorios));
+  drawBarChart('graficoRelatorio', serie.pontos);
 }
-function avgTicket(){
-  const valid = DB.sales.filter(vendaValida);
-  if(!valid.length) return 0;
-  return valid.reduce((a,s)=>a+s.total,0)/valid.length;
-}
-function topProductsTable(){
-  const map={};
-  DB.sales.filter(vendaValida).forEach(s=>s.items.forEach(i=>{ map[i.name]=(map[i.name]||0)+i.qty; }));
-  const list = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if(!list.length) return `<div class="empty-state">Sem dados</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Produto</th><th>Qtd. vendida</th></tr></thead><tbody>
-    ${list.map(([n,q])=>`<tr><td>${escapeHtml(n)}</td><td>${q}</td></tr>`).join('')}
-  </tbody></table></div>`;
-}
-function byPaymentTable(){
-  const map={};
-  DB.sales.filter(vendaValida).forEach(s=>{ map[s.payment]=(map[s.payment]||0)+s.total; });
-  const entries = Object.entries(map);
-  if(!entries.length) return `<div class="empty-state">Sem dados</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Forma</th><th>Total</th></tr></thead><tbody>
-    ${entries.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('')}
-  </tbody></table></div>`;
-}
-function bySellerTable(){
-  const map={};
-  DB.sales.filter(vendaValida).forEach(s=>{ map[s.seller]=(map[s.seller]||0)+s.total; });
-  const entries = Object.entries(map);
-  if(!entries.length) return `<div class="empty-state">Sem dados</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Vendedor(a)</th><th>Total</th></tr></thead><tbody>
-    ${entries.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${money(v)}</td></tr>`).join('')}
-  </tbody></table></div>`;
-}
-function last7Days(){
-  const days=[];
-  for(let i=6;i>=0;i--){
-    const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
-    const next = new Date(d); next.setDate(d.getDate()+1);
-    const total = DB.sales.filter(s=>vendaValida(s) && new Date(s.date)>=d && new Date(s.date)<next).reduce((a,s)=>a+s.total,0);
-    days.push({ label: d.toLocaleDateString('pt-BR',{weekday:'short'}), total });
-  }
-  return days;
+function exportarResumoPorDia(){
+  const dias = diasDoRelatorio;
+  if(!dias.length){ toast('Não há vendas neste período','warn'); return; }
+  baixarCsv(`resumo-por-dia-${new Date().toISOString().slice(0,10)}.csv`, [
+    ['Dia','Dia da semana','Vendas','Peças','Descontos (R$)','Faturado (R$)','Ticket médio (R$)'],
+    ...dias.map(d=>[d.data.toLocaleDateString('pt-BR'), DIAS_DA_SEMANA_LONGOS[d.data.getDay()], d.vendas, d.pecas, reais(d.descontos), reais(d.valor), reais(d.valor / d.vendas)])
+  ]);
 }
 function drawBarChart(canvasId, data){
   const canvas = document.getElementById(canvasId);
@@ -6739,8 +7344,19 @@ function drawBarChart(canvasId, data){
   canvas.style.height = h + 'px';
   ctx.scale(escala, escala);
   ctx.clearRect(0,0,w,h);
+  if(!data.length) return;
   const max = Math.max(...data.map(d=>d.total), 1);
   const barW = w/data.length;
+  /* Com muitas barras (30, 90 dias) os rótulos se atropelavam: mostra um a
+     cada tantos, e o valor em cima da barra só quando cabe. O valor de
+     qualquer barra aparece ao passar o mouse. */
+  const passoDoRotulo = Math.max(1, Math.ceil(data.length / Math.max(1, Math.floor(w / 46))));
+  const cabeValor = barW >= 58;
+  canvas.onmousemove = ev=>{
+    const i = Math.min(data.length - 1, Math.max(0, Math.floor((ev.offsetX || 0) / barW)));
+    const d = data[i];
+    canvas.title = d ? (d.dica || d.label) + ': ' + money(d.total) : '';
+  };
   const topo = 26, base = h - 26, alturaUtil = base - topo;
   ctx.strokeStyle = '#E6E6EB'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, base + .5); ctx.lineTo(w, base + .5); ctx.stroke();
@@ -6756,12 +7372,14 @@ function drawBarChart(canvasId, data){
     ctx.lineTo(x + largura - r, y); ctx.quadraticCurveTo(x + largura, y, x + largura, y + r);
     ctx.lineTo(x + largura, base); ctx.closePath(); ctx.fill();
     ctx.textAlign = 'center';
-    if(d.total > 0){
+    if(d.total > 0 && cabeValor){
       ctx.fillStyle = '#17171C'; ctx.font = '600 11px Inter, sans-serif';
       ctx.fillText(money(d.total).replace(/\u00a0/g,' '), i*barW+barW/2, y - 7);
     }
-    ctx.fillStyle = '#8A8A99'; ctx.font = '500 11px Inter, sans-serif';
-    ctx.fillText(d.label.replace('.', ''), i*barW+barW/2, h - 8);
+    if(i % passoDoRotulo === 0){
+      ctx.fillStyle = '#8A8A99'; ctx.font = '500 11px Inter, sans-serif';
+      ctx.fillText(String(d.label).replace('.', ''), i*barW+barW/2, h - 8);
+    }
   });
 }
 
