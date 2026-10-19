@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 60% 97%;
+    --foreground: 20 14% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 14% 12%;
+    --primary: 38 80% 55%;
+    --primary-foreground: 24 40% 12%;
+    --muted: 40 40% 94%;
+    --muted-foreground: 24 10% 40%;
+    --accent: 42 78% 91%;
+    --accent-foreground: 24 35% 18%;
+    --border: 38 30% 88%;
+    --ring: 38 80% 45%;
+    --danger: 0 65% 45%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 24 14% 9%;
+    --foreground: 40 30% 94%;
+    --card: 24 12% 13%;
+    --card-foreground: 40 30% 94%;
+    --primary: 38 80% 58%;
+    --primary-foreground: 24 40% 10%;
+    --muted: 24 10% 18%;
+    --muted-foreground: 36 12% 68%;
+    --accent: 30 22% 22%;
+    --accent-foreground: 40 30% 92%;
+    --border: 28 10% 24%;
+    --ring: 38 80% 60%;
+    --danger: 0 70% 62%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 0.6rem);
+  }
+
+  /* Fundo quente com um brilho suave no topo, igual à área de membros. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(60rem 30rem at 50% -12rem, hsl(var(--primary) / 0.16), transparent 70%),
+      radial-gradient(40rem 24rem at 0% 100%, hsl(var(--accent) / 0.5), transparent 70%);
+  }
+}
+
+@layer components {
+  .cartao {
+    @apply rounded-lg bg-card text-card-foreground shadow-soft;
+  }
+
+  .botao-primario {
+    @apply inline-flex min-h-[3rem] items-center justify-center gap-2 rounded-lg bg-primary px-5
+      font-semibold text-primary-foreground shadow-soft transition
+      hover:brightness-[1.04] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .botao-secundario {
+    @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-lg bg-muted px-4
+      font-medium text-foreground transition hover:bg-accent active:scale-[0.99]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .campo {
+    @apply w-full rounded-lg border border-border bg-card px-4 py-3 text-base text-foreground
+      placeholder:text-muted-foreground focus:border-primary focus:outline-none;
+  }
+
+  .selo {
+    @apply inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition;
+  }
+}
+
+/* A rolagem do chat e das listas fica mais confortável no celular. */
+.rolagem-suave {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
