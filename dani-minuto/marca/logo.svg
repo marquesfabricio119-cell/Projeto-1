@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-label="Dani Minuto">
+  <defs>
+    <clipPath id="dir"><circle cx="66" cy="48" r="26"/></clipPath>
+  </defs>
+  <circle cx="66" cy="48" r="26" fill="#F0EBF4"/>
+  <circle cx="42" cy="48" r="26" fill="#FDEAEC"/>
+  <g clip-path="url(#dir)"><circle cx="42" cy="48" r="26" fill="#F6E4E8"/></g>
+  <circle cx="42" cy="48" r="26" fill="none" stroke="#B83240" stroke-width="1.6"/>
+  <circle cx="66" cy="48" r="26" fill="none" stroke="#7A4E6A" stroke-width="1.6"/>
+  <text x="118" y="50" font-family="Fraunces, Georgia, serif" font-size="34" font-weight="300" fill="#1A0F0F">Dani Minuto</text>
+  <text x="120" y="70" font-family="Inter, 'Liberation Sans', Arial, sans-serif" font-size="9.5" letter-spacing="3.6" fill="#7A4E6A">A PONTE ENTRE OS MUNDOS</text>
+</svg>
