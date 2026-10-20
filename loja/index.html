@@ -172,7 +172,10 @@ footer.site-footer{text-align:center;padding:40px 20px;color:var(--muted);font-s
 const SUPABASE_URL = "https://mfywchoecdhbzuiskpwx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_aHss5Ke_FyBqGAdoXsM9ZA_OWv9iNER";
 const SUPABASE_TABLE = "loja_roupas_db";
-const CART_KEY = "estiloCiaCart";
+/* Qual loja esta vitrine mostra: a principal, ou a do endereço
+   /loja/?loja=<id> (cada loja do sistema tem a sua vitrine). */
+const LINHA = (()=>{ try{ const id = new URLSearchParams(location.search).get('loja'); return /^loja-[a-z0-9]{4,30}$/.test(id || '') ? id : 'main'; }catch(e){ return 'main'; } })();
+const CART_KEY = LINHA === 'main' ? "estiloCiaCart" : "estiloCiaCart@" + LINHA;
 
 let DB = null;
 let carimboDaNuvem = null;     // o updated_at da linha que lemos por último
@@ -199,7 +202,7 @@ function arrumar(db){
 }
 
 async function fetchDB(){
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&select=data,updated_at`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${LINHA}&select=data,updated_at`, {
     headers: cabecalhos()
   });
   /* A resposta é conferida. Sem isto, um 401 ou um 500 vinha como um objeto
@@ -217,14 +220,14 @@ async function fetchDB(){
    cima apagaria aquela venda. Se a linha mudou, quem chamou relê tudo,
    refaz o pedido em cima do novo e tenta de novo. */
 async function pushDB(){
-  const corpo = JSON.stringify({ id:'main', data: DB, updated_at: new Date().toISOString() });
+  const corpo = JSON.stringify({ id: LINHA, data: DB, updated_at: new Date().toISOString() });
   /* A vitrine NUNCA cria nem regrava a linha da loja sem condição: ela só
      acrescenta um pedido à versão que acabou de ler. Sem carimbo não há
      versão lida, e gravar assim apagaria as vendas do balcão. */
   const falhou = status => new Error('Não foi possível registrar seu pedido agora (' + status + '). Nada foi cobrado — tente de novo em instantes ou chame a loja no WhatsApp.');
   if(!carimboDaNuvem) throw falhou('sem leitura');
   {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.main&updated_at=eq.${encodeURIComponent(carimboDaNuvem)}&select=updated_at`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${LINHA}&updated_at=eq.${encodeURIComponent(carimboDaNuvem)}&select=updated_at`, {
       method:'PATCH',
       headers: cabecalhos({ 'Content-Type':'application/json', 'Prefer':'return=representation' }),
       body: corpo
@@ -473,7 +476,7 @@ function openCheckoutModal(){
    loja mas a resposta se perdeu no caminho (rede de celular), a cliente
    toca em "Confirmar" de novo — e sem isto o mesmo pedido era gravado
    duas vezes, reservando a peça em dobro. */
-const PEDIDO_KEY = 'estiloCiaPedidoEmCurso';
+const PEDIDO_KEY = LINHA === 'main' ? 'estiloCiaPedidoEmCurso' : 'estiloCiaPedidoEmCurso@' + LINHA;
 function numeroDoPedidoEmCurso(){
   /* O número vale para ESTA sacola. Mudou uma peça, é outro pedido. */
   const sacola = JSON.stringify(cart.map(i=>[String(i.productId), i.size, i.color, Number(i.qty)]));

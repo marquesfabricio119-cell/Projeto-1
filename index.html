@@ -6,7 +6,7 @@
 <meta name="description" content="Sistema de gestão (ERP/PDV) da Estilo Fashion — vendas, estoque, financeiro e loja virtual.">
 <meta name="robots" content="noindex, nofollow">
 <title>Estilo Fashion — Sistema</title>
-<link rel="icon" href="marca/simbolo.svg?v=67" type="image/svg+xml">
+<link rel="icon" href="marca/simbolo.svg?v=68" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://mfywchoecdhbzuiskpwx.supabase.co">
@@ -18,14 +18,14 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="style.css?v=67">
+<link rel="stylesheet" href="style.css?v=68">
 </head>
 <body>
 
 <div id="login-screen">
   <aside class="login-brand">
     <div class="login-brand-top">
-      <img src="marca/simbolo.svg?v=67" alt="" class="brand-mark">
+      <img src="marca/simbolo.svg?v=68" alt="" class="brand-mark">
       <span id="loginBrandName">Estilo Fashion</span>
     </div>
     <div class="login-brand-body">
@@ -44,6 +44,10 @@
     <h1>Entrar</h1>
     <p class="slogan">Use o usuário e a senha cadastrados na loja.</p>
     <form id="loginForm" novalidate>
+      <div id="loginLojaBox" hidden>
+        <label for="loginLoja">Loja</label>
+        <select id="loginLoja"></select>
+      </div>
       <label for="loginUser">Usuário</label>
       <input id="loginUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" required>
       <label for="loginPass">Senha</label>
@@ -62,9 +66,10 @@
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img src="marca/simbolo.svg?v=67" alt="">
+      <img src="marca/simbolo.svg?v=68" alt="">
       <span id="sidebarStoreName">Estilo Fashion</span>
     </div>
+    <button type="button" id="trocarLojaBtn" class="trocar-loja" hidden>⇄ Trocar de loja</button>
     <ul class="nav-list" id="navList"></ul>
     <div class="sidebar-footer">
       <div id="userPill" style="margin-bottom:8px"></div>
@@ -77,6 +82,7 @@
       <div style="display:flex;align-items:center;gap:10px;min-width:0">
         <button id="menuToggle" class="btn btn-icon menu-toggle">☰</button>
         <h1 id="viewTitle">Painel</h1>
+        <button type="button" id="lojaChip" class="loja-chip" hidden title="Loja em uso — toque para trocar"></button>
       </div>
       <div class="topbar-acoes">
         <button type="button" id="btnAtualizar" class="btn-atualizar" title="Atualizar: salva o que falta na nuvem e recarrega a página com os dados mais novos">
@@ -94,7 +100,7 @@
      o tamanho de página pedido pelo site, mas respeita o que vem dentro de
      um PDF — por isso no celular a impressão sai por aqui. Feito no próprio
      sistema: sem isso, uma rede ruim na loja deixava o lojista sem etiqueta. -->
-<script src="pdf-etiquetas.js?v=67"></script>
-<script src="app.js?v=67"></script>
+<script src="pdf-etiquetas.js?v=68"></script>
+<script src="app.js?v=68"></script>
 </body>
 </html>

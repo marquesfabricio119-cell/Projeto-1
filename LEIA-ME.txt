@@ -1,6 +1,6 @@
 ==========================================================
 ESTILO FASHION - SISTEMA COMPLETO
-Versao 67 - gerado em 15/10/2026
+Versao 68 - gerado em 20/10/2026
 ==========================================================
 
 O QUE TEM AQUI DENTRO
@@ -20,6 +20,30 @@ instalacao-supabase.sql   O comando que monta a nuvem
 
 testes/               Testes automaticos: node testes/rodar.js
 dados-da-loja/        Backup da loja (o arquivo LIMPO e o original)
+
+
+O QUE MUDOU NA VERSAO 68
+------------------------
+SEGUNDA LOJA (e terceira, quarta...) NO MESMO SISTEMA
+  - Configuracoes > Lojas > "+ Adicionar loja": da o nome e pronto. A loja
+    nova comeca vazia e e separada: pecas, estoque, vendas, caixa,
+    clientes, financeiro, usuarios e loja virtual proprios.
+  - Tudo no mesmo sistema e no mesmo endereco. Para ir de uma loja para a
+    outra: "Trocar de loja" no menu, ou o nome da loja no alto da tela
+    (aparece quando ha mais de uma loja). Na tela de entrada tambem da
+    para escolher a loja.
+  - Quem tem o mesmo usuario e senha nas lojas troca DIRETO, sem entrar
+    de novo (quem cria a loja ja entra nela com o mesmo usuario e senha).
+    Senha diferente: pede o login, com o usuario ja preenchido.
+  - Antes de trocar, o que falta subir da loja atual vai para a nuvem.
+  - Cada loja tem a sua loja virtual: a principal continua em /loja/; as
+    outras em /loja/?loja=<codigo> (o endereco aparece em Configuracoes).
+  - O cupom fiscal (NFC-e) le a venda da loja certa.
+  - A loja principal NAO mudou de lugar: mesma linha na nuvem, mesmos
+    dados, mesmo historico. Enquanto houver uma loja so, nada novo e
+    gravado na nuvem.
+
+TESTES: node testes/rodar.js -> 78 casos, 805 verificacoes.
 
 
 O QUE MUDOU NA VERSAO 67

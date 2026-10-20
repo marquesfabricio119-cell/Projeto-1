@@ -9,7 +9,7 @@
    ?v= das tags <script>/<link> do index.html — serve para confirmar num
    piscar de olhos se o navegador está rodando o código mais recente ou
    uma cópia antiga em cache. Ao mudar, atualize os dois lugares. */
-const APP_VERSION = "67";
+const APP_VERSION = "68";
 
 /* A ligação com a nuvem deixou de ser fixa no código. A loja perdeu o
    acesso ao projeto antigo do Supabase e ficou sem poder trocar sozinha —
@@ -56,9 +56,63 @@ function cabecalhosNuvem(extra){
   const c = configNuvem();
   return { apikey: c.key, Authorization: 'Bearer ' + c.key, ...(extra||{}) };
 }
-const STORAGE_KEY = "estiloCiaDB";
-const LOCAL_TS_KEY = "estiloCiaDB_ts";
-const SESSION_KEY = "estiloCiaSession";
+/* =========================================================
+   VÁRIAS LOJAS
+   Cada loja é um sistema à parte: tem a sua linha na nuvem e as suas
+   chaves neste aparelho (peças, vendas, clientes, usuários, caixa, fila
+   de fotos). A primeira loja continua sendo a linha 'main', com as chaves
+   de sempre — nada dela muda de lugar. A loja em uso é escolhida antes de
+   tudo carregar; trocar de loja recarrega a página.
+   ========================================================= */
+const LOJA_PRINCIPAL = 'main';
+const LINHA_DAS_LOJAS = 'lojas';                    // a lista das lojas, na nuvem
+const CHAVE_LOJA_ATIVA = 'estiloFashion_lojaAtiva';
+const CHAVE_LOJAS = 'estiloFashion_lojas';           // a lista, como este aparelho conhece
+function idDeLojaValido(id){ return id === LOJA_PRINCIPAL || /^loja-[a-z0-9]{4,30}$/.test(String(id || '')); }
+function lerLojaAtiva(){
+  let id = null;
+  try{ id = localStorage.getItem(CHAVE_LOJA_ATIVA); }catch(e){}
+  return idDeLojaValido(id) ? id : LOJA_PRINCIPAL;
+}
+const LOJA_ATIVA = lerLojaAtiva();
+/* A chave deste aparelho para a loja em uso. A principal fica com a chave
+   de sempre; as outras ganham "@id" no fim. */
+function chaveDaLoja(base, loja){
+  loja = loja || LOJA_ATIVA;
+  return loja === LOJA_PRINCIPAL ? base : base + '@' + loja;
+}
+function lojasConhecidas(){
+  let lista = [];
+  try{ lista = JSON.parse(localStorage.getItem(CHAVE_LOJAS) || '[]'); }catch(e){}
+  if(!Array.isArray(lista)) lista = [];
+  lista = lista.filter(l=>l && idDeLojaValido(l.id));
+  if(!lista.some(l=>l.id === LOJA_PRINCIPAL)) lista.unshift({ id: LOJA_PRINCIPAL, nome: 'Loja principal' });
+  if(!lista.some(l=>l.id === LOJA_ATIVA)) lista.push({ id: LOJA_ATIVA, nome: 'Loja ' + LOJA_ATIVA.slice(5) });
+  return lista;
+}
+function guardarLojasConhecidas(lista){ try{ localStorage.setItem(CHAVE_LOJAS, JSON.stringify(lista)); }catch(e){} }
+/* Junta duas listas de lojas: nenhuma some, e o nome mais novo vale. */
+function juntarListasDeLojas(a, b){
+  const porId = new Map();
+  [...(a || []), ...(b || [])].forEach(l=>{
+    if(!l || !idDeLojaValido(l.id)) return;
+    const ja = porId.get(l.id);
+    if(!ja || (Date.parse(l.atualizadoEm || '') || 0) > (Date.parse(ja.atualizadoEm || '') || 0)) porId.set(l.id, { ...ja, ...l });
+  });
+  const lista = [...porId.values()];
+  lista.sort((x, y)=> x.id === LOJA_PRINCIPAL ? -1 : y.id === LOJA_PRINCIPAL ? 1 : (Date.parse(x.criadaEm || '') || 0) - (Date.parse(y.criadaEm || '') || 0));
+  return lista;
+}
+function nomeDaLoja(id){ const l = lojasConhecidas().find(x=>x.id === id); return l ? l.nome : id; }
+/* O nome da loja aberta: o do banco dela, depois que ele chegou; antes
+   disso (aparelho que nunca abriu esta loja), o da lista de lojas. */
+function nomeDaLojaAtiva(){
+  if(DB && DB.storeName && !bancoVeioVazio) return DB.storeName;
+  return LOJA_ATIVA === LOJA_PRINCIPAL && DB && DB.storeName ? DB.storeName : nomeDaLoja(LOJA_ATIVA);
+}
+const STORAGE_KEY = chaveDaLoja("estiloCiaDB");
+const LOCAL_TS_KEY = chaveDaLoja("estiloCiaDB_ts");
+const SESSION_KEY = chaveDaLoja("estiloCiaSession");
 
 let DB = null;
 let SESSION = null;
@@ -537,13 +591,13 @@ let nuvemJaRespondeu = false;
      eu tenho?".
    · SEM NUVEM: este banco nasceu vazio neste aparelho e ainda não foi
      juntado com a loja de verdade. Enquanto for assim, a nuvem é a base. */
-const CHAVE_PENDENTE = 'estiloCiaDB_pendente';
-const CHAVE_CARIMBO = 'estiloCiaDB_carimboNuvem';
-const CHAVE_SEM_NUVEM = 'estiloCiaDB_semNuvem';
+const CHAVE_PENDENTE = chaveDaLoja('estiloCiaDB_pendente');
+const CHAVE_CARIMBO = chaveDaLoja('estiloCiaDB_carimboNuvem');
+const CHAVE_SEM_NUVEM = chaveDaLoja('estiloCiaDB_semNuvem');
 /* · SUBSTITUIR: o lojista restaurou um backup ou voltou a uma versão
      antiga. Isso é TROCAR a loja, não juntar: juntando, o que ele quis
      desfazer voltava pela nuvem no primeiro envio. */
-const CHAVE_SUBSTITUIR = 'estiloCiaDB_substituir';
+const CHAVE_SUBSTITUIR = chaveDaLoja('estiloCiaDB_substituir');
 let substituirNaNuvem = false;
 function lembrarSubstituicao(sim){ substituirNaNuvem = !!sim; guardarRecado(CHAVE_SUBSTITUIR, sim ? '1' : ''); }
 /* Troca o banco inteiro por outro (backup, cópia, versão da nuvem). */
@@ -674,6 +728,9 @@ function gravarLocal(){
         Object.keys(localStorage).forEach(k=>{
           if(k === STORAGE_KEY || k === LOCAL_TS_KEY || k === SESSION_KEY) return;
           if(k === CHAVE_COPIAS || k === CHAVE_NUVEM) return;
+          /* O banco, a sessão e os recados de QUALQUER loja deste aparelho
+             (inclusive a que não está aberta agora) não são sobra. */
+          if(/^estiloCia(DB|Session)/.test(k) || k.indexOf('@loja-') > 0 || k === CHAVE_LOJA_ATIVA || k === CHAVE_LOJAS) return;
           /* A chave de emissão do cupom fiscal mora só neste aparelho, e
              os recados da sincronização são o que impede este aparelho
              de gravar por cima da loja. */
@@ -766,7 +823,7 @@ function exigirGravacao(oQue){
    quando algo dá errado — nesta loja o estoque sumiu e não havia nada
    para onde voltar.
    ========================================================= */
-const CHAVE_COPIAS = 'estiloCiaDB_copias';
+const CHAVE_COPIAS = chaveDaLoja('estiloCiaDB_copias');
 /* Três cópias bastam para voltar atrás, e três cabem no aparelho. Cinco
    cópias de um banco grande é o que não cabia. */
 const MAX_COPIAS = 3;
@@ -972,7 +1029,7 @@ function explicarErroDaNuvem(erro){
 async function cloudPull(){
   try{
     const c = configNuvem();
-    const res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`, {
+    const res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.${encodeURIComponent(LOJA_ATIVA)}&select=data,updated_at`, {
       headers: cabecalhosNuvem()
     });
     if(!res.ok){
@@ -1031,6 +1088,7 @@ async function cloudPull(){
       migrarFotosAntigas();
       migrateDB(); // preenche campos novos sem sobrescrever com o localStorage
       restaurarEscolhaDaEtiqueta();   // o rolo da impressora também vem da nuvem
+      desenharSeletorDeLoja();        // o nome da loja que acabou de chegar
       saveDB(true);
       /* O usuário desta sessão pode ter sido apagado em outro aparelho. */
       if(SESSION){ validarSessao(); if(!SESSION){ showLogin(); toast('Seu usuário foi removido. Entre de novo.','warn'); return; } }
@@ -1374,7 +1432,7 @@ async function cloudPush(){
        trabalho de outro aparelho lá, e ele entra junto em vez de ser
        apagado por este envio. */
     const trazerDaNuvem = async ()=>{
-      const olhada = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&select=data,updated_at`,
+      const olhada = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.${encodeURIComponent(LOJA_ATIVA)}&select=data,updated_at`,
                                  { headers: cabecalhosNuvem() });
       if(!olhada.ok){ const erro = new Error('leitura recusada'); erro.resposta = olhada; throw erro; }
       const linhas = await olhada.json();
@@ -1421,11 +1479,11 @@ async function cloudPush(){
     let res = null, carimboNovo = null, gravado = false;
     for(let tentativa = 0; tentativa < 3 && !gravado; tentativa++){
       carimboNovo = todayISO();
-      const corpo = JSON.stringify({ id:'main', data: dadosParaNuvem(), updated_at: carimboNovo });
+      const corpo = JSON.stringify({ id: LOJA_ATIVA, data: dadosParaNuvem(), updated_at: carimboNovo });
       /* Com linha na nuvem a gravação é sempre condicional. Só vai sem
          condição quando não existe linha nenhuma lá (loja nova). */
       if(ultimoCarimboDaNuvem){
-        res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.main&updated_at=eq.${encodeURIComponent(ultimoCarimboDaNuvem)}&select=updated_at`, {
+        res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.${encodeURIComponent(LOJA_ATIVA)}&updated_at=eq.${encodeURIComponent(ultimoCarimboDaNuvem)}&select=updated_at`, {
           method:'PATCH',
           headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }), 'Prefer':'return=representation' },
           body: corpo
@@ -1576,7 +1634,7 @@ const fotosPendentes = new Map();
 let enviandoFotos = false;
 let ultimoErroFoto = null;
 const PREFIXO_FOTO = 'estiloCiaFoto_';     // formato antigo, ainda migrado
-const BANCO_FOTOS = 'estiloFashionFotos';
+const BANCO_FOTOS = chaveDaLoja('estiloFashionFotos');
 const LOJA_FOTOS = 'pendentes';
 
 let bancoDeFotos = null;
@@ -1633,7 +1691,11 @@ async function carregarFotosPendentes(){
   /* Primeiro traz o que ficou no formato antigo, dentro do localStorage,
      e liberta aquele espaço — é ele que estava fazendo falta. */
   let antigas = [];
-  try{ antigas = Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }catch(e){}
+  /* O formato antigo só existiu na loja principal: as outras lojas não
+     mexem nessas fotos. */
+  if(LOJA_ATIVA === LOJA_PRINCIPAL){
+    try{ antigas = Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }catch(e){}
+  }
   for(const chave of antigas){
     const pid = chave.slice(PREFIXO_FOTO.length);
     let valor = null;
@@ -1658,6 +1720,7 @@ async function carregarFotosPendentes(){
   }catch(err){ console.warn('Não deu para ler a fila de fotos:', err); }
 }
 function chavesDeFotosPendentes(){
+  if(LOJA_ATIVA !== LOJA_PRINCIPAL) return [];
   try{ return Object.keys(localStorage).filter(k=>k.indexOf(PREFIXO_FOTO) === 0); }
   catch(e){ return []; }
 }
@@ -1989,6 +2052,7 @@ function showApp(){
 
 function renderShell(){
   document.getElementById('sidebarStoreName').textContent = DB.storeName;
+  desenharSeletorDeLoja();
   document.getElementById('userPill').textContent = `${SESSION.name} · ${SESSION.role==='admin'?'Admin':'Vendedor(a)'}`;
   const navEl = document.getElementById('navList');
   const item = n => `<li><a href="#${n.id}" data-route="${n.id}"><span class="nav-ico">${icone(n.id)}</span><span>${n.label}</span></a></li>`;
@@ -2066,7 +2130,7 @@ function repairAndReload(){
    loja. A última escolha de cada tela fica lembrada neste aparelho, numa
    chave própria do navegador, separada dos dados.
    ========================================================= */
-const CHAVE_FILTROS = 'estiloFashion_filtros';
+const CHAVE_FILTROS = chaveDaLoja('estiloFashion_filtros');
 const PERIODOS = [
   ['hoje','Hoje'], ['ontem','Ontem'], ['7d','7 dias'], ['15d','15 dias'], ['30d','30 dias'], ['90d','90 dias'],
   ['mes','Este mês'], ['mesPassado','Mês passado'], ['ano','Este ano'], ['tudo','Tudo'], ['pers','De / até']
@@ -3497,6 +3561,10 @@ async function procurarNaNuvem(tabelaExtra){
     }catch(e){ problemas.push(tabela + ' (sem resposta)'); continue; }
 
     (linhas||[]).forEach((linha, i)=>{
+      /* A linha de OUTRA loja do sistema não é cópia perdida desta: trazer
+         de lá trocaria as peças e vendas desta loja pelas da outra. */
+      const idDaLinha = linha && linha.id != null ? String(linha.id) : '';
+      if(tabela === configNuvem().tabela && (idDaLinha === LINHA_DAS_LOJAS || (idDeLojaValido(idDaLinha) && idDaLinha !== LOJA_ATIVA))) return;
       acharBancosNaLinha(linha).forEach(({onde, banco})=>{
         achadosDaNuvem.push({
           tabela, onde,
@@ -3582,7 +3650,7 @@ async function carregarHistoricoDaNuvem(){
   box.innerHTML = '<p class="text-muted">Lendo o histórico...</p>';
   const c = configNuvem();
   try{
-    const res = await fetch(`${c.url}/rest/v1/${tabelaHistorico()}?linha=eq.main&select=id,gravado_em,guardado_em,produtos,vendas&order=guardado_em.desc&limit=60`,
+    const res = await fetch(`${c.url}/rest/v1/${tabelaHistorico()}?linha=eq.${encodeURIComponent(LOJA_ATIVA)}&select=id,gravado_em,guardado_em,produtos,vendas&order=guardado_em.desc&limit=60`,
                             { headers: cabecalhosNuvem() });
     if(res.status === 404){
       box.innerHTML = `<div class="aviso-codigo">A nuvem ainda não guarda histórico. Rode o SQL de instalação (logo acima) no Supabase: ele cria a tabela e o gatilho.</div>`;
@@ -3631,6 +3699,251 @@ async function restaurarVersaoDaNuvem(i){
     toast('Versão de ' + dateBR(v.gravado_em) + ' restaurada. Enviando para a nuvem…');
     entrarDepoisDeTrocarOBanco();
   }
+}
+
+/* =========================================================
+   LOJAS — lista na nuvem, criar, trocar
+   A lista das lojas mora numa linha própria da nuvem ('lojas'), para
+   todos os aparelhos saberem que a segunda loja existe. Ela só é gravada
+   quando há mais de uma loja: quem tem uma loja só não ganha nada novo
+   na nuvem.
+   ========================================================= */
+async function lerLojasDaNuvem(){
+  const c = configNuvem();
+  const res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.${LINHA_DAS_LOJAS}&select=data`, { headers: cabecalhosNuvem() });
+  if(!res.ok) throw new Error('A nuvem respondeu ' + res.status);
+  const rows = await res.json();
+  const d = rows && rows[0] && rows[0].data;
+  return d && Array.isArray(d.lojas) ? d.lojas : [];
+}
+async function gravarLojasNaNuvem(lista){
+  const c = configNuvem();
+  const junta = juntarListasDeLojas(await lerLojasDaNuvem(), lista);
+  const res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
+    method:'POST',
+    headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }), 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ id: LINHA_DAS_LOJAS, data:{ lojas: junta }, updated_at: todayISO() })
+  });
+  if(!res.ok) throw new Error('Não foi possível gravar a lista de lojas (' + res.status + ').');
+  return junta;
+}
+/* Ao abrir o sistema: traz a lista da nuvem. Se este aparelho conhece uma
+   loja que a nuvem ainda não tem (a lista não chegou a subir quando a
+   loja foi criada), sobe de novo. */
+async function atualizarListaDeLojas(){
+  let lista = lojasConhecidas();
+  const minha = lista.find(l=>l.id === LOJA_ATIVA);
+  if(minha && DB && DB.storeName && !minha.atualizadoEm) minha.nome = DB.storeName;
+  try{
+    const daNuvem = await lerLojasDaNuvem();
+    const faltaNaNuvem = lista.length > 1 && lista.some(l=>!daNuvem.some(n=>n.id === l.id));
+    lista = juntarListasDeLojas(lista, daNuvem);
+    if(faltaNaNuvem) lista = await gravarLojasNaNuvem(lista);
+  }catch(e){ /* sem nuvem agora: fica a lista deste aparelho */ }
+  guardarLojasConhecidas(lista);
+  desenharSeletorDeLoja();
+  return lista;
+}
+/* O nome desta loja mudou em Configurações: a lista acompanha. */
+function renomearLojaNaLista(nome){
+  const agora = todayISO();
+  const lista = lojasConhecidas().map(l=>l.id === LOJA_ATIVA ? { ...l, nome, atualizadoEm: agora } : l);
+  guardarLojasConhecidas(lista);
+  desenharSeletorDeLoja();
+  if(lista.length > 1) gravarLojasNaNuvem(lista).then(guardarLojasConhecidas).catch(()=>{});
+}
+function novoIdDeLoja(){
+  return 'loja-' + (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).replace(/[^a-z0-9]/g, '');
+}
+/* Cria a loja nova NA NUVEM, já com o administrador que a criou (mesmo
+   usuário e senha), e põe na lista. Não toca em nada da loja aberta. */
+async function criarLoja(nome){
+  nome = String(nome || '').trim().slice(0, 60);
+  if(!nome) throw new Error('Dê um nome para a loja nova.');
+  if(!ehAdmin()) throw new Error('Só o administrador cria uma loja nova.');
+  const c = configNuvem();
+  const id = novoIdDeLoja();
+  const banco = defaultDB();
+  banco.storeName = nome;
+  banco.seedV1AbrirLoja = true;
+  const eu = (DB.users || []).find(u=>SESSION && u.id === SESSION.id);
+  if(eu) banco.users = [{ id: uid(), user: eu.user, pass: eu.pass, role:'admin', name: eu.name || eu.user }];
+  const agora = todayISO();
+  /* POST sem "mesclar": se por acaso a linha já existisse, a nuvem recusa
+     em vez de gravar por cima. */
+  const res = await fetch(`${c.url}/rest/v1/${c.tabela}`, {
+    method:'POST',
+    headers:{ ...cabecalhosNuvem({ 'Content-Type':'application/json' }), 'Prefer':'return=minimal' },
+    body: JSON.stringify({ id, data: banco, updated_at: agora })
+  });
+  if(!res.ok) throw new Error('A nuvem não aceitou criar a loja (' + res.status + '). Confira a internet e tente de novo.');
+  let lista = juntarListasDeLojas(
+    lojasConhecidas().map(l=>l.id === LOJA_ATIVA && DB && DB.storeName ? { ...l, nome: DB.storeName } : l),
+    [{ id, nome, criadaEm: agora, atualizadoEm: agora }]);
+  guardarLojasConhecidas(lista);
+  try{ lista = await gravarLojasNaNuvem(lista); guardarLojasConhecidas(lista); }
+  catch(e){ /* a loja existe; a lista sobe na próxima abertura (atualizarListaDeLojas) */ }
+  desenharSeletorDeLoja();
+  return id;
+}
+/* Trocar de loja: manda o que falta desta loja para a nuvem (até 5 s),
+   anota a loja escolhida e recarrega. Cada loja tem os seus usuários:
+   o login é pedido de novo, já com o nome de usuário preenchido. */
+const CHAVE_USUARIO_DA_TROCA = 'estiloFashion_usuarioDaTroca';
+/* Deixa a outra loja pronta antes de recarregar, para a troca ser direta:
+   · os dados: se este aparelho ainda não tem aquela loja, traz da nuvem
+     agora (é o mesmo que a abertura faria, só que antes);
+   · o login: se a pessoa tem o MESMO usuário e a MESMA senha lá, já entra.
+     Senha diferente, ou usuário que não existe lá: pede o login. */
+async function prepararLojaDestino(id){
+  const chaveBanco = chaveDaLoja('estiloCiaDB', id);
+  let banco = null;
+  try{ banco = JSON.parse(localStorage.getItem(chaveBanco) || 'null'); }catch(e){ banco = null; }
+  if(!banco || !Array.isArray(banco.users)){
+    try{
+      const c = configNuvem();
+      const res = await fetch(`${c.url}/rest/v1/${c.tabela}?id=eq.${encodeURIComponent(id)}&select=data,updated_at`, { headers: cabecalhosNuvem() });
+      const rows = res.ok ? await res.json() : [];
+      if(rows && rows[0] && rows[0].data){
+        banco = rows[0].data;
+        localStorage.setItem(chaveBanco, JSON.stringify(banco));
+        localStorage.setItem(chaveDaLoja('estiloCiaDB_ts', id), String(Date.parse(rows[0].updated_at) || Date.now()));
+        if(rows[0].updated_at) localStorage.setItem(chaveDaLoja('estiloCiaDB_carimboNuvem', id), rows[0].updated_at);
+        localStorage.removeItem(chaveDaLoja('estiloCiaDB_semNuvem', id));
+        localStorage.removeItem(chaveDaLoja('estiloCiaDB_pendente', id));
+      }
+    }catch(e){ banco = null; /* sem internet: a loja abre pelo caminho normal */ }
+  }
+  if(!banco || !SESSION) return false;
+  const eu = (DB.users || []).find(u=>u.id === SESSION.id);
+  const la = (banco.users || []).find(u=>String(u.user || '').trim().toLowerCase() === String(SESSION.user || '').trim().toLowerCase());
+  if(!eu || !la || String(la.pass) !== String(eu.pass)) return false;
+  try{ localStorage.setItem(chaveDaLoja('estiloCiaSession', id), JSON.stringify({ id: la.id, user: la.user, name: la.name || la.user, role: la.role })); }
+  catch(e){ return false; }
+  return true;
+}
+async function trocarDeLoja(id){
+  if(!idDeLojaValido(id) || id === LOJA_ATIVA) return;
+  if(temFormularioAberto() && !confirm('Há um formulário aberto. Trocar de loja agora fecha o formulário sem salvar o que foi digitado nele.\n\nTrocar mesmo assim?')) return;
+  toast('Abrindo ' + nomeDaLoja(id) + '…');
+  try{
+    if(temPendencia && (nuvemLida || nuvemVaziaConfirmada)){
+      clearTimeout(pushTimer);
+      await Promise.race([cloudPush(), new Promise(r=>setTimeout(r, 5000))]);
+    }
+  }catch(e){ /* o que não subiu continua guardado neste aparelho, nesta loja */ }
+  const entraDireto = await prepararLojaDestino(id);
+  try{
+    localStorage.setItem(CHAVE_LOJA_ATIVA, id);
+    if(!entraDireto && SESSION && SESSION.user) sessionStorage.setItem(CHAVE_USUARIO_DA_TROCA, SESSION.user);
+  }catch(e){}
+  location.hash = 'painel';
+  location.reload();
+}
+/* O seletor aparece no menu lateral, no alto da tela e na entrada — só
+   quando existe mais de uma loja. */
+function desenharSeletorDeLoja(){
+  const lista = lojasConhecidas();
+  const varias = lista.length > 1;
+  const nomeAtivo = nomeDaLojaAtiva();
+  const marca = document.getElementById('loginBrandName');
+  if(marca) marca.textContent = nomeAtivo;
+  const chip = document.getElementById('lojaChip');
+  if(chip){ chip.hidden = !varias; chip.textContent = '🏬 ' + nomeAtivo; }
+  const trocar = document.getElementById('trocarLojaBtn');
+  if(trocar) trocar.hidden = !varias;
+  const caixa = document.getElementById('loginLojaBox');
+  const sel = document.getElementById('loginLoja');
+  if(caixa && sel){
+    caixa.hidden = !varias;
+    sel.innerHTML = lista.map(l=>`<option value="${escapeHtml(l.id)}" ${l.id === LOJA_ATIVA ? 'selected' : ''}>${escapeHtml(l.id === LOJA_ATIVA ? nomeAtivo : l.nome)}</option>`).join('');
+  }
+}
+function abrirTrocaDeLoja(){
+  const lista = lojasConhecidas();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:420px">
+    <h2>Lojas</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">Cada loja tem as suas peças, estoque, vendas, caixa e clientes. Toque na loja para ir até ela — com o mesmo usuário e senha, você entra direto.</p>
+    <div class="lista-lojas">
+      ${lista.map(l=>`<button type="button" class="loja-opcao ${l.id === LOJA_ATIVA ? 'ativa' : ''}" data-loja="${escapeHtml(l.id)}" ${l.id === LOJA_ATIVA ? 'disabled' : ''}>
+        <span class="loja-ic">🏬</span>
+        <span><strong>${escapeHtml(l.id === LOJA_ATIVA ? nomeDaLojaAtiva() : l.nome)}</strong>
+          <small>${l.id === LOJA_ATIVA ? 'em uso agora' : 'toque para abrir'}</small></span>
+      </button>`).join('')}
+    </div>
+    <div class="modal-actions">
+      ${ehAdmin() ? `<button class="btn" id="lj_nova" style="margin-right:auto">＋ Nova loja</button>` : ''}
+      <button class="btn" id="lj_fechar">Fechar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const fechar = ()=>overlay.remove();
+  overlay.querySelector('#lj_fechar').addEventListener('click', fechar);
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) fechar(); });
+  overlay.querySelector('#lj_nova')?.addEventListener('click', ()=>{ fechar(); abrirNovaLoja(); });
+  overlay.querySelectorAll('[data-loja]').forEach(b=>b.addEventListener('click', ()=>{ fechar(); trocarDeLoja(b.dataset.loja); }));
+}
+function abrirNovaLoja(){
+  if(!ehAdmin()){ toast('Só o administrador cria uma loja nova.','warn'); return; }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:440px">
+    <h2>Adicionar loja</h2>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">A loja nova começa vazia e é totalmente separada desta: peças, estoque,
+      vendas, caixa, clientes e usuários próprios. Nada desta loja muda.
+      Você entra nela com o mesmo usuário e senha que usa aqui.</p>
+    <div class="field"><label>Nome da loja nova</label><input id="lj_nome" maxlength="60" placeholder="Ex.: Estilo Fashion — Centro" autocomplete="off"></div>
+    <div class="lucro-box" id="lj_aviso" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn" id="lj_cancelar">Cancelar</button>
+      <button class="btn btn-accent" id="lj_criar">Criar loja</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const campo = overlay.querySelector('#lj_nome');
+  campo.focus();
+  overlay.querySelector('#lj_cancelar').addEventListener('click', ()=>overlay.remove());
+  const criar = async ()=>{
+    const botao = overlay.querySelector('#lj_criar');
+    const aviso = overlay.querySelector('#lj_aviso');
+    botao.disabled = true; botao.textContent = 'Criando…';
+    try{
+      const id = await criarLoja(campo.value);
+      overlay.remove();
+      if(currentRoute === 'config') redesenhar(renderConfig);
+      toast('Loja "' + nomeDaLoja(id) + '" criada.', 'ok');
+      if(confirm('Loja "' + nomeDaLoja(id) + '" criada.\n\nAbrir a loja nova agora? (Dá para voltar a esta pelo botão de lojas, no menu.)')) trocarDeLoja(id);
+    }catch(err){
+      aviso.style.display = ''; aviso.className = 'lucro-box ruim'; aviso.textContent = err.message;
+      botao.disabled = false; botao.textContent = 'Criar loja';
+    }
+  };
+  overlay.querySelector('#lj_criar').addEventListener('click', criar);
+  campo.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); criar(); } });
+}
+function enderecoDaLojaVirtual(id){
+  const base = (location.origin && /^https?:/.test(location.origin) ? location.origin : 'https://estilofashion.vercel.app') + '/loja/';
+  return id === LOJA_PRINCIPAL ? base : base + '?loja=' + encodeURIComponent(id);
+}
+function painelDeLojas(){
+  const lista = lojasConhecidas();
+  return `<div class="panel">
+    <div class="panel-titulo"><h3>🏬 Lojas</h3>
+      <button class="btn btn-accent btn-sm" onclick="abrirNovaLoja()">＋ Adicionar loja</button></div>
+    <p class="text-muted" style="font-size:12.5px;margin-bottom:12px">Cada loja é separada: peças, estoque, vendas, caixa, clientes, usuários e loja virtual próprios.
+      Tudo no mesmo sistema: para ir de uma loja para a outra, use "⇄ Trocar de loja" no menu ou o nome da loja no alto da tela.
+      Quem tem o mesmo usuário e senha nas lojas troca sem precisar entrar de novo.</p>
+    <div class="table-wrap"><table><thead><tr><th>Loja</th><th>Situação</th><th>Loja virtual</th><th></th></tr></thead><tbody>
+      ${lista.map(l=>`<tr>
+        <td><strong>${escapeHtml(l.id === LOJA_ATIVA ? nomeDaLojaAtiva() : l.nome)}</strong></td>
+        <td>${l.id === LOJA_ATIVA ? '<span class="badge badge-success">Em uso</span>' : '<span class="text-muted">—</span>'}</td>
+        <td><a href="${escapeHtml(enderecoDaLojaVirtual(l.id))}" target="_blank" rel="noopener" style="font-size:12.5px;word-break:break-all">${escapeHtml(enderecoDaLojaVirtual(l.id).replace(/^https?:\/\//, ''))}</a></td>
+        <td>${l.id === LOJA_ATIVA ? '' : `<button class="btn btn-sm" data-abrir-loja="${escapeHtml(l.id)}">Abrir</button>`}</td>
+      </tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
 }
 
 /* BOTÃO ATUALIZAR (no alto de toda tela). Recarrega a página com a
@@ -5406,7 +5719,7 @@ async function chamarFiscal(corpo){
   if(!cfg.chave) throw new Error('Digite a chave de emissão em Configurações → Cupom fiscal.');
   const r = await fetch(cfg.endpoint || '/api/nfce', {
     method:'POST', headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(Object.assign({}, corpo, { chave: cfg.chave }))
+    body: JSON.stringify(Object.assign({}, corpo, { chave: cfg.chave, loja: LOJA_ATIVA }))
   });
   const tipo = r.headers.get('content-type') || '';
   if(corpo.acao === 'danfe'){
@@ -7414,6 +7727,7 @@ function drawBarChart(canvasId, data){
    ========================================================= */
 function renderConfig(el){
   el.innerHTML = `
+    ${painelDeLojas()}
     <div class="grid-2">
       <div class="panel">
         <h3>Loja</h3>
@@ -7586,6 +7900,7 @@ function renderConfig(el){
   el.querySelector('#saveStoreBtn').addEventListener('click', ()=>{
     DB.storeName = el.querySelector('#cfg_storeName').value.trim() || DB.storeName;
     DB.config.minStock = Math.max(0, Number(el.querySelector('#cfg_minStock').value)||0);
+    renomearLojaNaLista(DB.storeName);
     DB.config.reciboAoFinalizar = el.querySelector('#cfg_recibo').value;
     DB.config.reciboLargura = Number(el.querySelector('#cfg_reciboLargura').value) === 58 ? 58 : 80;
     delete DB.config.reciboAutomatico;
@@ -7620,6 +7935,7 @@ function renderConfig(el){
     saveDB(); toast('Cupom fiscal: configurações salvas');
     testarCupomFiscal();
   });
+  el.querySelectorAll('[data-abrir-loja]').forEach(b=>b.addEventListener('click', ()=>trocarDeLoja(b.dataset.abrirLoja)));
   renderEspacoDoAparelho();
   carregarHistoricoDaNuvem();
   el.querySelector('#importFile').addEventListener('change', e=>{
@@ -7864,7 +8180,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const lv = document.getElementById('loginVersion');
   if(lv) lv.textContent = 'versão ' + APP_VERSION;
   const nomeNoLogin = document.getElementById('loginBrandName');
-  if(nomeNoLogin && DB && DB.storeName) nomeNoLogin.textContent = DB.storeName;
+  if(nomeNoLogin) nomeNoLogin.textContent = nomeDaLojaAtiva();
   /* Mostrar/esconder a senha: no celular, a senha digitada errada por
      causa do teclado era a causa mais comum de "não entra". */
   const olho = document.getElementById('loginEye');
@@ -7874,5 +8190,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     olho.setAttribute('aria-label', campo.type === 'password' ? 'Mostrar senha' : 'Esconder senha');
     campo.focus();
   });
-  if(SESSION){ showApp(); } else { showLogin(); }
+  /* Lojas: o seletor da entrada, o botão do menu e o selo do alto. */
+  document.getElementById('loginLoja')?.addEventListener('change', e=>{
+    if(!idDeLojaValido(e.target.value) || e.target.value === LOJA_ATIVA) return;
+    try{ localStorage.setItem(CHAVE_LOJA_ATIVA, e.target.value); }catch(err){}
+    location.reload();
+  });
+  document.getElementById('trocarLojaBtn')?.addEventListener('click', ()=>{ closeSidebar(); abrirTrocaDeLoja(); });
+  document.getElementById('lojaChip')?.addEventListener('click', abrirTrocaDeLoja);
+  let usuarioDaTroca = null;
+  try{ usuarioDaTroca = sessionStorage.getItem(CHAVE_USUARIO_DA_TROCA); sessionStorage.removeItem(CHAVE_USUARIO_DA_TROCA); }catch(e){}
+  desenharSeletorDeLoja();
+  if(SESSION){ showApp(); } else {
+    showLogin();
+    if(usuarioDaTroca){
+      document.getElementById('loginUser').value = usuarioDaTroca;
+      document.getElementById('loginPass').focus();
+      toast('Você está em ' + nomeDaLojaAtiva() + '. Entre com o usuário desta loja.');
+    }
+  }
+  atualizarListaDeLojas();
 });

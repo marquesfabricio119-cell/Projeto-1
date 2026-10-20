@@ -193,8 +193,15 @@ function resumoDaNota(j, ref){
   };
 }
 
-async function lerBancoDaLoja(){
-  const r = await fetch(`${NUVEM.url}/rest/v1/${NUVEM.tabela}?id=eq.main&select=data`, {
+/* Qual loja: a principal ('main') ou outra loja do sistema ('loja-xxxx').
+   Qualquer outra coisa é recusada antes de chegar à nuvem. */
+function linhaDaLoja(loja){
+  const id = String(loja || 'main');
+  if(id !== 'main' && !/^loja-[a-z0-9]{4,30}$/.test(id)) throw new Error('Loja inválida.');
+  return id;
+}
+async function lerBancoDaLoja(loja){
+  const r = await fetch(`${NUVEM.url}/rest/v1/${NUVEM.tabela}?id=eq.${linhaDaLoja(loja)}&select=data`, {
     headers: { apikey: NUVEM.key, Authorization: 'Bearer ' + NUVEM.key }
   });
   if(!r.ok) throw new Error('A nuvem da loja não respondeu (' + r.status + ').');
@@ -307,7 +314,7 @@ async function handler(req, res){
     if(String(corpo.chave||'') !== String(process.env.FISCAL_SENHA)) return responder(res, 401, { ok:false, erro:'Chave de emissão errada. Confira em Configurações → Cupom fiscal.' });
     if(!process.env.FOCUS_NFE_TOKEN) throw new Error('O token do provedor (FOCUS_NFE_TOKEN) não está configurado no Vercel.');
 
-    const db = await lerBancoDaLoja();
+    const db = await lerBancoDaLoja(corpo.loja);
     const venda = (db.sales||[]).find(s=>String(s.id) === String(corpo.vendaId));
     if(!venda) throw new Error('Venda não encontrada na nuvem. Espere o selo ficar "salvo" e tente de novo.');
 

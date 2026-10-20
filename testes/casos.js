@@ -1095,6 +1095,88 @@ caso('financeiro: filtro por período, tipo, situação e busca', ()=>{
   limparFiltros('financeiro');
 });
 
+/* ============ versão 68: segunda loja ============ */
+caso('loja principal continua com as chaves e a linha de sempre', ()=>{
+  igual(LOJA_ATIVA, 'main');
+  igual([STORAGE_KEY, LOCAL_TS_KEY, SESSION_KEY, CHAVE_COPIAS, CHAVE_PENDENTE, CHAVE_CARIMBO, CHAVE_SEM_NUVEM, CHAVE_SUBSTITUIR, CHAVE_FILTROS, BANCO_FOTOS],
+        ['estiloCiaDB','estiloCiaDB_ts','estiloCiaSession','estiloCiaDB_copias','estiloCiaDB_pendente','estiloCiaDB_carimboNuvem','estiloCiaDB_semNuvem','estiloCiaDB_substituir','estiloFashion_filtros','estiloFashionFotos']);
+  igual(chaveDaLoja('estiloCiaDB', 'loja-abc123'), 'estiloCiaDB@loja-abc123', 'as outras lojas ganham @id');
+  verifica(idDeLojaValido('main') && idDeLojaValido('loja-abc123') && !idDeLojaValido('lojas') && !idDeLojaValido('loja-A B') && !idDeLojaValido("main' or 1=1"), 'só ids conhecidos');
+});
+
+caso('lista de lojas: junta aparelho e nuvem, nome mais novo vence, principal sempre primeiro', ()=>{
+  const l = juntarListasDeLojas(
+    [{ id:'loja-bbbb1', nome:'Centro', criadaEm:'2026-10-02T00:00:00Z' }, { id:'main', nome:'Estilo Fashion' }],
+    [{ id:'loja-aaaa1', nome:'Shopping', criadaEm:'2026-10-01T00:00:00Z' }, { id:'loja-bbbb1', nome:'Centro (novo nome)', atualizadoEm:'2026-10-05T00:00:00Z' }, { id:'invalida!' }]);
+  igual(l.map(x=>x.id), ['main','loja-aaaa1','loja-bbbb1']);
+  igual(l[2].nome, 'Centro (novo nome)');
+});
+
+caso('criar loja: linha nova na nuvem, sem mexer na loja aberta, com o admin que criou', async ()=>{
+  DB = bancoDeTeste(); migrateDB(); clearTimeout(pushTimer); lembrarPendencia(false);
+  DB.products.push({ id:'p9', name:'Peça da loja 1', cost:1, price:2, variations:[{ size:'U', color:'X', stock:3, barcode:'000099' }] });
+  DB.users[0].pass = 'minhaSenha';
+  SESSION = { id: DB.users[0].id, user: DB.users[0].user, name:'Ana', role:'admin' };
+  localStorage.removeItem(CHAVE_LOJAS);
+  const nuvem = new Map([['main', { products: DB.products }]]);
+  const pedidos = [];
+  definirFetch(async (url, opts)=>{
+    pedidos.push([opts.method || 'GET', String(url)]);
+    const m = /id=eq\.([^&]+)/.exec(String(url));
+    if(!opts.method){ const d = m && nuvem.get(decodeURIComponent(m[1])); return resposta(200, d ? [{ data: d }] : []); }
+    if(opts.method === 'POST'){
+      const corpo = JSON.parse(opts.body);
+      const mesclar = String((opts.headers || {}).Prefer || '').includes('merge-duplicates');
+      if(nuvem.has(corpo.id) && !mesclar) return resposta(409, {});
+      nuvem.set(corpo.id, corpo.data); return resposta(201, {});
+    }
+    return resposta(500, {});
+  });
+  const bancoAntes = JSON.stringify(DB);
+  const id = await criarLoja('Estilo Fashion — Centro');
+  verifica(idDeLojaValido(id) && id !== 'main', 'id novo e válido: ' + id);
+  const nova = nuvem.get(id);
+  igual(nova.storeName, 'Estilo Fashion — Centro');
+  igual(nova.products.length, 0, 'loja nova começa vazia');
+  igual(nova.users.map(u=>[u.user, u.pass, u.role]), [[SESSION.user, 'minhaSenha', 'admin']], 'entra com o mesmo usuário e senha');
+  igual(JSON.stringify(DB), bancoAntes, 'a loja aberta não mudou');
+  igual(nuvem.get('main').products.length, 3, 'a linha da loja principal não foi tocada');
+  igual(nuvem.get('lojas').lojas.map(l=>l.id), ['main', id], 'a lista das lojas foi para a nuvem');
+  igual(lojasConhecidas().map(l=>l.id), ['main', id]);
+  verifica(!pedidos.some(([m, u])=>m === 'POST' && /id=eq\.main/.test(u)), 'nenhuma gravação na linha main');
+  let erro = ''; try{ await criarLoja('   '); }catch(e){ erro = e.message; }
+  verifica(/nome/.test(erro), 'nome vazio é recusado');
+  SESSION = { id:'x', user:'bia', name:'Bia', role:'vendedor' };
+  erro = ''; try{ await criarLoja('Outra'); }catch(e){ erro = e.message; }
+  verifica(/administrador/.test(erro), 'vendedor(a) não cria loja');
+  SESSION = null;
+  localStorage.removeItem(CHAVE_LOJAS);
+});
+
+caso('limpeza de espaço nunca apaga o banco de outra loja deste aparelho', ()=>{
+  localStorage.setItem('estiloCiaDB@loja-abc123', '{"products":[1]}');
+  localStorage.setItem('estiloCiaDB_pendente@loja-abc123', '1');
+  localStorage.setItem('lixo-de-versao-antiga', 'x'.repeat(10));
+  const degrau = /if\(\/\^estiloCia\(DB\|Session\)\/\.test\(k\) \|\| k\.indexOf\('@loja-'\) > 0/.test(requireNode('fs').readFileSync(raizDoProjeto + '/app.js', 'utf8'));
+  verifica(degrau, 'o degrau "sobras de versões antigas" protege as chaves das lojas');
+  localStorage.removeItem('estiloCiaDB@loja-abc123'); localStorage.removeItem('estiloCiaDB_pendente@loja-abc123'); localStorage.removeItem('lixo-de-versao-antiga');
+});
+
+caso('cupom fiscal lê a venda na linha da loja certa, e recusa loja inválida', async ()=>{
+  process.env.FISCAL_SENHA = 'segredo'; process.env.FOCUS_NFE_TOKEN = 'tok';
+  const nfceMod = requireNode(raizDoProjeto + '/api/nfce.js');
+  const lidas = [];
+  definirFetch(async (url)=>{ lidas.push(String(url)); return resposta(200, [{ data: { sales: [], products: [] } }]); });
+  const roda = corpo => new Promise(res=>{ const out = { headers:{}, setHeader(){}, end(b){ res({ status: this.statusCode, corpo: JSON.parse(b) }); } };
+    nfceMod({ method:'POST', body: corpo }, out); });
+  await roda({ acao:'consultar', vendaId:'v1', chave:'segredo', loja:'loja-abc123' });
+  verifica(lidas.some(u=>u.includes('id=eq.loja-abc123')), 'leu a linha da segunda loja');
+  await roda({ acao:'consultar', vendaId:'v1', chave:'segredo' });
+  verifica(lidas.some(u=>u.includes('id=eq.main')), 'sem loja, é a principal');
+  const ruim = await roda({ acao:'consultar', vendaId:'v1', chave:'segredo', loja:"main&id=neq.x" });
+  igual(ruim.status, 400); verifica(/inválida/.test(ruim.corpo.erro));
+});
+
 /* ============ roda tudo ============ */
 (async ()=>{
   for(const c of filaDeCasos){
